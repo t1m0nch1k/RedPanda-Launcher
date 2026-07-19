@@ -45,6 +45,15 @@
         "description": "Modrinth Modpack File",
         "role": "Viewer"
       }
-    ]
+    ],
+    "license": "setup/license.txt",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "headerImage": "setup/header.bmp",
+        "sidebarImage": "setup/sidebar.bmp",
+        "displayLanguageSelector": false
+      }
+    }
   }
 }
