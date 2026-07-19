@@ -1,4 +1,7 @@
-# RedPanda Launcher 🐼
+<div align="center">
+  <img src="logo.png" width="128" alt="RedPanda Launcher Logo" />
+  <h1>RedPanda Launcher</h1>
+</div>
 
 A beautiful, modern, and lightweight Minecraft launcher built with Tauri, React, and TypeScript.
 Powered by the robust `lighty-launcher` core on the backend, RedPanda provides a smooth experience for playing vanilla and modded Minecraft (Fabric, Forge, NeoForge, Quilt).

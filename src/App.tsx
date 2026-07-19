@@ -43,9 +43,7 @@ export default function App() {
         }}
       >
         <div className="flex items-center gap-2.5 pointer-events-none pl-1">
-          <div className="w-4 h-4 bg-primary rounded-[4px] flex items-center justify-center opacity-90">
-            <span className="text-[9px] font-black text-white/95 translate-y-[0.5px]">RP</span>
-          </div>
+          <img src="/logo.png" alt="RedPanda" className="w-5 h-5 object-contain" />
           <span className="font-semibold text-[13px] tracking-wide text-white/80">RedPanda Launcher</span>
         </div>
         
