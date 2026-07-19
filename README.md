@@ -11,6 +11,10 @@
 A beautiful, modern, and lightweight Minecraft launcher built with Tauri, React, and TypeScript.
 Powered by the robust `lighty-launcher` core on the backend, RedPanda provides a smooth experience for playing vanilla and modded Minecraft (Fabric, Forge, NeoForge, Quilt).
 
+## 📥 Download
+
+**[📥 Download the latest release here!](https://github.com/t1m0nch1k/RedPanda-Launcher/releases/latest)**
+
 ## ✨ Features
 
 - **Modern UI/UX**: Clean, glassmorphism-inspired design with smooth animations.
