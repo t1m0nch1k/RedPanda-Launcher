@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "tauri-app",
+  "productName": "RedPanda Launcher",
   "version": "0.1.0",
   "identifier": "com.redpanda.launcher",
   "build": {
