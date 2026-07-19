@@ -2,9 +2,10 @@ import { useState } from "react";
 import Home from "./pages/Home";
 import AccountSelector from "./components/AccountSelector";
 import SettingsModal from "./components/SettingsModal";
-import { Settings, Folder, FileText, Minus, Square, X } from "lucide-react";
+import { Settings, Folder, FileText, Minus, Square, X, MessageCircle, Music, Github } from "lucide-react";
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from "@tauri-apps/api/core";
+import { open } from '@tauri-apps/plugin-opener';
 import ToastContainer, { toast } from "./components/Toast";
 
 export default function App() {
@@ -83,8 +84,16 @@ export default function App() {
           <AccountSelector onAccountChange={setActiveUsername} />
         </div>
 
-        <div className="flex items-center justify-center gap-4 w-1/3">
-          
+        <div className="flex items-center justify-center gap-6 w-1/3 text-xs text-muted/70 font-medium">
+          <button onClick={() => open("https://t.me/redpanda_launcher")} className="hover:text-primary transition-colors flex items-center gap-1.5" title="Telegram">
+             <MessageCircle size={14} /> Telegram
+          </button>
+          <button onClick={() => open("https://www.tiktok.com/@redpanda_launcher?_r=1&_t=ZS-989vwnwL4LN")} className="hover:text-primary transition-colors flex items-center gap-1.5" title="TikTok">
+             <Music size={14} /> TikTok
+          </button>
+          <button onClick={() => open("https://github.com/t1m0nch1k/RedPanda-Launcher")} className="hover:text-primary transition-colors flex items-center gap-1.5" title="GitHub">
+             <Github size={14} /> GitHub
+          </button>
         </div>
 
         <div className="flex items-center justify-end gap-3 w-1/3 text-muted">

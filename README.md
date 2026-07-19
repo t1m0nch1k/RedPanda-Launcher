@@ -1,6 +1,11 @@
 <div align="center">
   <img src="logo.png" width="128" alt="RedPanda Launcher Logo" />
   <h1>RedPanda Launcher</h1>
+  <p>
+    <a href="https://t.me/redpanda_launcher">Telegram</a> •
+    <a href="https://www.tiktok.com/@redpanda_launcher?_r=1&_t=ZS-989vwnwL4LN">TikTok</a> •
+    <a href="https://github.com/t1m0nch1k/RedPanda-Launcher">GitHub</a>
+  </p>
 </div>
 
 A beautiful, modern, and lightweight Minecraft launcher built with Tauri, React, and TypeScript.
