@@ -7,18 +7,19 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: '#0a0a0a',
-        card: '#141414',
-        'card-hover': '#1e1e1e',
+        background: '#101214',
+        card: '#16181a',
+        'card-hover': '#1e2124',
         primary: {
           DEFAULT: '#F55E1D',
-          hover: '#E04F0F'
+          hover: '#FF6B26'
         },
         muted: '#8a8a8e',
-        border: '#262626'
+        border: '#2a2d30'
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
+        sans: ['"Space Grotesk"', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'monospace'],
       },
     },
   },

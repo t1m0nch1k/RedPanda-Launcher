@@ -34,9 +34,9 @@ const ModItem = memo(({ mod, isSelected, onClick }: { mod: ModrinthSearchResult,
     return (
         <button 
             onClick={() => onClick(mod)}
-            className={`flex items-start gap-4 p-4 rounded-xl text-left transition-colors border ${isSelected ? "bg-primary/5 border-primary/30" : "bg-background border-border hover:border-muted/50"}`}
+            className={`flex items-start gap-4 p-4 rounded-none text-left transition-colors border ${isSelected ? "bg-primary/5 border-primary/30" : "bg-background border-border hover:border-muted/50"}`}
         >
-            <div className="w-12 h-12 rounded-lg bg-card border border-border shrink-0 overflow-hidden">
+            <div className="w-12 h-12 rounded-none bg-card brutalist-border shrink-0 overflow-hidden">
                 {mod.icon_url ? <img src={mod.icon_url} alt={mod.title} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-muted/20" />}
             </div>
             <div className="flex-1">
@@ -212,12 +212,12 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
     const browserTitle = projectType === "modpack" ? t("modrinth.browser_modpacks") : projectType === "resourcepack" ? t("modrinth.browser_resourcepacks") : projectType === "shader" ? t("modrinth.browser_shaders") : t("modrinth.browser_mods");
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-6">
-            <div className="bg-card border border-border rounded-2xl w-full max-w-4xl h-[80vh] shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-black/80  flex items-center justify-center z-50 p-6">
+            <div className="bg-card brutalist-border rounded-none w-full max-w-4xl h-[80vh]  flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                 
                 {/* Header */}
                 <div className="p-4 border-b border-border flex items-center gap-4 bg-background/50">
-                    <button onClick={onClose} className="p-2 text-muted hover:text-white hover:bg-background rounded-lg transition-colors">
+                    <button onClick={onClose} className="p-2 text-muted hover:text-white hover:bg-background rounded-none transition-colors">
                         <ArrowLeft size={18} />
                     </button>
                     <div className="flex-1">
@@ -231,19 +231,19 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
                     
                     {/* Category Sidebar */}
                     <div className="w-48 border-r border-border bg-background/20 flex flex-col overflow-y-auto shrink-0 custom-scrollbar">
-                         <div className="p-3 text-[11px] font-bold text-muted uppercase tracking-wider sticky top-0 bg-background/95 backdrop-blur-sm z-10 border-b border-border/50">
+                         <div className="p-3 text-[11px] font-bold text-muted uppercase tracking-wider sticky top-0 bg-background/95  z-10 border-b border-border/50">
                              {t("modrinth.categories")}
                          </div>
                          <div className="p-2 flex flex-col gap-0.5">
                              {(projectType === "modpack" ? MODPACK_CATEGORIES : projectType === "resourcepack" ? RESOURCEPACK_CATEGORIES : projectType === "shader" ? SHADER_CATEGORIES : MOD_CATEGORIES).map(cat => (
-                                 <label key={cat.id} className="flex items-center gap-3 px-2 py-1.5 hover:bg-card/80 rounded-lg cursor-pointer group transition-colors">
+                                 <label key={cat.id} className="flex items-center gap-3 px-2 py-1.5 hover:bg-card/80 rounded-none cursor-pointer group transition-colors">
                                      <input 
                                         type="checkbox" 
                                         checked={selectedCategories.includes(cat.id)}
                                         onChange={() => {
                                             setSelectedCategories(prev => prev.includes(cat.id) ? prev.filter(c => c !== cat.id) : [...prev, cat.id]);
                                         }}
-                                        className="w-3.5 h-3.5 rounded border-border text-primary focus:ring-0 bg-background cursor-pointer"
+                                        className="w-3.5 h-3.5 rounded-none border-border text-primary focus: bg-background cursor-pointer"
                                      />
                                      <span className={`text-[13px] transition-colors ${selectedCategories.includes(cat.id) ? "text-white font-medium" : "text-muted group-hover:text-white/80"}`}>{cat.label}</span>
                                  </label>
@@ -261,14 +261,14 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
                                     value={query}
                                     onChange={(e) => setQuery(e.target.value)}
                                     placeholder={t("modrinth.search_placeholder")}
-                                    className="w-full bg-background border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors"
+                                    className="w-full bg-background brutalist-border rounded-none pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary transition-colors"
                                 />
                             </form>
                             <div className="flex justify-between items-center">
                                 <select 
                                     value={sortBy} 
                                     onChange={(e) => { setSortBy(e.target.value); }}
-                                    className="bg-card border border-border rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-primary/50"
+                                    className="bg-card brutalist-border rounded-none px-2 py-1.5 text-xs text-white focus:outline-none focus:border-primary"
                                 >
                                     <option value="relevance">{t("modrinth.sort_relevance")}</option>
                                     <option value="downloads">{t("modrinth.sort_downloads")}</option>
@@ -279,7 +279,7 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
                                     <button 
                                         disabled={page === 0 || loading} 
                                         onClick={() => setPage(p => Math.max(0, p - 1))}
-                                        className="px-2 py-1 text-xs bg-card hover:bg-background border border-border rounded-lg disabled:opacity-50 transition-colors text-white"
+                                        className="px-2 py-1 text-xs bg-card hover:bg-background brutalist-border rounded-none disabled:opacity-50 transition-colors text-white"
                                     >
                                         {t("modrinth.prev")}
                                     </button>
@@ -287,7 +287,7 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
                                     <button 
                                         disabled={results.length < 20 || loading} 
                                         onClick={() => setPage(p => p + 1)}
-                                        className="px-2 py-1 text-xs bg-card hover:bg-background border border-border rounded-lg disabled:opacity-50 transition-colors text-white"
+                                        className="px-2 py-1 text-xs bg-card hover:bg-background brutalist-border rounded-none disabled:opacity-50 transition-colors text-white"
                                     >
                                         {t("modrinth.next")}
                                     </button>
@@ -320,7 +320,7 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
                         <div className="flex-1 flex flex-col bg-background/30 overflow-hidden">
                             <div className="p-6 border-b border-border">
                                 <div className="flex items-center gap-4 mb-4">
-                                    <div className="w-16 h-16 rounded-xl bg-card border border-border overflow-hidden">
+                                    <div className="w-16 h-16 rounded-none bg-card brutalist-border overflow-hidden">
                                         {selectedMod.icon_url && <img src={selectedMod.icon_url} className="w-full h-full object-cover" />}
                                     </div>
                                     <div>
@@ -344,7 +344,7 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
                                 ) : (
                                     <div className="flex flex-col gap-2">
                                         {versions.map(v => (
-                                            <div key={v.id} className="bg-card border border-border rounded-xl p-3 flex items-center justify-between">
+                                            <div key={v.id} className="bg-card brutalist-border rounded-none p-3 flex items-center justify-between">
                                                 <div>
                                                     <div className="text-sm font-medium text-white">{v.name}</div>
                                                     <div className="text-xs text-muted">{v.version_number}</div>
@@ -352,7 +352,7 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
                                                 <button
                                                     onClick={() => handleInstall(v.id)}
                                                     disabled={installingVersion === v.id}
-                                                    className="bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors"
+                                                    className="brutalist-button-primary  disabled:opacity-50  disabled:cursor-not-allowed text-xs font-semibold flex items-center gap-2 "
                                                 >
                                                     {installingVersion === v.id ? (
                                                         <Loader2 size={14} className="animate-spin" />

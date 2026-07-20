@@ -15,8 +15,8 @@ export default function CrashModal({ logs, onClose }: CrashModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6">
-      <div className="bg-card border border-border rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col h-[80vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80  p-6">
+      <div className="bg-card brutalist-border rounded-none w-full max-w-4xl  flex flex-col h-[80vh]">
         <div className="p-6 border-b border-border flex justify-between items-center bg-background/50 rounded-t-2xl">
           <div className="flex items-center gap-3 text-red-400">
             <Terminal size={24} />
@@ -27,14 +27,14 @@ export default function CrashModal({ logs, onClose }: CrashModalProps) {
           </div>
           <button 
             onClick={onClose}
-            className="text-muted hover:text-white transition-colors bg-card p-2 rounded-xl border border-border"
+            className="text-muted hover:text-white transition-colors bg-card p-2 rounded-none brutalist-border"
           >
             <X size={20} />
           </button>
         </div>
         
         <div className="flex-1 p-6 overflow-hidden flex flex-col bg-background/30">
-          <div className="flex-1 bg-[#0d0d0d] border border-border rounded-xl p-4 overflow-y-auto font-mono text-[13px] leading-relaxed">
+          <div className="flex-1 bg-[#0d0d0d] brutalist-border rounded-none p-4 overflow-y-auto font-mono text-[13px] leading-relaxed">
             {logs.length === 0 ? (
               <div className="text-muted italic">Логов нет. Возможно, игра закрылась до начала инициализации.</div>
             ) : (
@@ -51,13 +51,13 @@ export default function CrashModal({ logs, onClose }: CrashModalProps) {
         <div className="p-6 border-t border-border bg-background/50 rounded-b-2xl flex justify-end gap-3">
           <button 
             onClick={handleCopyLogs}
-            className="px-5 py-2.5 rounded-xl text-sm font-medium border border-border hover:bg-card text-white flex items-center gap-2 transition-colors"
+            className="px-5 py-2.5 rounded-none text-sm font-medium brutalist-border hover:bg-card text-white flex items-center gap-2 transition-colors"
           >
             <Copy size={16} /> Копировать логи
           </button>
           <button 
             onClick={onClose}
-            className="px-5 py-2.5 rounded-xl text-sm font-medium bg-primary hover:bg-primary-hover text-white transition-colors"
+            className="px-5 py-2.5 rounded-none text-sm font-medium bg-primary hover:bg-primary-hover text-white transition-colors"
           >
             Закрыть
           </button>

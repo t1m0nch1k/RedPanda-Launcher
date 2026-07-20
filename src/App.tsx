@@ -34,7 +34,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-background text-white font-sans overflow-hidden rounded-xl border border-border shadow-2xl relative">
+    <div className="flex flex-col h-screen w-screen bg-background text-white font-sans overflow-hidden rounded-none brutalist-border  relative">
       <ToastContainer />
       {/* Topbar / Toolbar (Prism style) */}
       <div 
@@ -53,21 +53,21 @@ export default function App() {
         <div className="flex items-center gap-2 z-10 text-muted" data-tauri-drag-region="false">
           <button 
             onClick={() => appWindow.minimize()}
-            className="p-2 hover:bg-card-hover hover:text-white rounded-md transition-colors"
+            className="p-2 hover:bg-card-hover hover:text-white rounded-none transition-colors"
             data-tauri-drag-region="false"
           >
             <Minus size={16} data-tauri-drag-region="false" />
           </button>
           <button 
             onClick={() => appWindow.toggleMaximize()}
-            className="p-2 hover:bg-card-hover hover:text-white rounded-md transition-colors"
+            className="p-2 hover:bg-card-hover hover:text-white rounded-none transition-colors"
             data-tauri-drag-region="false"
           >
             <Square size={14} data-tauri-drag-region="false" />
           </button>
           <button 
             onClick={() => appWindow.close()}
-            className="p-2 hover:bg-red-500/20 hover:text-red-500 rounded-md transition-colors"
+            className="p-2 hover:bg-red-500/20 hover:text-red-500 rounded-none transition-colors"
             data-tauri-drag-region="false"
           >
             <X size={18} data-tauri-drag-region="false" />
@@ -100,21 +100,21 @@ export default function App() {
 
         <div className="flex items-center justify-end gap-3 w-1/3 text-muted">
           <button 
-            className="p-2 hover:text-white hover:bg-card-hover rounded-lg transition-colors" 
+            className="p-2 hover:text-white hover:bg-card-hover rounded-none transition-colors" 
             title={t("app.launcher_settings", "Launcher Settings")}
             onClick={() => setIsSettingsOpen(true)}
           >
             <Settings size={18} />
           </button>
           <button 
-            className="p-2 hover:text-white hover:bg-card-hover rounded-lg transition-colors" 
+            className="p-2 hover:text-white hover:bg-card-hover rounded-none transition-colors" 
             title={t("app.launcher_folder", "Launcher Folder")}
             onClick={handleOpenFolder}
           >
             <Folder size={18} />
           </button>
           <button 
-            className="p-2 hover:text-white hover:bg-card-hover rounded-lg transition-colors" 
+            className="p-2 hover:text-white hover:bg-card-hover rounded-none transition-colors" 
             title={t("app.logs_folder", "Logs Folder")}
             onClick={handleOpenLogs}
           >

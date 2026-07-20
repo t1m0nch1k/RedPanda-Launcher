@@ -353,13 +353,13 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
         {/* Panda Personality */}
         <div className="flex items-center transition-all duration-300">
           {/* Speech Bubble */}
-          <div className="relative bg-card border border-border px-4 py-2.5 rounded-xl shadow-sm flex items-center justify-center mr-5 mb-3">
+          <div className="relative bg-card brutalist-border px-4 py-2.5 rounded-none  flex items-center justify-center mr-5 mb-3">
             <span className="text-[13px] text-white/90 font-medium transition-all duration-300 leading-none">{getPandaMessage()}</span>
             {/* Bubble Tail */}
             <div className="absolute top-1/2 -right-1.5 -translate-y-1/2 w-3 h-3 bg-card border-r border-t border-border rotate-45"></div>
           </div>
 
-          <div className="w-28 h-28 shrink-0 drop-shadow-xl z-10 relative">
+          <div className="w-28 h-28 shrink-0 drop- z-10 relative">
             <img src={getPandaImage()} alt="Panda Emotion" className="w-full h-full object-contain transition-opacity duration-300" />
           </div>
         </div>
@@ -370,7 +370,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
         <h2 className="text-[11px] font-semibold tracking-wider text-muted uppercase pl-1">{t("home.selected_instance")}</h2>
         {currentInstance ? (
         <div 
-          className="relative group rounded-xl bg-card border border-border transition-colors hover:border-border/80 flex shadow-sm"
+          className="relative group rounded-none bg-card brutalist-border transition-colors hover:border-border/80 flex "
           onContextMenu={(e) => { 
             e.preventDefault(); 
             setContextMenu({ x: e.clientX, y: e.clientY, instanceId: currentInstance.id }); 
@@ -378,7 +378,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
         >
           <div className="relative z-10 flex w-full p-6 items-center justify-between">
             <div className="flex items-center gap-6">
-              <div className="w-16 h-16 bg-background rounded-xl flex items-center justify-center border border-border overflow-hidden">
+              <div className="w-16 h-16 bg-background rounded-none flex items-center justify-center brutalist-border overflow-hidden">
                 {currentInstance.icon_path ? (
                   <img src={convertFileSrc(currentInstance.icon_path)} alt="icon" className="w-full h-full object-cover" />
                 ) : (
@@ -408,7 +408,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                        {downloadTotal > 0 ? `${Math.round((downloadedBytes / downloadTotal) * 100)}%` : ""}
                      </span>
                    </div>
-                   <div className="w-48 h-1.5 bg-background rounded-full overflow-hidden border border-border">
+                   <div className="w-48 h-1.5 bg-background rounded-none overflow-hidden brutalist-border">
                      <div 
                        className="h-full bg-primary transition-all duration-300 ease-out"
                        style={{ width: downloadTotal > 0 ? `${(downloadedBytes / downloadTotal) * 100}%` : "100%" }}
@@ -424,7 +424,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                   <div className="flex gap-2">
                     <button 
                       onClick={() => invoke("open_instance_folder", { id: currentInstance.id }).catch(console.error)}
-                      className="bg-card hover:bg-background border border-border text-muted hover:text-white px-3 py-3 rounded-xl shadow-sm transition-colors"
+                      className="bg-card hover:bg-background brutalist-border text-muted hover:text-white px-3 py-3 rounded-none  transition-colors"
                       title="Открыть папку сборки"
                     >
                       <Folder size={18} />
@@ -434,14 +434,14 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                           setCrashLogs(gameLogsRef.current);
                           setShowCrashModal(true);
                       }}
-                      className="bg-card hover:bg-background border border-border text-muted hover:text-white px-3 py-3 rounded-xl shadow-sm transition-colors"
+                      className="bg-card hover:bg-background brutalist-border text-muted hover:text-white px-3 py-3 rounded-none  transition-colors"
                       title="Просмотр логов"
                     >
                       <FileText size={18} />
                     </button>
                     <button 
                       onClick={() => setManagingInstance(currentInstance.id)}
-                      className="bg-card hover:bg-background border border-border text-muted hover:text-white px-3 py-3 rounded-xl shadow-sm transition-colors"
+                      className="bg-card hover:bg-background brutalist-border text-muted hover:text-white px-3 py-3 rounded-none  transition-colors"
                       title="Управление сборкой (Моды, Ресурспаки)"
                     >
                       <Settings size={18} />
@@ -453,7 +453,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                  disabled={isLaunching}
                  onMouseEnter={() => !isLaunching && setPandaState("celebration")}
                  onMouseLeave={() => !isLaunching && setPandaState("welcome")}
-                 className="bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-white px-7 py-3 rounded-xl font-medium text-[13px] flex items-center gap-2 shadow-sm transition-colors"
+                 className="brutalist-button-primary disabled:opacity-50 disabled:cursor-not-allowed px-7 py-3 text-[13px] flex items-center gap-2"
                >
                  {isLaunching ? (
                    <><Loader2 className="animate-spin" size={16} /> <span className="translate-y-[0.5px]">{t("home.launching")}</span></>
@@ -465,7 +465,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
           </div>
         </div>
         ) : (
-          <div className="p-8 text-center text-muted border border-dashed border-border rounded-xl">
+          <div className="p-8 text-center text-muted border border-dashed border-border rounded-none">
             {t("home.no_instance")}
           </div>
         )}
@@ -479,9 +479,9 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
           {/* Add New Instance Button */}
           <button 
             onClick={() => setShowCreateModal(true)}
-            className="bg-transparent hover:bg-card border border-dashed border-border hover:border-muted text-muted rounded-xl flex flex-col items-center justify-center gap-3 min-h-[140px] transition-colors group"
+            className="bg-transparent hover:bg-card border border-dashed border-border hover:border-muted text-muted rounded-none flex flex-col items-center justify-center gap-3 min-h-[140px] transition-colors group"
           >
-            <div className="w-10 h-10 rounded-full bg-card border border-border flex items-center justify-center group-hover:text-white transition-colors">
+            <div className="w-10 h-10 rounded-none bg-card brutalist-border flex items-center justify-center group-hover:text-white transition-colors">
               <Plus size={18} />
             </div>
             <span className="text-[13px] font-medium group-hover:text-white transition-colors">{t("home.add_instance")}</span>
@@ -489,9 +489,9 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
           
           <button 
             onClick={() => setShowModpackBrowser(true)}
-            className="bg-transparent hover:bg-card border border-dashed border-border hover:border-muted text-muted rounded-xl flex flex-col items-center justify-center gap-3 min-h-[140px] transition-colors group"
+            className="bg-transparent hover:bg-card border border-dashed border-border hover:border-muted text-muted rounded-none flex flex-col items-center justify-center gap-3 min-h-[140px] transition-colors group"
           >
-            <div className="w-10 h-10 rounded-full bg-card border border-border flex items-center justify-center group-hover:text-white transition-colors">
+            <div className="w-10 h-10 rounded-none bg-card brutalist-border flex items-center justify-center group-hover:text-white transition-colors">
               <Download size={18} />
             </div>
             <span className="text-[13px] font-medium group-hover:text-white transition-colors">{t("home.install_modpack")}</span>
@@ -509,13 +509,13 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                   e.preventDefault(); 
                   setContextMenu({ x: e.clientX, y: e.clientY, instanceId: inst.id }); 
                 }}
-                className={`flex flex-col bg-card rounded-xl p-5 text-left transition-colors border group ${
+                className={`flex flex-col bg-card rounded-none p-5 text-left transition-colors border group ${
                   isSelected 
-                    ? "border-primary/50 ring-1 ring-primary/20" 
+                    ? "border-primary  " 
                     : "border-border hover:border-muted/50"
                 }`}
               >
-                <div className="w-10 h-10 bg-background rounded-lg flex items-center justify-center border border-border mb-4 overflow-hidden">
+                <div className="w-10 h-10 bg-background rounded-none flex items-center justify-center brutalist-border mb-4 overflow-hidden">
                   {inst.icon_path ? (
                     <img src={convertFileSrc(inst.icon_path)} alt="icon" className="w-full h-full object-cover" />
                   ) : (
@@ -578,7 +578,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
 
       {contextMenu && (
         <div 
-          className="fixed z-50 bg-card border border-border rounded-xl shadow-2xl py-1 min-w-[220px] animate-in fade-in zoom-in-95 duration-100"
+          className="fixed z-50 bg-card brutalist-border rounded-none  py-1 min-w-[220px] animate-in fade-in zoom-in-95 duration-100"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           <div className="px-3 py-2 border-b border-border mb-1">
@@ -694,11 +694,11 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
       )}
 
       {deletingInstance.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setDeletingInstance({ isOpen: false, id: null })}>
-          <div className="bg-card border border-border rounded-xl shadow-2xl w-[400px] overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80  animate-in fade-in duration-200" onClick={() => setDeletingInstance({ isOpen: false, id: null })}>
+          <div className="bg-card brutalist-border rounded-none  w-[400px] overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex items-center gap-3 text-red-400 mb-4">
-                <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-none bg-red-500/10 flex items-center justify-center">
                   <Trash2 size={20} />
                 </div>
                 <h3 className="text-xl font-bold">Удалить сборку?</h3>
@@ -710,7 +710,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
               <div className="flex justify-end gap-3">
                 <button 
                   onClick={() => setDeletingInstance({ isOpen: false, id: null })}
-                  className="px-4 py-2 rounded-lg text-sm font-medium hover:bg-card-hover transition-colors"
+                  className="px-4 py-2 rounded-none text-sm font-medium hover:bg-card-hover transition-colors"
                 >
                   Отмена
                 </button>
@@ -726,7 +726,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                     }
                     setDeletingInstance({ isOpen: false, id: null });
                   }}
-                  className="px-4 py-2 rounded-lg text-sm font-bold bg-red-500 hover:bg-red-600 text-white transition-colors shadow-lg shadow-red-500/20"
+                  className="px-4 py-2 rounded-none text-sm font-bold bg-red-500 hover:bg-red-600 text-white transition-colors  "
                 >
                   Удалить навсегда
                 </button>
@@ -737,11 +737,11 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
       )}
 
       {renameModal.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setRenameModal({ isOpen: false, id: null, currentName: "" })}>
-          <div className="bg-card border border-border rounded-xl shadow-2xl w-[400px] overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80  animate-in fade-in duration-200" onClick={() => setRenameModal({ isOpen: false, id: null, currentName: "" })}>
+          <div className="bg-card brutalist-border rounded-none  w-[400px] overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex items-center gap-3 text-white mb-4">
-                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                <div className="w-10 h-10 rounded-none bg-primary/20 flex items-center justify-center text-primary">
                   <FileText size={20} />
                 </div>
                 <h3 className="text-xl font-bold">Переименовать сборку</h3>
@@ -769,14 +769,14 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                     setRenameModal({ isOpen: false, id: null, currentName: "" });
                   }
                 }}
-                className="w-full bg-background border border-border rounded-lg px-4 py-3 text-white outline-none focus:border-primary/50 transition-colors mb-6"
+                className="w-full bg-background brutalist-border rounded-none px-4 py-3 text-white outline-none focus:border-primary transition-colors mb-6"
                 placeholder="Новое имя сборки"
               />
               
               <div className="flex justify-end gap-3">
                 <button 
                   onClick={() => setRenameModal({ isOpen: false, id: null, currentName: "" })}
-                  className="px-4 py-2 rounded-lg text-sm font-medium hover:bg-card-hover transition-colors"
+                  className="px-4 py-2 rounded-none text-sm font-medium hover:bg-card-hover transition-colors"
                 >
                   Отмена
                 </button>
@@ -794,7 +794,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                     }
                     setRenameModal({ isOpen: false, id: null, currentName: "" });
                   }}
-                  className="px-4 py-2 rounded-lg text-sm font-bold bg-primary hover:bg-primary-hover text-primary-foreground disabled:opacity-50 transition-colors shadow-lg shadow-primary/20"
+                  className="px-4 py-2 rounded-none text-sm font-bold bg-primary hover:bg-primary-hover text-primary-foreground disabled:opacity-50 transition-colors  "
                 >
                   Сохранить
                 </button>

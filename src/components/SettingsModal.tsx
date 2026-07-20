@@ -75,8 +75,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   if (!settings) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-card border border-border rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col h-[80vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 bg-black/80  flex items-center justify-center z-50 p-4">
+      <div className="bg-card brutalist-border rounded-none w-full max-w-2xl  flex flex-col h-[80vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border bg-background/50">
@@ -84,7 +84,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
             <SettingsIcon size={24} className="text-primary" />
             {t("settings.title")}
           </h2>
-          <button onClick={onClose} className="p-2 text-muted hover:text-white hover:bg-card rounded-lg transition-colors">
+          <button onClick={onClose} className="p-2 text-muted hover:text-white hover:bg-card rounded-none transition-colors">
             <X size={20} />
           </button>
         </div>
@@ -95,7 +95,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
           <div className="w-48 bg-background border-r border-border p-4 flex flex-col gap-2">
             <button 
               onClick={() => setActiveTab("general")}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${
+              className={`flex items-center gap-3 px-4 py-3 rounded-none font-medium transition-colors ${
                 activeTab === "general" ? "bg-primary/20 text-primary" : "text-muted hover:text-white hover:bg-card"
               }`}
             >
@@ -104,7 +104,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
             </button>
             <button 
               onClick={() => setActiveTab("java")}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${
+              className={`flex items-center gap-3 px-4 py-3 rounded-none font-medium transition-colors ${
                 activeTab === "java" ? "bg-primary/20 text-primary" : "text-muted hover:text-white hover:bg-card"
               }`}
             >
@@ -129,7 +129,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                     <select 
                       value={i18n.language}
                       onChange={(e) => i18n.changeLanguage(e.target.value)}
-                      className="w-full bg-background border border-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors"
+                      className="w-full bg-background brutalist-border rounded-none px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors"
                     >
                       <option value="ru">Русский</option>
                       <option value="en">English</option>
@@ -151,7 +151,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                     <select 
                       value={settings.launch_behavior}
                       onChange={(e) => updateSetting("launch_behavior", e.target.value)}
-                      className="w-full bg-background border border-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors"
+                      className="w-full bg-background brutalist-border rounded-none px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors"
                     >
                       <option value="hide">{t("settings.behavior_hide")}</option>
                       <option value="close">{t("settings.behavior_close")}</option>
@@ -164,7 +164,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                     <select 
                       value={settings.instances_sort_mode}
                       onChange={(e) => updateSetting("instances_sort_mode", e.target.value)}
-                      className="w-full bg-background border border-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors"
+                      className="w-full bg-background brutalist-border rounded-none px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors"
                     >
                       <option value="last_played">{t("settings.sort_last_played")}</option>
                       <option value="name">{t("settings.sort_alphabetical")}</option>
@@ -187,7 +187,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                         type="number" 
                         value={settings.window_width}
                         onChange={(e) => updateSetting("window_width", parseInt(e.target.value) || 854)}
-                        className="w-full bg-background border border-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors"
+                        className="w-full bg-background brutalist-border rounded-none px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors"
                       />
                     </div>
                     <div>
@@ -196,14 +196,14 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                         type="number" 
                         value={settings.window_height}
                         onChange={(e) => updateSetting("window_height", parseInt(e.target.value) || 480)}
-                        className="w-full bg-background border border-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors"
+                        className="w-full bg-background brutalist-border rounded-none px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors"
                       />
                     </div>
                   </div>
 
                   <label className="flex items-center gap-3 cursor-pointer group">
-                    <div className={`w-10 h-5 rounded-full p-1 transition-colors ${settings.fullscreen ? 'bg-primary' : 'bg-background border border-border'}`}>
-                      <div className={`w-3 h-3 bg-white rounded-full transition-transform ${settings.fullscreen ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                    <div className={`w-10 h-5 rounded-none p-1 transition-colors ${settings.fullscreen ? 'bg-primary' : 'bg-background brutalist-border'}`}>
+                      <div className={`w-3 h-3 bg-white rounded-none transition-transform ${settings.fullscreen ? 'translate-x-5' : 'translate-x-0'}`}></div>
                     </div>
                     <span className="text-sm font-medium group-hover:text-white transition-colors text-white/80">{t("settings.fullscreen")}</span>
                   </label>
@@ -220,7 +220,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                     value={settings.jvm_args}
                     onChange={(e) => updateSetting("jvm_args", e.target.value)}
                     rows={4}
-                    className="w-full bg-background border border-border rounded-lg px-4 py-3 text-sm text-white/80 focus:outline-none focus:border-primary transition-colors resize-none font-mono"
+                    className="w-full bg-background brutalist-border rounded-none px-4 py-3 text-sm text-white/80 focus:outline-none focus:border-primary transition-colors resize-none font-mono"
                     placeholder="-Xmx4G -XX:+UseG1GC..."
                   />
                   <p className="text-xs text-muted mt-2">Переопределяет стандартные параметры виртуальной машины Java.</p>
@@ -236,7 +236,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                   <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
                     <Cpu size={16} /> {t("settings.min_ram")} & {t("settings.max_ram")}
                   </h3>
-                  <div className="bg-background border border-border rounded-xl p-5 flex flex-col gap-4">
+                  <div className="bg-background brutalist-border rounded-none p-5 flex flex-col gap-4">
                     <div className="flex justify-between items-center text-sm font-medium">
                       <span className="text-muted">{t("settings.min_ram")}:</span>
                       <span className="text-primary">{settings.min_memory} MB</span>
@@ -246,7 +246,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                       min="0" max="16384" step="256"
                       value={settings.min_memory}
                       onChange={(e) => updateSetting("min_memory", Math.max(512, Math.min(parseInt(e.target.value), settings.max_memory)))}
-                      className="w-full accent-primary h-2 bg-card rounded-lg appearance-none cursor-pointer"
+                      className="w-full accent-primary h-2 bg-card rounded-none appearance-none cursor-pointer"
                     />
                     
                     <div className="flex justify-between items-center text-sm font-medium mt-2">
@@ -258,7 +258,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                       min="0" max="16384" step="512"
                       value={settings.max_memory}
                       onChange={(e) => updateSetting("max_memory", Math.max(1024, Math.max(parseInt(e.target.value), settings.min_memory)))}
-                      className="w-full accent-primary h-2 bg-card rounded-lg appearance-none cursor-pointer"
+                      className="w-full accent-primary h-2 bg-card rounded-none appearance-none cursor-pointer"
                     />
                     <div className="relative text-xs text-muted h-4 mt-1">
                       <span className="absolute left-[6.25%]" style={{ transform: 'translateX(-50%)' }}>1 GB</span>
@@ -274,7 +274,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                         type="checkbox"
                         checked={settings.aggressive_optimization}
                         onChange={(e) => updateSetting("aggressive_optimization", e.target.checked)}
-                        className="w-4 h-4 rounded border-border bg-background text-primary focus:ring-primary focus:ring-offset-background"
+                        className="w-4 h-4 rounded-none border-border bg-background text-primary focus:ring-primary focus:ring-offset-background"
                       />
                     </div>
                     <div className="flex flex-col">
@@ -294,7 +294,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                         type="checkbox"
                         checked={settings.show_snapshots}
                         onChange={(e) => updateSetting("show_snapshots", e.target.checked)}
-                        className="w-4 h-4 rounded border-border bg-background text-primary focus:ring-primary focus:ring-offset-background"
+                        className="w-4 h-4 rounded-none border-border bg-background text-primary focus:ring-primary focus:ring-offset-background"
                       />
                     </div>
                     <div className="flex flex-col">
@@ -327,15 +327,15 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                   
                   <div className="flex flex-col gap-3 mb-4">
                     <label 
-                      className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all ${
+                      className={`flex items-start gap-3 p-4 rounded-none border cursor-pointer transition-all ${
                         settings.java_path === "" ? "border-primary bg-primary/5" : "border-border bg-background hover:border-border/80"
                       }`}
                       onClick={() => updateSetting("java_path", "")}
                     >
-                      <div className={`w-4 h-4 mt-0.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                      <div className={`w-4 h-4 mt-0.5 rounded-none border-2 flex items-center justify-center shrink-0 ${
                         settings.java_path === "" ? "border-primary" : "border-muted"
                       }`}>
-                        {settings.java_path === "" && <div className="w-2 h-2 rounded-full bg-primary" />}
+                        {settings.java_path === "" && <div className="w-2 h-2 rounded-none bg-primary" />}
                       </div>
                       <div>
                         <div className="font-semibold text-sm">{t("settings.java_path")}</div>
@@ -345,15 +345,15 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                     {javas.map((java, idx) => (
                       <label 
                         key={idx}
-                        className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all ${
+                        className={`flex items-start gap-3 p-4 rounded-none border cursor-pointer transition-all ${
                           settings.java_path === java.path ? "border-primary bg-primary/5" : "border-border bg-background hover:border-border/80"
                         }`}
                         onClick={() => updateSetting("java_path", java.path)}
                       >
-                        <div className={`w-4 h-4 mt-0.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                        <div className={`w-4 h-4 mt-0.5 rounded-none border-2 flex items-center justify-center shrink-0 ${
                           settings.java_path === java.path ? "border-primary" : "border-muted"
                         }`}>
-                          {settings.java_path === java.path && <div className="w-2 h-2 rounded-full bg-primary" />}
+                          {settings.java_path === java.path && <div className="w-2 h-2 rounded-none bg-primary" />}
                         </div>
                         <div className="overflow-hidden">
                           <div className="font-semibold text-sm truncate">Java {java.version} <span className="text-muted text-xs font-normal">({java.vendor})</span></div>
@@ -364,15 +364,15 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                   </div>
 
                   {javas.length === 0 && !isSearchingJava && (
-                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex flex-col gap-2">
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-none p-4 flex flex-col gap-2">
                       <div className="text-sm font-semibold text-red-400">Java не найдена на этом ПК!</div>
                       <p className="text-xs text-white/70">Если вы не хотите использовать "Автоматически", вам нужно установить Java вручную.</p>
                       
                       <div className="flex gap-2 mt-2">
-                        <a href="https://adoptium.net/" target="_blank" className="flex items-center gap-1 text-xs bg-card hover:bg-background border border-border rounded px-3 py-1.5 transition-colors">
+                        <a href="https://adoptium.net/" target="_blank" className="flex items-center gap-1 text-xs bg-card hover:bg-background brutalist-border rounded-none px-3 py-1.5 transition-colors">
                           <ExternalLink size={12} /> Temurin (Рекомендуется)
                         </a>
-                        <a href="https://www.azul.com/downloads/?package=jdk" target="_blank" className="flex items-center gap-1 text-xs bg-card hover:bg-background border border-border rounded px-3 py-1.5 transition-colors">
+                        <a href="https://www.azul.com/downloads/?package=jdk" target="_blank" className="flex items-center gap-1 text-xs bg-card hover:bg-background brutalist-border rounded-none px-3 py-1.5 transition-colors">
                           <ExternalLink size={12} /> Azul Zulu
                         </a>
                       </div>

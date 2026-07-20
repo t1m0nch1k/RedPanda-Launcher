@@ -133,10 +133,10 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
     <div className="flex flex-col relative" ref={dropdownRef}>
       <span className="text-[10px] text-muted font-bold mb-1.5 uppercase tracking-[0.15em] pl-1">{t("account.title", "Аккаунт")}</span>
       <button 
-        className="flex items-center gap-3 bg-transparent border border-transparent rounded-xl px-2 py-1.5 hover:bg-card-hover transition-colors w-56 text-left group -ml-2"
+        className="flex items-center gap-3 bg-transparent border border-transparent rounded-none px-2 py-1.5 hover:bg-card-hover transition-colors w-56 text-left group -ml-2"
         onClick={() => setIsOpen(!isOpen)}
       >
-        <div className="w-8 h-8 bg-background rounded-lg overflow-hidden border border-border flex-shrink-0">
+        <div className="w-8 h-8 bg-background rounded-none overflow-hidden brutalist-border flex-shrink-0">
           <img 
             src={activeAccount ? getAvatarUrl(activeAccount) : "https://minotar.net/helm/MHF_Steve/64"} 
             alt="Avatar" 
@@ -155,12 +155,12 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
       </button>
 
       {isOpen && (
-        <div className="absolute bottom-full left-0 mb-2 w-full bg-card border border-border rounded-xl shadow-xl overflow-hidden flex flex-col z-50">
+        <div className="absolute bottom-full left-0 mb-2 w-full bg-card brutalist-border rounded-none  overflow-hidden flex flex-col z-50">
           <div className="max-h-48 overflow-y-auto p-1 custom-scrollbar">
             {accounts.map(account => (
-                <div key={account.id} className="flex items-center justify-between group p-2 hover:bg-background rounded-lg transition-colors cursor-pointer" onClick={() => handleSelectAccount(account.id)}>
+                <div key={account.id} className="flex items-center justify-between group p-2 hover:bg-background rounded-none transition-colors cursor-pointer" onClick={() => handleSelectAccount(account.id)}>
                   <div className="flex items-center gap-3">
-                    <img src={getAvatarUrl(account)} alt="Avatar" className="w-8 h-8 rounded-lg rendering-pixelated" />
+                    <img src={getAvatarUrl(account)} alt="Avatar" className="w-8 h-8 rounded-none rendering-pixelated" />
                     <div>
                       <div className="text-[13px] font-semibold text-white/90">{account.username}</div>
                       <div className="text-[11px] text-muted mt-0.5">{account.account_type}</div>
@@ -168,7 +168,7 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
                   </div>
                   <button 
                     onClick={(e) => { e.stopPropagation(); handleRemoveAccount(account.id); }}
-                    className="p-1.5 text-muted hover:text-red-400 hover:bg-red-500/10 rounded-md opacity-0 group-hover:opacity-100 transition-all"
+                    className="p-1.5 text-muted hover:text-red-400 hover:bg-red-500/10 rounded-none opacity-0 group-hover:opacity-100 transition-all"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -185,7 +185,7 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
           <div className="p-2 border-t border-border bg-background/50">
             <button 
               onClick={() => { setIsOpen(false); setShowAddModal(true); }}
-              className="flex items-center justify-center gap-2 w-full py-2 bg-card hover:bg-card-hover text-muted hover:text-white border border-border hover:border-muted/50 rounded-lg transition-colors text-[13px] font-medium"
+              className="flex items-center justify-center gap-2 w-full py-2 bg-card hover:bg-card-hover text-muted hover:text-white brutalist-border hover:border-muted/50 rounded-none transition-colors text-[13px] font-medium"
             >
               <Plus size={16} /> {t("account.add_account")}
             </button>
@@ -194,8 +194,8 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
       )}
 
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-black/80  flex items-center justify-center z-50 p-4">
+          <div className="bg-card brutalist-border rounded-none w-full max-w-md  overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-bold">{t("account.add_account")}</h3>
@@ -206,8 +206,8 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
 
               {addMethod === "none" && (
                 <div className="flex flex-col gap-3">
-                  <button onClick={() => setAddMethod("offline")} className="flex items-center gap-4 bg-transparent hover:bg-card-hover border border-border hover:border-muted/50 p-4 rounded-xl transition-colors text-left group">
-                    <div className="w-10 h-10 bg-card rounded-lg flex items-center justify-center shadow-sm border border-border group-hover:scale-105 transition-transform">
+                  <button onClick={() => setAddMethod("offline")} className="flex items-center gap-4 bg-transparent hover:bg-card-hover brutalist-border hover:border-muted/50 p-4 rounded-none transition-colors text-left group">
+                    <div className="w-10 h-10 bg-card rounded-none flex items-center justify-center  brutalist-border group-hover:scale-105 transition-transform">
                       <UserPlus className="text-white/70" size={20} />
                     </div>
                     <div>
@@ -218,9 +218,9 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
 
                   <button 
                     onClick={handleStartMicrosoft}
-                    className="flex items-center gap-4 bg-transparent hover:bg-card-hover border border-border hover:border-muted/50 p-4 rounded-xl transition-colors text-left group"
+                    className="flex items-center gap-4 bg-transparent hover:bg-card-hover brutalist-border hover:border-muted/50 p-4 rounded-none transition-colors text-left group"
                   >
-                    <div className="w-10 h-10 bg-card rounded-lg flex items-center justify-center shadow-sm border border-border group-hover:scale-105 transition-transform">
+                    <div className="w-10 h-10 bg-card rounded-none flex items-center justify-center  brutalist-border group-hover:scale-105 transition-transform">
                       <LayoutGrid className="w-5 h-5 text-white/90" />
                     </div>
                     <div>
@@ -231,9 +231,9 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
 
                   <button 
                     onClick={handleAddElyBy}
-                    className="flex items-center gap-4 bg-transparent hover:bg-card-hover border border-border hover:border-muted/50 p-4 rounded-xl transition-colors text-left group"
+                    className="flex items-center gap-4 bg-transparent hover:bg-card-hover brutalist-border hover:border-muted/50 p-4 rounded-none transition-colors text-left group"
                   >
-                    <div className="w-10 h-10 bg-card rounded-lg flex items-center justify-center shadow-sm border border-border group-hover:scale-105 transition-transform">
+                    <div className="w-10 h-10 bg-card rounded-none flex items-center justify-center  brutalist-border group-hover:scale-105 transition-transform">
                       <UserCircle2 className="w-5 h-5 text-white/90" />
                     </div>
                     <div>
@@ -253,19 +253,19 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
                       placeholder={t("account.nickname_placeholder")}
                       value={newUsername}
                       onChange={(e) => setNewUsername(e.target.value)}
-                      className="w-full bg-background border border-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary transition-colors"
+                      className="w-full bg-background brutalist-border rounded-none px-4 py-3 text-white focus:outline-none focus:border-primary transition-colors"
                       autoFocus
                     />
                   </div>
                   
                   <div className="flex justify-end gap-3 mt-2">
-                    <button onClick={() => setAddMethod("none")} className="px-4 py-2 rounded-lg font-medium text-sm text-muted hover:text-white transition-colors">
+                    <button onClick={() => setAddMethod("none")} className="px-4 py-2 rounded-none font-medium text-sm text-muted hover:text-white transition-colors">
                       {t("common.back")}
                     </button>
                     <button 
                       onClick={handleAddOffline}
                       disabled={isAdding || !newUsername.trim()}
-                      className="bg-primary hover:bg-primary-hover text-white px-6 py-2 rounded-lg font-semibold text-sm disabled:opacity-50 transition-colors shadow-sm"
+                      className="bg-primary hover:bg-primary-hover text-white px-6 py-2 rounded-none font-semibold text-sm disabled:opacity-50 transition-colors "
                     >
                       {isAdding ? t("account.adding") : t("common.save")}
                     </button>
@@ -275,10 +275,10 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
 
               {addMethod === "elyby" && (
                 <div className="text-center py-8">
-                  <div className="w-16 h-16 border-4 border-[#8B5CF6]/30 border-t-[#8B5CF6] rounded-full animate-spin mx-auto mb-6"></div>
+                  <div className="w-16 h-16 border-4 border-[#8B5CF6]/30 border-t-[#8B5CF6] rounded-none animate-spin mx-auto mb-6"></div>
                   <h4 className="text-lg font-bold text-white mb-2">{t("account.waiting_auth")}</h4>
                   <p className="text-sm text-muted">{t("account.continue_browser")}</p>
-                  <button onClick={() => setAddMethod("none")} className="mt-6 px-4 py-2 rounded-lg font-medium text-sm text-muted hover:text-white transition-colors bg-card hover:bg-background border border-border">
+                  <button onClick={() => setAddMethod("none")} className="mt-6 px-4 py-2 rounded-none font-medium text-sm text-muted hover:text-white transition-colors bg-card hover:bg-background brutalist-border">
                     {t("common.cancel")}
                   </button>
                 </div>
@@ -286,10 +286,10 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
 
               {addMethod === "microsoft" && (
                 <div className="text-center py-8">
-                  <div className="w-16 h-16 border-4 border-[#107C10]/30 border-t-[#107C10] rounded-full animate-spin mx-auto mb-6"></div>
+                  <div className="w-16 h-16 border-4 border-[#107C10]/30 border-t-[#107C10] rounded-none animate-spin mx-auto mb-6"></div>
                   <h4 className="text-lg font-bold text-white mb-2">{t("account.waiting_auth")}</h4>
                   <p className="text-sm text-muted">{t("account.continue_browser")}</p>
-                  <button onClick={() => setAddMethod("none")} className="mt-6 px-4 py-2 rounded-lg font-medium text-sm text-muted hover:text-white transition-colors bg-card hover:bg-background border border-border">
+                  <button onClick={() => setAddMethod("none")} className="mt-6 px-4 py-2 rounded-none font-medium text-sm text-muted hover:text-white transition-colors bg-card hover:bg-background brutalist-border">
                     {t("common.cancel")}
                   </button>
                 </div>

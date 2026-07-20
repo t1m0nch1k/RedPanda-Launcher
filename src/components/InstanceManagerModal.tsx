@@ -174,8 +174,8 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-6">
-      <div className="bg-card border border-border rounded-2xl w-full max-w-4xl h-[80vh] shadow-2xl flex overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 bg-black/80  flex items-center justify-center z-50 p-6">
+      <div className="bg-card brutalist-border rounded-none w-full max-w-4xl h-[80vh]  flex overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Sidebar */}
         <div className="w-64 bg-background/50 border-r border-border flex flex-col">
@@ -189,7 +189,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
           <nav className="flex-1 px-3 flex flex-col gap-1">
             <button
               onClick={() => setActiveTab("mods")}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-none text-sm font-medium transition-colors ${
                 activeTab === "mods" ? "bg-primary/10 text-primary" : "text-muted hover:text-white hover:bg-card"
               }`}
             >
@@ -197,7 +197,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
             </button>
             <button
               onClick={() => setActiveTab("resources")}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-none text-sm font-medium transition-colors ${
                 activeTab === "resources" ? "bg-primary/10 text-primary" : "text-muted hover:text-white hover:bg-card"
               }`}
             >
@@ -205,7 +205,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
             </button>
             <button
               onClick={() => setActiveTab("settings")}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-none text-sm font-medium transition-colors ${
                 activeTab === "settings" ? "bg-primary/10 text-primary" : "text-muted hover:text-white hover:bg-card"
               }`}
             >
@@ -222,7 +222,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
               {activeTab === "resources" && t("instance_manager.resources_and_shaders")}
               {activeTab === "settings" && t("instance_manager.instance_settings")}
             </h3>
-            <button onClick={onClose} className="p-2 text-muted hover:text-white hover:bg-background rounded-lg transition-colors">
+            <button onClick={onClose} className="p-2 text-muted hover:text-white hover:bg-background rounded-none transition-colors">
               <X size={18} />
             </button>
           </div>
@@ -236,21 +236,21 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                       <button 
                         onClick={handleCheckUpdates}
                         disabled={checkingUpdates}
-                        className="bg-card hover:bg-background border border-border text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors disabled:opacity-50"
+                        className="bg-card hover:bg-background brutalist-border text-white px-4 py-2 rounded-none text-xs font-semibold flex items-center gap-2 transition-colors disabled:opacity-50"
                       >
                         {checkingUpdates ? <Loader2 className="animate-spin" size={14} /> : <RefreshCw size={14} />}
                         {t("instance_manager.check_updates")}
                       </button>
                       <button 
                         onClick={() => { setModrinthProjectType("mod"); setShowModrinth(true); }}
-                        className="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors"
+                        className="brutalist-button-primary   text-xs font-semibold flex items-center gap-2 "
                       >
                         <Plus size={14} /> {t("instance_manager.download_mods")}
                       </button>
                   </div>
                 </div>
                 
-                <div className="bg-background border border-border rounded-xl flex-1 overflow-y-auto">
+                <div className="bg-background brutalist-border rounded-none flex-1 overflow-y-auto">
                     {loadingMods ? (
                         <div className="flex items-center justify-center h-full text-muted flex-col gap-3">
                             <Loader2 className="animate-spin" size={24} />
@@ -266,17 +266,17 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                             {installedMods.map((mod, i) => (
                                 <div key={i} className="p-4 flex items-center justify-between group hover:bg-card transition-colors">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 bg-card border border-border rounded-lg flex items-center justify-center relative">
+                                        <div className="w-10 h-10 bg-card brutalist-border rounded-none flex items-center justify-center relative">
                                             <Puzzle size={18} className="text-muted" />
                                             {modUpdates[mod.filename] && (
-                                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-background"></div>
+                                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-none border-2 border-background"></div>
                                             )}
                                         </div>
                                         <div>
                                             <div className="text-sm font-medium text-white flex items-center gap-2">
                                                 {mod.filename}
                                                 {modUpdates[mod.filename] && (
-                                                    <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded uppercase font-bold">
+                                                    <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-none uppercase font-bold">
                                                         Update
                                                     </span>
                                                 )}
@@ -289,14 +289,14 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                                             <button 
                                                 onClick={() => handleApplyUpdate(mod.filename)}
                                                 disabled={updatingMods[mod.filename]}
-                                                className="text-green-400 hover:bg-green-500/10 p-2 rounded-lg transition-all flex items-center gap-2 text-xs font-medium disabled:opacity-50"
+                                                className="text-green-400 hover:bg-green-500/10 p-2 rounded-none transition-all flex items-center gap-2 text-xs font-medium disabled:opacity-50"
                                             >
                                                 {updatingMods[mod.filename] ? <Loader2 size={16} className="animate-spin" /> : <ArrowUpCircle size={16} />}
                                             </button>
                                         )}
                                         <button 
                                             onClick={() => handleDeleteMod(mod.filename)}
-                                            className="text-red-400 opacity-0 group-hover:opacity-100 hover:bg-red-500/10 p-2 rounded-lg transition-all"
+                                            className="text-red-400 opacity-0 group-hover:opacity-100 hover:bg-red-500/10 p-2 rounded-none transition-all"
                                         >
                                             <Trash2 size={16} />
                                         </button>
@@ -319,12 +319,12 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                                 setModrinthProjectType("resourcepack");
                                 setShowModrinth(true);
                             }}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-xs font-medium"
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-none bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-xs font-medium"
                         >
                             <Plus size={14} /> Добавить из Modrinth
                         </button>
                     </div>
-                    <div className="bg-background border border-border rounded-xl overflow-hidden min-h-[100px]">
+                    <div className="bg-background brutalist-border rounded-none overflow-hidden min-h-[100px]">
                         {loadingResources ? (
                             <div className="flex justify-center items-center h-24">
                                 <Loader2 className="animate-spin text-primary" />
@@ -339,7 +339,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                                 {installedResourcePacks.map((pack, i) => (
                                     <div key={i} className="p-4 flex items-center justify-between group hover:bg-card transition-colors">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 bg-card border border-border rounded-lg flex items-center justify-center">
+                                            <div className="w-10 h-10 bg-card brutalist-border rounded-none flex items-center justify-center">
                                                 <Palette size={18} className="text-muted" />
                                             </div>
                                             <div>
@@ -349,7 +349,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                                         </div>
                                         <button 
                                             onClick={() => handleDeleteResourcePack(pack.filename)}
-                                            className="text-red-400 opacity-0 group-hover:opacity-100 hover:bg-red-500/10 p-2 rounded-lg transition-all"
+                                            className="text-red-400 opacity-0 group-hover:opacity-100 hover:bg-red-500/10 p-2 rounded-none transition-all"
                                         >
                                             <Trash2 size={16} />
                                         </button>
@@ -368,12 +368,12 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                                 setModrinthProjectType("shader");
                                 setShowModrinth(true);
                             }}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-xs font-medium"
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-none bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-xs font-medium"
                         >
                             <Plus size={14} /> {t("instance_manager.add_from_modrinth")}
                         </button>
                     </div>
-                    <div className="bg-background border border-border rounded-xl overflow-hidden min-h-[100px]">
+                    <div className="bg-background brutalist-border rounded-none overflow-hidden min-h-[100px]">
                         {loadingResources ? (
                             <div className="flex justify-center items-center h-24">
                                 <Loader2 className="animate-spin text-primary" />
@@ -388,7 +388,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                                 {installedShaders.map((shader, i) => (
                                     <div key={i} className="p-4 flex items-center justify-between group hover:bg-card transition-colors">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 bg-card border border-border rounded-lg flex items-center justify-center">
+                                            <div className="w-10 h-10 bg-card brutalist-border rounded-none flex items-center justify-center">
                                                 <Palette size={18} className="text-muted" />
                                             </div>
                                             <div>
@@ -398,7 +398,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                                         </div>
                                         <button 
                                             onClick={() => handleDeleteShader(shader.filename)}
-                                            className="text-red-400 opacity-0 group-hover:opacity-100 hover:bg-red-500/10 p-2 rounded-lg transition-all"
+                                            className="text-red-400 opacity-0 group-hover:opacity-100 hover:bg-red-500/10 p-2 rounded-none transition-all"
                                         >
                                             <Trash2 size={16} />
                                         </button>
@@ -414,14 +414,14 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
             {activeTab === "settings" && (
               <div className="flex flex-col gap-8">
                 {/* General Settings */}
-                <div className="bg-background border border-border rounded-xl p-5">
+                <div className="bg-background brutalist-border rounded-none p-5">
                   <h4 className="text-sm font-semibold text-white mb-4">{t("instance_manager.general_settings")}</h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                         <label className="block text-xs text-muted mb-1">{t("instance_manager.instance_name")}</label>
                         <input 
                             type="text" 
-                            className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white" 
+                            className="w-full bg-card brutalist-border rounded-none px-3 py-2 text-sm text-white" 
                             value={instance.name}
                             onChange={(e) => {
                                 invoke("edit_instance", {
@@ -440,7 +440,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                 </div>
 
                 {/* Memory Settings */}
-                <div className="bg-background border border-border rounded-xl p-5">
+                <div className="bg-background brutalist-border rounded-none p-5">
                   <h4 className="text-sm font-semibold text-white mb-4">{t("instance_manager.memory")}</h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -448,7 +448,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                         <input 
                             type="number" 
                             placeholder={t("instance_manager.default")}
-                            className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white" 
+                            className="w-full bg-card brutalist-border rounded-none px-3 py-2 text-sm text-white" 
                             value={instance.min_memory || ""}
                             onChange={(e) => {
                                 const val = e.target.value ? parseInt(e.target.value) : null;
@@ -467,7 +467,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                         <input 
                             type="number" 
                             placeholder={t("instance_manager.default")}
-                            className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white" 
+                            className="w-full bg-card brutalist-border rounded-none px-3 py-2 text-sm text-white" 
                             value={instance.max_memory || ""}
                             onChange={(e) => {
                                 const val = e.target.value ? parseInt(e.target.value) : null;
@@ -484,14 +484,14 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                   </div>
                 </div>
 
-                 <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-6 flex items-center justify-between">
+                 <div className="bg-red-500/5 border border-red-500/20 rounded-none p-6 flex items-center justify-between">
                      <div>
                          <h4 className="text-red-400 font-medium mb-1">{t("instance_manager.delete_instance")}</h4>
                          <p className="text-xs text-muted">{t("instance_manager.delete_warning")}</p>
                      </div>
                      <button 
                         onClick={handleDeleteInstance}
-                        className="bg-red-500/10 hover:bg-red-500/20 text-red-500 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                        className="bg-red-500/10 hover:bg-red-500/20 text-red-500 px-4 py-2 rounded-none text-sm font-medium transition-colors"
                      >
                          {t("instance_manager.delete")}
                      </button>
@@ -504,11 +504,11 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
       </div>
 
       {showConfirmDelete && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowConfirmDelete(false)}>
-          <div className="bg-card border border-border rounded-xl shadow-2xl w-[400px] overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80  animate-in fade-in duration-200" onClick={() => setShowConfirmDelete(false)}>
+          <div className="bg-card brutalist-border rounded-none  w-[400px] overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex items-center gap-3 text-red-400 mb-4">
-                <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-none bg-red-500/10 flex items-center justify-center">
                   <Trash2 size={20} />
                 </div>
                 <h3 className="font-bold text-lg text-white">{t("instance_manager.delete_instance")}</h3>
@@ -522,7 +522,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
               <div className="flex justify-end gap-3">
                 <button 
                   onClick={() => setShowConfirmDelete(false)}
-                  className="px-4 py-2 rounded-lg text-sm font-medium hover:bg-card-hover transition-colors"
+                  className="px-4 py-2 rounded-none text-sm font-medium hover:bg-card-hover transition-colors"
                 >
                   {t("common.cancel")}
                 </button>
@@ -536,7 +536,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                       }
                       setShowConfirmDelete(false);
                   }}
-                  className="px-4 py-2 rounded-lg text-sm font-bold bg-red-500 hover:bg-red-600 text-white transition-colors shadow-lg shadow-red-500/20"
+                  className="px-4 py-2 rounded-none text-sm font-bold bg-red-500 hover:bg-red-600 text-white transition-colors  "
                 >
                   {t("instance_manager.delete_permanently")}
                 </button>

@@ -48,7 +48,7 @@ export default function ToastContainer() {
       {toasts.map((t) => (
         <div
           key={t.id}
-          className="bg-card border border-border shadow-2xl rounded-xl p-4 flex items-center gap-3 w-80 animate-in slide-in-from-right-8 fade-in duration-300 pointer-events-auto"
+          className="bg-card brutalist-border  rounded-none p-4 flex items-center gap-3 w-80 animate-in slide-in-from-right-8 fade-in duration-300 pointer-events-auto"
         >
           {t.type === 'success' && <CheckCircle className="text-green-500 shrink-0" size={20} />}
           {t.type === 'error' && <AlertCircle className="text-red-500 shrink-0" size={20} />}

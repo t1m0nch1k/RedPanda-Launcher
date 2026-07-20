@@ -163,8 +163,8 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
   ];
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 bg-black/80  flex items-center justify-center z-50 p-4">
+      <div className="bg-card brutalist-border rounded-none w-full max-w-md  flex flex-col animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border bg-background/50 rounded-t-2xl">
@@ -172,7 +172,7 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
             <Box size={20} className="text-primary" />
             {t("create_instance.title")}
           </h2>
-          <button onClick={onClose} className="p-2 text-muted hover:text-white hover:bg-card rounded-lg transition-colors">
+          <button onClick={onClose} className="p-2 text-muted hover:text-white hover:bg-card rounded-none transition-colors">
             <X size={20} />
           </button>
         </div>
@@ -187,7 +187,7 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
               placeholder={t("create_instance.name_placeholder")}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-background border border-border rounded-xl px-4 py-3 text-[13px] text-white focus:outline-none focus:border-primary transition-colors"
+              className="w-full bg-background brutalist-border rounded-none px-4 py-3 text-[13px] text-white focus:outline-none focus:border-primary transition-colors"
               autoFocus
             />
           </div>
@@ -199,7 +199,7 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
                 value={gameVersion}
                 onChange={(e) => setGameVersion(e.target.value)}
                 disabled={loadingVersions}
-                className="w-full bg-background border border-border rounded-xl px-4 py-3 text-[13px] text-white focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer disabled:opacity-50"
+                className="w-full bg-background brutalist-border rounded-none px-4 py-3 text-[13px] text-white focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer disabled:opacity-50"
               >
                 {loadingVersions ? (
                   <option>{t("common.loading")}</option>
@@ -215,7 +215,7 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
               <select 
                 value={loaderType}
                 onChange={(e) => setLoaderType(e.target.value)}
-                className="w-full bg-background border border-border rounded-xl px-4 py-3 text-[13px] text-white focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer"
+                className="w-full bg-background brutalist-border rounded-none px-4 py-3 text-[13px] text-white focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer"
               >
                 {loaderOptions.map(opt => (
                   <option key={opt.id} value={opt.id}>{opt.name}</option>
@@ -233,7 +233,7 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
                 value={loaderVersion}
                 onChange={(e) => setLoaderVersion(e.target.value)}
                 disabled={loadingLoaderVersions}
-                className="w-full bg-background border border-border rounded-xl px-4 py-3 text-[13px] text-white focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer disabled:opacity-50"
+                className="w-full bg-background brutalist-border rounded-none px-4 py-3 text-[13px] text-white focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer disabled:opacity-50"
               >
                 {loadingLoaderVersions ? (
                   <option>{t("common.loading")}</option>
@@ -256,7 +256,7 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
                     type="checkbox"
                     checked={optimizeFPS}
                     onChange={(e) => setOptimizeFPS(e.target.checked)}
-                    className="w-4 h-4 rounded border-border bg-background text-primary focus:ring-primary focus:ring-offset-background"
+                    className="w-4 h-4 rounded-none border-border bg-background text-primary focus:ring-primary focus:ring-offset-background"
                   />
                 </div>
                 <div className="flex flex-col">
@@ -277,14 +277,14 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
         <div className="p-4 border-t border-border bg-background/50 rounded-b-2xl flex justify-end gap-3">
           <button 
             onClick={onClose} 
-            className="px-5 py-2.5 rounded-xl font-medium text-[13px] text-muted hover:text-white transition-colors"
+            className="px-5 py-2.5 rounded-none font-medium text-[13px] text-muted hover:text-white transition-colors"
           >
             {t("create_instance.cancel")}
           </button>
           <button 
             onClick={handleCreate}
             disabled={isCreating || !name.trim() || !gameVersion.trim()}
-            className="bg-primary hover:bg-primary-hover text-white px-6 py-2.5 rounded-xl font-semibold text-[13px] disabled:opacity-50 transition-colors shadow-sm flex items-center gap-2"
+            className="bg-primary hover:bg-primary-hover text-white px-6 py-2.5 rounded-none font-semibold text-[13px] disabled:opacity-50 transition-colors  flex items-center gap-2"
           >
             {isCreating ? t("create_instance.creating") : <><Play size={14} /> {t("create_instance.create")}</>}
           </button>
