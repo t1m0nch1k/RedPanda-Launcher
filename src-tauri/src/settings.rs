@@ -18,6 +18,7 @@ pub struct AppSettings {
     pub launch_behavior: String,
     pub show_console: bool,
     pub aggressive_optimization: bool,
+    pub show_snapshots: bool,
 }
 
 impl Default for AppSettings {
@@ -34,6 +35,7 @@ impl Default for AppSettings {
             launch_behavior: "hide".to_string(),
             show_console: false,
             aggressive_optimization: false,
+            show_snapshots: false,
         }
     }
 }
@@ -84,7 +86,7 @@ pub struct JavaInstallation {
 }
 
 #[tauri::command]
-pub fn find_java_installations() -> Result<Vec<JavaInstallation>, String> {
+pub async fn find_java_installations() -> Result<Vec<JavaInstallation>, String> {
     let mut installations = Vec::new();
 
     // Check JAVA_HOME

@@ -32,8 +32,10 @@ interface InstanceManagerModalProps {
 }
 
 import { toast } from "./Toast";
+import { useTranslation } from "react-i18next";
 
 export default function InstanceManagerModal({ instance, onClose, onDelete }: InstanceManagerModalProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<"mods" | "resources" | "settings">("mods");
   const [showModrinth, setShowModrinth] = useState(false);
   const [modrinthProjectType, setModrinthProjectType] = useState<"mod" | "resourcepack" | "shader">("mod");
@@ -59,7 +61,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
           setModUpdates(updatesMap);
       } catch (e) {
           console.error(e);
-          toast.error("Ошибка при проверке обновлений: " + e);
+          toast.error(t("common.error") + ": " + e);
       } finally {
           setCheckingUpdates(false);
       }
@@ -86,7 +88,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
           await loadMods();
       } catch (e) {
           console.error(e);
-          toast.error("Ошибка при обновлении мода: " + e);
+          toast.error(t("common.error") + ": " + e);
       } finally {
           setUpdatingMods(prev => ({ ...prev, [modFileName]: false }));
       }
@@ -135,7 +137,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
         loadMods();
     } catch(e) {
         console.error(e);
-        toast.error("Ошибка при удалении мода: " + e);
+        toast.error(t("common.error") + ": " + e);
     }
   }
 
@@ -145,7 +147,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
         loadResources();
     } catch(e) {
         console.error(e);
-        toast.error("Ошибка при удалении ресурспака: " + e);
+        toast.error(t("common.error") + ": " + e);
     }
   }
 
@@ -155,7 +157,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
         loadResources();
     } catch(e) {
         console.error(e);
-        toast.error("Ошибка при удалении шейдера: " + e);
+        toast.error(t("common.error") + ": " + e);
     }
   }
 
@@ -191,7 +193,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                 activeTab === "mods" ? "bg-primary/10 text-primary" : "text-muted hover:text-white hover:bg-card"
               }`}
             >
-              <Puzzle size={16} /> Моды
+              <Puzzle size={16} /> {t("instance_manager.mods")}
             </button>
             <button
               onClick={() => setActiveTab("resources")}
@@ -199,7 +201,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                 activeTab === "resources" ? "bg-primary/10 text-primary" : "text-muted hover:text-white hover:bg-card"
               }`}
             >
-              <Palette size={16} /> Ресурспаки
+              <Palette size={16} /> {t("instance_manager.resources")}
             </button>
             <button
               onClick={() => setActiveTab("settings")}
@@ -207,7 +209,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                 activeTab === "settings" ? "bg-primary/10 text-primary" : "text-muted hover:text-white hover:bg-card"
               }`}
             >
-              <SettingsIcon size={16} /> Настройки
+              <SettingsIcon size={16} /> {t("instance_manager.settings")}
             </button>
           </nav>
         </div>
@@ -216,9 +218,9 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
         <div className="flex-1 flex flex-col relative bg-card">
           <div className="p-4 border-b border-border flex justify-between items-center bg-background/50">
             <h3 className="font-semibold text-white">
-              {activeTab === "mods" && "Управление модами"}
-              {activeTab === "resources" && "Ресурспаки и Шейдеры"}
-              {activeTab === "settings" && "Настройки сборки"}
+              {activeTab === "mods" && t("instance_manager.manage_mods")}
+              {activeTab === "resources" && t("instance_manager.resources_and_shaders")}
+              {activeTab === "settings" && t("instance_manager.instance_settings")}
             </h3>
             <button onClick={onClose} className="p-2 text-muted hover:text-white hover:bg-background rounded-lg transition-colors">
               <X size={18} />
@@ -229,7 +231,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
             {activeTab === "mods" && (
               <div className="flex flex-col h-full gap-4">
                 <div className="flex justify-between items-center">
-                  <h4 className="text-sm font-medium text-muted">Установленные моды ({installedMods.length})</h4>
+                  <h4 className="text-sm font-medium text-muted">{t("instance_manager.installed_mods", { count: installedMods.length })}</h4>
                   <div className="flex items-center gap-2">
                       <button 
                         onClick={handleCheckUpdates}
@@ -237,13 +239,13 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                         className="bg-card hover:bg-background border border-border text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors disabled:opacity-50"
                       >
                         {checkingUpdates ? <Loader2 className="animate-spin" size={14} /> : <RefreshCw size={14} />}
-                        Проверить обновления
+                        {t("instance_manager.check_updates")}
                       </button>
                       <button 
                         onClick={() => { setModrinthProjectType("mod"); setShowModrinth(true); }}
                         className="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors"
                       >
-                        <Plus size={14} /> Скачать моды
+                        <Plus size={14} /> {t("instance_manager.download_mods")}
                       </button>
                   </div>
                 </div>
@@ -252,12 +254,12 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                     {loadingMods ? (
                         <div className="flex items-center justify-center h-full text-muted flex-col gap-3">
                             <Loader2 className="animate-spin" size={24} />
-                            <span className="text-sm">Загрузка списка...</span>
+                            <span className="text-sm">{t("instance_manager.loading_list")}</span>
                         </div>
                     ) : installedMods.length === 0 ? (
                         <div className="flex items-center justify-center h-full text-muted text-sm flex-col gap-2 p-8 text-center">
                             <Puzzle size={32} className="opacity-20 mb-2" />
-                            Модов пока нет.<br/>Нажмите "Скачать моды" чтобы найти их в базе Modrinth.
+                            <span dangerouslySetInnerHTML={{ __html: t("instance_manager.no_mods_desc") }} />
                         </div>
                     ) : (
                         <div className="divide-y divide-border">
@@ -311,7 +313,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
               <div className="flex flex-col gap-6">
                 <div>
                     <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-semibold text-white">Ресурспаки</h3>
+                        <h3 className="text-sm font-semibold text-white">{t("instance_manager.resources")}</h3>
                         <button 
                             onClick={() => {
                                 setModrinthProjectType("resourcepack");
@@ -330,7 +332,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                         ) : installedResourcePacks.length === 0 ? (
                             <div className="flex justify-center items-center h-24 text-muted text-sm flex-col gap-2">
                                 <Palette size={20} className="opacity-50" />
-                                <span>Нет установленных ресурспаков</span>
+                                <span>{t("instance_manager.no_resourcepacks")}</span>
                             </div>
                         ) : (
                             <div className="divide-y divide-border">
@@ -360,7 +362,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
 
                 <div>
                     <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-semibold text-white">Шейдеры</h3>
+                        <h3 className="text-sm font-semibold text-white">{t("instance_manager.shaders")}</h3>
                         <button 
                             onClick={() => {
                                 setModrinthProjectType("shader");
@@ -368,7 +370,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                             }}
                             className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-xs font-medium"
                         >
-                            <Plus size={14} /> Добавить из Modrinth
+                            <Plus size={14} /> {t("instance_manager.add_from_modrinth")}
                         </button>
                     </div>
                     <div className="bg-background border border-border rounded-xl overflow-hidden min-h-[100px]">
@@ -379,7 +381,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                         ) : installedShaders.length === 0 ? (
                             <div className="flex justify-center items-center h-24 text-muted text-sm flex-col gap-2">
                                 <Palette size={20} className="opacity-50" />
-                                <span>Нет установленных шейдеров</span>
+                                <span>{t("instance_manager.no_shaders")}</span>
                             </div>
                         ) : (
                             <div className="divide-y divide-border">
@@ -413,10 +415,10 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
               <div className="flex flex-col gap-8">
                 {/* General Settings */}
                 <div className="bg-background border border-border rounded-xl p-5">
-                  <h4 className="text-sm font-semibold text-white mb-4">Основные настройки</h4>
+                  <h4 className="text-sm font-semibold text-white mb-4">{t("instance_manager.general_settings")}</h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-xs text-muted mb-1">Название сборки</label>
+                        <label className="block text-xs text-muted mb-1">{t("instance_manager.instance_name")}</label>
                         <input 
                             type="text" 
                             className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white" 
@@ -439,13 +441,13 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
 
                 {/* Memory Settings */}
                 <div className="bg-background border border-border rounded-xl p-5">
-                  <h4 className="text-sm font-semibold text-white mb-4">Память</h4>
+                  <h4 className="text-sm font-semibold text-white mb-4">{t("instance_manager.memory")}</h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-xs text-muted mb-1">Минимум RAM (МБ)</label>
+                        <label className="block text-xs text-muted mb-1">{t("instance_manager.min_ram")}</label>
                         <input 
                             type="number" 
-                            placeholder="По умолчанию"
+                            placeholder={t("instance_manager.default")}
                             className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white" 
                             value={instance.min_memory || ""}
                             onChange={(e) => {
@@ -461,10 +463,10 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                         />
                     </div>
                     <div>
-                        <label className="block text-xs text-muted mb-1">Максимум RAM (МБ)</label>
+                        <label className="block text-xs text-muted mb-1">{t("instance_manager.max_ram")}</label>
                         <input 
                             type="number" 
-                            placeholder="По умолчанию"
+                            placeholder={t("instance_manager.default")}
                             className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-white" 
                             value={instance.max_memory || ""}
                             onChange={(e) => {
@@ -484,14 +486,14 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
 
                  <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-6 flex items-center justify-between">
                      <div>
-                         <h4 className="text-red-400 font-medium mb-1">Удаление сборки</h4>
-                         <p className="text-xs text-muted">Это действие необратимо удалит все файлы, моды и миры.</p>
+                         <h4 className="text-red-400 font-medium mb-1">{t("instance_manager.delete_instance")}</h4>
+                         <p className="text-xs text-muted">{t("instance_manager.delete_warning")}</p>
                      </div>
                      <button 
                         onClick={handleDeleteInstance}
                         className="bg-red-500/10 hover:bg-red-500/20 text-red-500 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                      >
-                         Удалить
+                         {t("instance_manager.delete")}
                      </button>
                  </div>
               </div>
@@ -509,12 +511,12 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                 <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
                   <Trash2 size={20} />
                 </div>
-                <h3 className="font-bold text-lg text-white">Удаление сборки</h3>
+                <h3 className="font-bold text-lg text-white">{t("instance_manager.delete_instance")}</h3>
               </div>
               <p className="text-muted text-sm leading-relaxed mb-6">
-                Вы уверены, что хотите удалить сборку <span className="text-white font-medium">{instance.name}</span>? 
+                {t("instance_manager.delete_confirm")} <span className="text-white font-medium">{instance.name}</span>? 
                 <br/><br/>
-                <span className="text-red-400/90 font-medium">Все моды и сохранения будут удалены безвозвратно!</span>
+                <span className="text-red-400/90 font-medium">{t("instance_manager.delete_irreversible")}</span>
               </p>
               
               <div className="flex justify-end gap-3">
@@ -522,7 +524,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                   onClick={() => setShowConfirmDelete(false)}
                   className="px-4 py-2 rounded-lg text-sm font-medium hover:bg-card-hover transition-colors"
                 >
-                  Отмена
+                  {t("common.cancel")}
                 </button>
                 <button 
                   onClick={async () => {
@@ -530,13 +532,13 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                           await invoke("remove_instance", { id: instance.id });
                           onDelete();
                       } catch(e) {
-                          toast.error("Ошибка при удалении: " + e);
+                          toast.error(t("common.error") + ": " + e);
                       }
                       setShowConfirmDelete(false);
                   }}
                   className="px-4 py-2 rounded-lg text-sm font-bold bg-red-500 hover:bg-red-600 text-white transition-colors shadow-lg shadow-red-500/20"
                 >
-                  Удалить навсегда
+                  {t("instance_manager.delete_permanently")}
                 </button>
               </div>
             </div>

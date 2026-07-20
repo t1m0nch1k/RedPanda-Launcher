@@ -103,6 +103,13 @@ pub async fn launch_game(
         .set("Xmx", format!("{}M", max_mem))
         .set("Xms", format!("{}M", min_mem));
 
+    if let Some(mut inst_path) = dirs::data_dir() {
+        inst_path.push("RedPandaLauncher");
+        inst_path.push(&instance_id);
+        inst_path.push("natives");
+        jvm_builder = jvm_builder.set("Dorg.lwjgl.librarypath", inst_path.to_string_lossy().to_string());
+    }
+
     // Parse custom JVM args
     for arg in settings.jvm_args.split_whitespace() {
         if arg.starts_with('-') {
@@ -127,7 +134,9 @@ pub async fn launch_game(
     if settings.aggressive_optimization {
         jvm_builder = jvm_builder
             .set("XX:+PerfDisableSharedMem", "")
-            .set("XX:+AlwaysPreTouch", "");
+            .set("XX:+AlwaysPreTouch", "")
+            .set("Xverify:none", "")
+            .set("XX:+UseStringDeduplication", "");
     }
 
     let mut builder = jvm_builder.done();

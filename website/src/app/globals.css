@@ -3,13 +3,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-  --card: #141414;
-  --border: #262626;
+  --background: #101214;
+  --foreground: #ffffff;
+  --card: #1c1e21;
+  --border: #333333;
   --primary: #F55E1D;
   --primary-hover: #E04F0F;
-  --muted: #8a8a8e;
+  --muted: #a0a0a0;
+  
+  --sp: 4rem; /* rhythm token */
 }
 
 @theme inline {
@@ -20,32 +22,67 @@
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
   --color-muted: var(--muted);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-mono), monospace;
   overflow-x: hidden;
+  position: relative;
 }
 
-/* Glass panel utility for reusable components */
-.glass-panel {
-  background-color: rgba(20, 20, 20, 0.8);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 1rem;
+/* Noise overlay */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
 }
 
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display), sans-serif;
+  text-transform: uppercase;
+}
+
+::selection {
+  background-color: var(--primary);
+  color: #fff;
+}
+
+/* Typography clamp settings */
+h1 {
+  font-size: clamp(3rem, 10vw, 8rem);
+  line-height: 0.85;
+}
+
+h2 {
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  line-height: 0.9;
+}
+
+/* Brutalist grid and components */
+.brutalist-card {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  padding: 2rem;
+}
+
+.brutalist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  gap: 2rem;
+}
+
+/* Marquee */
 @keyframes marquee {
-  0% {
-    transform: translateX(0%);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
 }
 
 .animate-marquee {

@@ -3687,6 +3687,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "redpanda-launcher"
+version = "0.1.2"
+dependencies = [
+ "anyhow",
+ "dirs",
+ "futures",
+ "hex",
+ "lighty-event",
+ "lighty-launcher",
+ "log",
+ "reqwest 0.11.27",
+ "secrecy",
+ "serde",
+ "serde_json",
+ "sha1 0.11.0",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-log",
+ "tauri-plugin-opener",
+ "tokio",
+ "urlencoding",
+ "uuid",
+ "walkdir",
+ "zip 8.6.0",
+]
+
+[[package]]
 name = "ref-cast"
 version = "1.0.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4705,34 +4733,6 @@ dependencies = [
  "webview2-com",
  "window-vibrancy",
  "windows",
-]
-
-[[package]]
-name = "tauri-app"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "dirs",
- "futures",
- "hex",
- "lighty-event",
- "lighty-launcher",
- "log",
- "reqwest 0.11.27",
- "secrecy",
- "serde",
- "serde_json",
- "sha1 0.11.0",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-log",
- "tauri-plugin-opener",
- "tokio",
- "urlencoding",
- "uuid",
- "walkdir",
- "zip 8.6.0",
 ]
 
 [[package]]

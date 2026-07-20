@@ -15,8 +15,10 @@ interface AccountSelectorProps {
 }
 
 import { toast } from "./Toast";
+import { useTranslation } from "react-i18next";
 
 export default function AccountSelector({ onAccountChange }: AccountSelectorProps) {
+  const { t } = useTranslation();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -63,7 +65,7 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
       loadAccounts();
     } catch (e) {
       console.error(e);
-      toast.error("Ошибка: " + e);
+      toast.error(t("common.error") + ": " + e);
     }
     setIsAdding(false);
   };
@@ -77,7 +79,7 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
       loadAccounts();
     } catch (e) {
       console.error(e);
-      toast.error("Ошибка авторизации Ely.by: " + e);
+      toast.error(t("common.error") + " Ely.by: " + e);
       setAddMethod("none");
     }
     setIsAdding(false);
@@ -93,17 +95,17 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
       loadAccounts();
     } catch (e) {
       console.error(e);
-      toast.error("Ошибка Microsoft: " + e);
+      toast.error(t("common.error") + " Microsoft: " + e);
       setAddMethod("none");
     }
     setIsAdding(false);
   };
 
   const getAvatarUrl = (account: Account) => {
-    if (account.account_type === "Offline" || !account.uuid) {
-      return "https://minotar.net/helm/MHF_Steve/64";
+    if (account.account_type === "Offline" || account.account_type === "ElyBy") {
+      return `https://minotar.net/helm/${account.username}/64`;
     }
-    return `https://minotar.net/helm/${account.uuid}/64`;
+    return `https://minotar.net/helm/${account.uuid || account.username}/64`;
   };
 
   const handleSelectAccount = async (id: string) => {
@@ -129,7 +131,7 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
 
   return (
     <div className="flex flex-col relative" ref={dropdownRef}>
-      <span className="text-[10px] text-muted font-bold mb-1.5 uppercase tracking-[0.15em] pl-1">Аккаунт</span>
+      <span className="text-[10px] text-muted font-bold mb-1.5 uppercase tracking-[0.15em] pl-1">{t("account.title", "Аккаунт")}</span>
       <button 
         className="flex items-center gap-3 bg-transparent border border-transparent rounded-xl px-2 py-1.5 hover:bg-card-hover transition-colors w-56 text-left group -ml-2"
         onClick={() => setIsOpen(!isOpen)}
@@ -143,10 +145,10 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
         </div>
         <div className="flex flex-col items-start overflow-hidden flex-1">
           <div className="font-semibold text-[13px] text-white/90 truncate w-full">
-            {activeAccount ? activeAccount.username : "Нет аккаунта"}
+            {activeAccount ? activeAccount.username : t("account.no_account")}
           </div>
           <div className="text-[11px] text-muted truncate w-full mt-0.5">
-            {activeAccount ? activeAccount.account_type : "Добавить..."}
+            {activeAccount ? activeAccount.account_type : t("account.add")}
           </div>
         </div>
         <ChevronDown size={14} className={`text-muted transition-transform ml-1 flex-shrink-0 ${isOpen ? "rotate-180" : ""}`} />
@@ -175,7 +177,7 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
             
             {accounts.length === 0 && (
               <div className="p-3 text-center text-sm text-muted">
-                Нет сохраненных аккаунтов
+                {t("account.no_saved")}
               </div>
             )}
           </div>
@@ -185,7 +187,7 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
               onClick={() => { setIsOpen(false); setShowAddModal(true); }}
               className="flex items-center justify-center gap-2 w-full py-2 bg-card hover:bg-card-hover text-muted hover:text-white border border-border hover:border-muted/50 rounded-lg transition-colors text-[13px] font-medium"
             >
-              <Plus size={16} /> Добавить аккаунт
+              <Plus size={16} /> {t("account.add_account")}
             </button>
           </div>
         </div>
@@ -196,7 +198,7 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
           <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold">Добавить аккаунт</h3>
+                <h3 className="text-xl font-bold">{t("account.add_account")}</h3>
                 <button onClick={() => { setShowAddModal(false); setAddMethod("none"); }} className="text-muted hover:text-white transition-colors">
                   <X size={20} />
                 </button>
@@ -209,8 +211,8 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
                       <UserPlus className="text-white/70" size={20} />
                     </div>
                     <div>
-                      <div className="font-bold text-white text-sm">Оффлайн (Пиратка)</div>
-                      <div className="text-xs text-muted font-medium mt-0.5">Доступ только к пиратским серверам</div>
+                      <div className="font-bold text-white text-sm">{t("account.offline_title")}</div>
+                      <div className="text-xs text-muted font-medium mt-0.5">{t("account.offline_desc")}</div>
                     </div>
                   </button>
 
@@ -222,8 +224,8 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
                       <LayoutGrid className="w-5 h-5 text-white/90" />
                     </div>
                     <div>
-                      <div className="font-bold text-white text-sm">Лицензия Microsoft</div>
-                      <div className="text-xs text-muted font-medium mt-0.5">Полный доступ к серверам, скинам и Realms</div>
+                      <div className="font-bold text-white text-sm">{t("account.ms_title")}</div>
+                      <div className="text-xs text-muted font-medium mt-0.5">{t("account.ms_desc")}</div>
                     </div>
                   </button>
 
@@ -235,8 +237,8 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
                       <UserCircle2 className="w-5 h-5 text-white/90" />
                     </div>
                     <div>
-                      <div className="font-bold text-white text-sm">Аккаунт Ely.by</div>
-                      <div className="text-xs text-muted font-medium mt-0.5">Бесплатный вход и поддержка кастомных скинов</div>
+                      <div className="font-bold text-white text-sm">{t("account.elyby_title")}</div>
+                      <div className="text-xs text-muted font-medium mt-0.5">{t("account.elyby_desc")}</div>
                     </div>
                   </button>
                 </div>
@@ -245,10 +247,10 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
               {addMethod === "offline" && (
                 <div className="flex flex-col gap-4">
                   <div>
-                    <label className="text-xs text-muted mb-2 block">Никнейм</label>
+                    <label className="text-xs text-muted mb-2 block">{t("account.nickname")}</label>
                     <input 
                       type="text" 
-                      placeholder="Например: Notch"
+                      placeholder={t("account.nickname_placeholder")}
                       value={newUsername}
                       onChange={(e) => setNewUsername(e.target.value)}
                       className="w-full bg-background border border-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary transition-colors"
@@ -258,14 +260,14 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
                   
                   <div className="flex justify-end gap-3 mt-2">
                     <button onClick={() => setAddMethod("none")} className="px-4 py-2 rounded-lg font-medium text-sm text-muted hover:text-white transition-colors">
-                      Назад
+                      {t("common.back")}
                     </button>
                     <button 
                       onClick={handleAddOffline}
                       disabled={isAdding || !newUsername.trim()}
                       className="bg-primary hover:bg-primary-hover text-white px-6 py-2 rounded-lg font-semibold text-sm disabled:opacity-50 transition-colors shadow-sm"
                     >
-                      {isAdding ? "Добавление..." : "Сохранить"}
+                      {isAdding ? t("account.adding") : t("common.save")}
                     </button>
                   </div>
                 </div>
@@ -274,10 +276,10 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
               {addMethod === "elyby" && (
                 <div className="text-center py-8">
                   <div className="w-16 h-16 border-4 border-[#8B5CF6]/30 border-t-[#8B5CF6] rounded-full animate-spin mx-auto mb-6"></div>
-                  <h4 className="text-lg font-bold text-white mb-2">Ожидание авторизации...</h4>
-                  <p className="text-sm text-muted">Продолжите вход в открывшемся окне браузера.</p>
+                  <h4 className="text-lg font-bold text-white mb-2">{t("account.waiting_auth")}</h4>
+                  <p className="text-sm text-muted">{t("account.continue_browser")}</p>
                   <button onClick={() => setAddMethod("none")} className="mt-6 px-4 py-2 rounded-lg font-medium text-sm text-muted hover:text-white transition-colors bg-card hover:bg-background border border-border">
-                    Отмена
+                    {t("common.cancel")}
                   </button>
                 </div>
               )}
@@ -285,10 +287,10 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
               {addMethod === "microsoft" && (
                 <div className="text-center py-8">
                   <div className="w-16 h-16 border-4 border-[#107C10]/30 border-t-[#107C10] rounded-full animate-spin mx-auto mb-6"></div>
-                  <h4 className="text-lg font-bold text-white mb-2">Ожидание авторизации...</h4>
-                  <p className="text-sm text-muted">Продолжите вход в открывшемся окне браузера.</p>
+                  <h4 className="text-lg font-bold text-white mb-2">{t("account.waiting_auth")}</h4>
+                  <p className="text-sm text-muted">{t("account.continue_browser")}</p>
                   <button onClick={() => setAddMethod("none")} className="mt-6 px-4 py-2 rounded-lg font-medium text-sm text-muted hover:text-white transition-colors bg-card hover:bg-background border border-border">
-                    Отмена
+                    {t("common.cancel")}
                   </button>
                 </div>
               )}

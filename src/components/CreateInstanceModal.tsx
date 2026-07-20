@@ -1,15 +1,16 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { X, Box, Layers, Play } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { toast } from "./Toast";
 
 interface CreateInstanceModalProps {
   onClose: () => void;
   onCreated: () => void;
 }
 
-import { toast } from "./Toast";
-
 export default function CreateInstanceModal({ onClose, onCreated }: CreateInstanceModalProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [gameVersion, setGameVersion] = useState("1.20.1");
   const [loaderType, setLoaderType] = useState("Vanilla");
@@ -93,12 +94,14 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
   }, [loaderType, gameVersion]);
 
   const installOptimizationMods = async (instanceId: string, gameVersion: string, loaderType: string) => {
-    let mods: string[] = [];
-    if (loaderType === "Fabric" || loaderType === "Quilt") {
-        mods = ["sodium", "lithium", "ferrite-core", "entityculling"];
-    } else if (loaderType === "Forge" || loaderType === "NeoForge") {
-        mods = ["embeddium", "ferrite-core", "entityculling"];
-    }
+      let mods: string[] = [];
+      if (loaderType === "Fabric") {
+          mods = ["fabric-api", "sodium", "lithium", "ferrite-core", "entityculling"];
+      } else if (loaderType === "Quilt") {
+          mods = ["qsl", "sodium", "lithium", "ferrite-core", "entityculling"];
+      } else if (loaderType === "Forge" || loaderType === "NeoForge") {
+          mods = ["embeddium", "ferrite-core", "entityculling"];
+      }
     
     for (const mod of mods) {
         try {
@@ -134,29 +137,29 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
       });
 
       if (optimizeFPS && loaderType !== "Vanilla") {
-         toast.info("Установка оптимизирующих модов...");
+         toast.info(t("create_instance.installing_opt_mods"));
          try {
             await installOptimizationMods(newInstance.id, gameVersion.trim(), loaderType);
-            toast.success("Моды для оптимизации установлены!");
+            toast.success(t("create_instance.opt_mods_installed"));
          } catch(e) {
-            toast.error("Не удалось установить моды оптимизации.");
+            toast.error(t("create_instance.error_opt_mods"));
          }
       }
 
       onCreated();
     } catch (e) {
       console.error(e);
-      toast.error("Ошибка при создании сборки: " + e);
+      toast.error(t("common.error") + ": " + e);
     }
     setIsCreating(false);
   };
 
   const loaderOptions = [
-    { id: "Vanilla", name: "Vanilla", desc: "Чистый Minecraft", color: "text-white" },
-    { id: "Fabric", name: "Fabric", desc: "Легкий загрузчик", color: "text-[#DBC39A]" },
-    { id: "Forge", name: "Forge", desc: "Классика", color: "text-[#DF8D68]" },
-    { id: "Quilt", name: "Quilt", desc: "Форк Fabric", color: "text-[#8E69C6]" },
-    { id: "NeoForge", name: "NeoForge", desc: "Форк Forge", color: "text-[#E36636]" },
+    { id: "Vanilla", name: "Vanilla", desc: t("create_instance.desc_vanilla"), color: "text-white" },
+    { id: "Fabric", name: "Fabric", desc: t("create_instance.desc_fabric"), color: "text-[#DBC39A]" },
+    { id: "Forge", name: "Forge", desc: t("create_instance.desc_forge"), color: "text-[#DF8D68]" },
+    { id: "Quilt", name: "Quilt", desc: t("create_instance.desc_quilt"), color: "text-[#8E69C6]" },
+    { id: "NeoForge", name: "NeoForge", desc: t("create_instance.desc_neoforge"), color: "text-[#E36636]" },
   ];
 
   return (
@@ -167,7 +170,7 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
         <div className="flex items-center justify-between p-6 border-b border-border bg-background/50 rounded-t-2xl">
           <h2 className="text-xl font-bold text-white flex items-center gap-3">
             <Box size={20} className="text-primary" />
-            Создать сборку
+            {t("create_instance.title")}
           </h2>
           <button onClick={onClose} className="p-2 text-muted hover:text-white hover:bg-card rounded-lg transition-colors">
             <X size={20} />
@@ -178,10 +181,10 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
         <div className="p-6 flex flex-col gap-6">
           
           <div>
-            <label className="text-xs text-muted mb-2 block uppercase tracking-wider font-semibold">Название сборки</label>
+            <label className="text-xs text-muted mb-2 block uppercase tracking-wider font-semibold">{t("create_instance.name")}</label>
             <input 
               type="text" 
-              placeholder="Например: Моя выживалка"
+              placeholder={t("create_instance.name_placeholder")}
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full bg-background border border-border rounded-xl px-4 py-3 text-[13px] text-white focus:outline-none focus:border-primary transition-colors"
@@ -191,7 +194,7 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-muted mb-2 block uppercase tracking-wider font-semibold">Версия игры</label>
+              <label className="text-xs text-muted mb-2 block uppercase tracking-wider font-semibold">{t("create_instance.version")}</label>
               <select 
                 value={gameVersion}
                 onChange={(e) => setGameVersion(e.target.value)}
@@ -199,7 +202,7 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
                 className="w-full bg-background border border-border rounded-xl px-4 py-3 text-[13px] text-white focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer disabled:opacity-50"
               >
                 {loadingVersions ? (
-                  <option>Загрузка...</option>
+                  <option>{t("common.loading")}</option>
                 ) : (
                   mcVersions.map(v => (
                     <option key={v} value={v}>{v}</option>
@@ -208,7 +211,7 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
               </select>
             </div>
             <div>
-              <label className="text-xs text-muted mb-2 block uppercase tracking-wider font-semibold">Загрузчик</label>
+              <label className="text-xs text-muted mb-2 block uppercase tracking-wider font-semibold">{t("create_instance.loader")}</label>
               <select 
                 value={loaderType}
                 onChange={(e) => setLoaderType(e.target.value)}
@@ -224,7 +227,7 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
           {loaderType !== "Vanilla" && (
             <div className="animate-in fade-in slide-in-from-top-2 duration-200">
               <label className="text-xs text-muted mb-2 block uppercase tracking-wider font-semibold flex items-center gap-2">
-                <Layers size={14} /> Версия {loaderType}
+                <Layers size={14} /> {t("create_instance.loader_version", { loader: loaderType })}
               </label>
               <select
                 value={loaderVersion}
@@ -233,9 +236,9 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
                 className="w-full bg-background border border-border rounded-xl px-4 py-3 text-[13px] text-white focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer disabled:opacity-50"
               >
                 {loadingLoaderVersions ? (
-                  <option>Загрузка...</option>
+                  <option>{t("common.loading")}</option>
                 ) : loaderVersions.length === 0 ? (
-                  <option value="">Последняя доступная</option>
+                  <option value="">{t("create_instance.latest_available")}</option>
                 ) : (
                   loaderVersions.map(v => (
                     <option key={v} value={v}>{v}</option>
@@ -243,7 +246,7 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
                 )}
               </select>
               <p className="text-[10px] text-muted mt-1.5 ml-1">
-                Для автоматической установки последней версии оставьте поле пустым.
+                {t("create_instance.leave_empty_latest")}
               </p>
 
               <div className="mt-4 flex items-start gap-3">
@@ -258,10 +261,10 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
                 </div>
                 <div className="flex flex-col">
                   <label htmlFor="optimize" className="text-sm font-medium text-white cursor-pointer">
-                    Установить моды для оптимизации (FPS Boost)
+                    {t("create_instance.install_opt_mods")}
                   </label>
                   <p className="text-[10px] text-muted mt-0.5">
-                    Автоматически скачивает Sodium/Embeddium, Lithium и другие полезные моды при создании сборки.
+                    {t("create_instance.opt_mods_desc")}
                   </p>
                 </div>
               </div>
@@ -276,14 +279,14 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
             onClick={onClose} 
             className="px-5 py-2.5 rounded-xl font-medium text-[13px] text-muted hover:text-white transition-colors"
           >
-            Отмена
+            {t("create_instance.cancel")}
           </button>
           <button 
             onClick={handleCreate}
             disabled={isCreating || !name.trim() || !gameVersion.trim()}
             className="bg-primary hover:bg-primary-hover text-white px-6 py-2.5 rounded-xl font-semibold text-[13px] disabled:opacity-50 transition-colors shadow-sm flex items-center gap-2"
           >
-            {isCreating ? "Создание..." : <><Play size={14} /> Создать</>}
+            {isCreating ? t("create_instance.creating") : <><Play size={14} /> {t("create_instance.create")}</>}
           </button>
         </div>
 

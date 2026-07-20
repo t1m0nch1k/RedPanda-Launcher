@@ -25,9 +25,9 @@ interface ModrinthVersion {
 }
 
 interface ModrinthBrowserProps {
-    instance: Instance;
+    instance?: Instance;
     onClose: () => void;
-    projectType?: "mod" | "resourcepack" | "shader";
+    projectType?: "mod" | "resourcepack" | "shader" | "modpack";
 }
 
 const ModItem = memo(({ mod, isSelected, onClick }: { mod: ModrinthSearchResult, isSelected: boolean, onClick: (mod: ModrinthSearchResult) => void }) => {
@@ -48,6 +48,21 @@ const ModItem = memo(({ mod, isSelected, onClick }: { mod: ModrinthSearchResult,
 });
 
 import { toast } from "./Toast";
+import { useTranslation } from "react-i18next";
+
+const MODPACK_CATEGORIES = [
+    { id: "adventure", label: "Adventure" },
+    { id: "combat", label: "Combat" },
+    { id: "exploration", label: "Exploration" },
+    { id: "hardcore", label: "Hardcore" },
+    { id: "magic", label: "Magic" },
+    { id: "mini-game", label: "Mini Game" },
+    { id: "multiplayer", label: "Multiplayer" },
+    { id: "optimization", label: "Optimization" },
+    { id: "quests", label: "Quests" },
+    { id: "tech", label: "Tech" },
+    { id: "vanilla-plus", label: "Vanilla+" }
+];
 
 const MOD_CATEGORIES = [
     { id: "adventure", label: "Adventure" },
@@ -98,6 +113,7 @@ const SHADER_CATEGORIES = [
 ];
 
 export default function ModrinthBrowser({ instance, onClose, projectType = "mod" }: ModrinthBrowserProps) {
+    const { t } = useTranslation();
     const [query, setQuery] = useState("");
     const [results, setResults] = useState<ModrinthSearchResult[]>([]);
     const [loading, setLoading] = useState(false);
@@ -123,8 +139,8 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
             const currentOffset = isNewSearch ? 0 : page * 20;
             const data: ModrinthSearchResult[] = await invoke("search_modrinth", {
                 query,
-                gameVersion: instance.game_version,
-                loader: instance.loader_type,
+                gameVersion: instance?.game_version || "",
+                loader: instance?.loader_type || "",
                 offset: currentOffset,
                 sortBy: sortBy,
                 projectType: projectType,
@@ -133,7 +149,7 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
             setResults(data);
         } catch (e) {
             console.error(e);
-            toast.error("Ошибка поиска: " + e);
+            toast.error(t("common.error") + ": " + e);
         }
         setLoading(false);
     };
@@ -152,14 +168,14 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
         try {
             const data: ModrinthVersion[] = await invoke("get_modrinth_versions", {
                 projectSlug: mod.slug,
-                gameVersion: instance.game_version,
-                loader: instance.loader_type,
+                gameVersion: instance?.game_version || "",
+                loader: instance?.loader_type || "",
                 projectType: projectType
             });
             setVersions(data);
         } catch (e) {
             console.error(e);
-            toast.error("Ошибка получения версий: " + e);
+            toast.error(t("common.error") + ": " + e);
         }
         setLoadingVersions(false);
     };
@@ -167,22 +183,33 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
     const handleInstall = async (versionId: string) => {
         setInstallingVersion(versionId);
         try {
-            await invoke("download_modrinth_version", {
-                instanceId: instance.id,
-                versionId,
-                projectType
-            });
-            const typeName = projectType === "resourcepack" ? "Ресурспак" : projectType === "shader" ? "Шейдер" : "Мод";
-            toast.success(`${typeName} успешно установлен!`);
+            if (projectType === "modpack") {
+                await invoke("download_modrinth_modpack", { versionId });
+                toast.success(t("modrinth.install_success_modpack"));
+                onClose();
+            } else {
+                await invoke("download_modrinth_version", {
+                    instanceId: instance?.id,
+                    versionId,
+                    projectType
+                });
+                if (projectType === "resourcepack") {
+                    toast.success(t("modrinth.install_success_resourcepack"));
+                } else if (projectType === "shader") {
+                    toast.success(t("modrinth.install_success_shader"));
+                } else {
+                    toast.success(t("modrinth.install_success_mod"));
+                }
+            }
             // Optionally, we could go back or show a checkmark
         } catch(e) {
             console.error(e);
-            toast.error("Ошибка установки: " + e);
+            toast.error(t("common.error") + ": " + e);
         }
         setInstallingVersion(null);
     }
 
-    const browserTitle = projectType === "resourcepack" ? "Браузер ресурспаков (Modrinth)" : projectType === "shader" ? "Браузер шейдеров (Modrinth)" : "Браузер модов (Modrinth)";
+    const browserTitle = projectType === "modpack" ? t("modrinth.browser_modpacks") : projectType === "resourcepack" ? t("modrinth.browser_resourcepacks") : projectType === "shader" ? t("modrinth.browser_shaders") : t("modrinth.browser_mods");
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-6">
@@ -195,7 +222,7 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
                     </button>
                     <div className="flex-1">
                         <h3 className="font-semibold text-white leading-tight">{browserTitle}</h3>
-                        <p className="text-xs text-muted">Поиск для {instance.game_version} {instance.loader_type}</p>
+                        {instance ? <p className="text-xs text-muted">{t("modrinth.search_for")} {instance.game_version} {instance.loader_type}</p> : null}
                     </div>
                 </div>
 
@@ -205,10 +232,10 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
                     {/* Category Sidebar */}
                     <div className="w-48 border-r border-border bg-background/20 flex flex-col overflow-y-auto shrink-0 custom-scrollbar">
                          <div className="p-3 text-[11px] font-bold text-muted uppercase tracking-wider sticky top-0 bg-background/95 backdrop-blur-sm z-10 border-b border-border/50">
-                             Категории
+                             {t("modrinth.categories")}
                          </div>
                          <div className="p-2 flex flex-col gap-0.5">
-                             {(projectType === "resourcepack" ? RESOURCEPACK_CATEGORIES : projectType === "shader" ? SHADER_CATEGORIES : MOD_CATEGORIES).map(cat => (
+                             {(projectType === "modpack" ? MODPACK_CATEGORIES : projectType === "resourcepack" ? RESOURCEPACK_CATEGORIES : projectType === "shader" ? SHADER_CATEGORIES : MOD_CATEGORIES).map(cat => (
                                  <label key={cat.id} className="flex items-center gap-3 px-2 py-1.5 hover:bg-card/80 rounded-lg cursor-pointer group transition-colors">
                                      <input 
                                         type="checkbox" 
@@ -233,7 +260,7 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
                                     type="text"
                                     value={query}
                                     onChange={(e) => setQuery(e.target.value)}
-                                    placeholder="Поиск модов..."
+                                    placeholder={t("modrinth.search_placeholder")}
                                     className="w-full bg-background border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors"
                                 />
                             </form>
@@ -243,10 +270,10 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
                                     onChange={(e) => { setSortBy(e.target.value); }}
                                     className="bg-card border border-border rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-primary/50"
                                 >
-                                    <option value="relevance">Релевантность</option>
-                                    <option value="downloads">Популярные</option>
-                                    <option value="newest">Новые</option>
-                                    <option value="updated">Недавно обновленные</option>
+                                    <option value="relevance">{t("modrinth.sort_relevance")}</option>
+                                    <option value="downloads">{t("modrinth.sort_downloads")}</option>
+                                    <option value="newest">{t("modrinth.sort_newest")}</option>
+                                    <option value="updated">{t("modrinth.sort_updated")}</option>
                                 </select>
                                 <div className="flex items-center gap-2">
                                     <button 
@@ -254,15 +281,15 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
                                         onClick={() => setPage(p => Math.max(0, p - 1))}
                                         className="px-2 py-1 text-xs bg-card hover:bg-background border border-border rounded-lg disabled:opacity-50 transition-colors text-white"
                                     >
-                                        Назад
+                                        {t("modrinth.prev")}
                                     </button>
-                                    <span className="text-xs text-muted">Стр. {page + 1}</span>
+                                    <span className="text-xs text-muted">{t("modrinth.page", { page: page + 1 })}</span>
                                     <button 
                                         disabled={results.length < 20 || loading} 
                                         onClick={() => setPage(p => p + 1)}
                                         className="px-2 py-1 text-xs bg-card hover:bg-background border border-border rounded-lg disabled:opacity-50 transition-colors text-white"
                                     >
-                                        Вперед
+                                        {t("modrinth.next")}
                                     </button>
                                 </div>
                             </div>
@@ -274,7 +301,7 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
                                     <Loader2 className="animate-spin text-muted" />
                                 </div>
                             ) : results.length === 0 ? (
-                                <div className="text-center text-muted py-10 text-sm">Ничего не найдено</div>
+                                <div className="text-center text-muted py-10 text-sm">{t("modrinth.nothing_found")}</div>
                             ) : (
                                 results.map((mod) => (
                                     <ModItem 
@@ -298,21 +325,21 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
                                     </div>
                                     <div>
                                         <h3 className="text-xl font-bold text-white leading-tight">{selectedMod.title}</h3>
-                                        <p className="text-sm text-muted">{selectedMod.downloads.toLocaleString()} скачиваний</p>
+                                        <p className="text-sm text-muted">{t("modrinth.downloads_count", { count: selectedMod.downloads.toLocaleString() })}</p>
                                     </div>
                                 </div>
                                 <p className="text-sm text-muted/90 leading-relaxed">{selectedMod.description}</p>
                             </div>
                             
                             <div className="flex-1 overflow-y-auto p-4">
-                                <h4 className="text-sm font-medium text-white mb-3 pl-2">Доступные версии</h4>
+                                <h4 className="text-sm font-medium text-white mb-3 pl-2">{t("modrinth.available_versions")}</h4>
                                 {loadingVersions ? (
                                     <div className="flex justify-center py-10">
                                         <Loader2 className="animate-spin text-muted" />
                                     </div>
                                 ) : versions.length === 0 ? (
                                     <div className="text-center text-muted py-10 text-sm">
-                                        Нет совместимых версий для {instance.game_version} {instance.loader_type}
+                                        {projectType === "modpack" ? t("modrinth.no_compatible_versions_modpack") : t("modrinth.no_compatible_versions", { version: instance?.game_version || "", loader: instance?.loader_type || "" })}
                                     </div>
                                 ) : (
                                     <div className="flex flex-col gap-2">
@@ -332,7 +359,7 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
                                                     ) : (
                                                         <Download size={14} />
                                                     )}
-                                                    Установить
+                                                    {t("modrinth.install")}
                                                 </button>
                                             </div>
                                         ))}

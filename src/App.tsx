@@ -7,8 +7,10 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from '@tauri-apps/plugin-opener';
 import ToastContainer, { toast } from "./components/Toast";
+import { useTranslation } from "react-i18next";
 
 export default function App() {
+  const { t } = useTranslation();
   const [selectedInstance, setSelectedInstance] = useState<string | null>("forge-1.20");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeUsername, setActiveUsername] = useState<string | null>(null);
@@ -19,7 +21,7 @@ export default function App() {
     try {
       await invoke("open_launcher_folder");
     } catch (e) {
-      toast.error("Ошибка открытия папки: " + e);
+      toast.error(t("common.error") + ": " + e);
     }
   };
 
@@ -27,7 +29,7 @@ export default function App() {
     try {
       await invoke("open_logs_folder");
     } catch (e) {
-      toast.error("Ошибка открытия папки логов: " + e);
+      toast.error(t("common.error") + ": " + e);
     }
   };
 
@@ -99,21 +101,21 @@ export default function App() {
         <div className="flex items-center justify-end gap-3 w-1/3 text-muted">
           <button 
             className="p-2 hover:text-white hover:bg-card-hover rounded-lg transition-colors" 
-            title="Настройки лаунчера"
+            title={t("app.launcher_settings", "Launcher Settings")}
             onClick={() => setIsSettingsOpen(true)}
           >
             <Settings size={18} />
           </button>
           <button 
             className="p-2 hover:text-white hover:bg-card-hover rounded-lg transition-colors" 
-            title="Папка лаунчера"
+            title={t("app.launcher_folder", "Launcher Folder")}
             onClick={handleOpenFolder}
           >
             <Folder size={18} />
           </button>
           <button 
             className="p-2 hover:text-white hover:bg-card-hover rounded-lg transition-colors" 
-            title="Папка логов"
+            title={t("app.logs_folder", "Logs Folder")}
             onClick={handleOpenLogs}
           >
             <FileText size={18} />

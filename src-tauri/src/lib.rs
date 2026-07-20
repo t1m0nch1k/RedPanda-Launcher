@@ -66,6 +66,7 @@ pub fn run() {
             modrinth::search_modrinth,
             modrinth::get_modrinth_versions,
             modrinth::download_modrinth_version,
+            modrinth::download_modrinth_modpack,
             modrinth::check_mod_updates,
             modrinth::update_mod,
         ])

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { X, Cpu, Monitor, Code, Coffee, ExternalLink, RefreshCw, Settings } from "lucide-react";
+import { X, Cpu, Monitor, Code, Coffee, ExternalLink, RefreshCw, Settings, Globe } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface AppSettings {
   java_path: string;
@@ -14,6 +15,7 @@ interface AppSettings {
   launch_behavior: string;
   show_console: boolean;
   aggressive_optimization: boolean;
+  show_snapshots: boolean;
 }
 
 interface JavaInstallation {
@@ -23,6 +25,7 @@ interface JavaInstallation {
 }
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
+  const { t, i18n } = useTranslation();
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [javas, setJavas] = useState<JavaInstallation[]>([]);
   const [isSearchingJava, setIsSearchingJava] = useState(false);
@@ -79,7 +82,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
         <div className="flex items-center justify-between p-6 border-b border-border bg-background/50">
           <h2 className="text-2xl font-bold text-white flex items-center gap-3">
             <SettingsIcon size={24} className="text-primary" />
-            Настройки
+            {t("settings.title")}
           </h2>
           <button onClick={onClose} className="p-2 text-muted hover:text-white hover:bg-card rounded-lg transition-colors">
             <X size={20} />
@@ -97,7 +100,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               }`}
             >
               <Monitor size={18} />
-              Общие
+              {t("settings.tab_general", "General")}
             </button>
             <button 
               onClick={() => setActiveTab("java")}
@@ -106,7 +109,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               }`}
             >
               <Coffee size={18} />
-              Java и ОЗУ
+              {t("settings.tab_java", "Java & RAM")}
             </button>
           </div>
 
@@ -116,34 +119,55 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
             {activeTab === "general" && (
               <div className="flex flex-col gap-8">
                 
-                {/* Launcher Behavior */}
+                {/* Language */}
                 <section>
                   <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <SettingsIcon size={16} /> Поведение лаунчера
+                    <Globe size={16} /> {t("settings.language")}
                   </h3>
                   
                   <div className="flex flex-col gap-3 mb-4">
-                    <label className="text-xs text-muted block">При запуске игры:</label>
+                    <select 
+                      value={i18n.language}
+                      onChange={(e) => i18n.changeLanguage(e.target.value)}
+                      className="w-full bg-background border border-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors"
+                    >
+                      <option value="ru">Русский</option>
+                      <option value="en">English</option>
+                      <option value="es">Español</option>
+                      <option value="zh">中文</option>
+                    </select>
+                  </div>
+                </section>
+
+                <hr className="border-border" />
+
+                {/* Launcher Behavior */}
+                <section>
+                  <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <SettingsIcon size={16} /> {t("settings.launch_behavior")}
+                  </h3>
+                  
+                  <div className="flex flex-col gap-3 mb-4">
                     <select 
                       value={settings.launch_behavior}
                       onChange={(e) => updateSetting("launch_behavior", e.target.value)}
                       className="w-full bg-background border border-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors"
                     >
-                      <option value="hide">Скрывать лаунчер (открыть после закрытия игры)</option>
-                      <option value="close">Закрывать лаунчер</option>
-                      <option value="keep_open">Оставлять открытым</option>
+                      <option value="hide">{t("settings.behavior_hide")}</option>
+                      <option value="close">{t("settings.behavior_close")}</option>
+                      <option value="keep_open">{t("settings.behavior_keep")}</option>
                     </select>
                   </div>
                   
                   <div className="flex flex-col gap-3">
-                    <label className="text-xs text-muted block">Сортировка сборок:</label>
+                    <label className="text-xs text-muted block">{t("settings.instances_sort")}:</label>
                     <select 
                       value={settings.instances_sort_mode}
                       onChange={(e) => updateSetting("instances_sort_mode", e.target.value)}
                       className="w-full bg-background border border-border rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors"
                     >
-                      <option value="last_played">По дате последнего запуска</option>
-                      <option value="name">По алфавиту (А-Я)</option>
+                      <option value="last_played">{t("settings.sort_last_played")}</option>
+                      <option value="name">{t("settings.sort_alphabetical")}</option>
                     </select>
                   </div>
                 </section>
@@ -153,12 +177,12 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                 {/* Resolution */}
                 <section>
                   <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <Monitor size={16} /> Экран
+                    <Monitor size={16} /> {t("settings.window_width")} / {t("settings.window_height")}
                   </h3>
                   
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
-                      <label className="text-xs text-muted mb-2 block">Ширина (px)</label>
+                      <label className="text-xs text-muted mb-2 block">{t("settings.window_width")}</label>
                       <input 
                         type="number" 
                         value={settings.window_width}
@@ -167,7 +191,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-muted mb-2 block">Высота (px)</label>
+                      <label className="text-xs text-muted mb-2 block">{t("settings.window_height")}</label>
                       <input 
                         type="number" 
                         value={settings.window_height}
@@ -181,7 +205,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                     <div className={`w-10 h-5 rounded-full p-1 transition-colors ${settings.fullscreen ? 'bg-primary' : 'bg-background border border-border'}`}>
                       <div className={`w-3 h-3 bg-white rounded-full transition-transform ${settings.fullscreen ? 'translate-x-5' : 'translate-x-0'}`}></div>
                     </div>
-                    <span className="text-sm font-medium group-hover:text-white transition-colors text-white/80">Полноэкранный режим</span>
+                    <span className="text-sm font-medium group-hover:text-white transition-colors text-white/80">{t("settings.fullscreen")}</span>
                   </label>
                 </section>
 
@@ -190,7 +214,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                 {/* JVM Args */}
                 <section>
                   <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <Code size={16} /> Дополнительные аргументы
+                    <Code size={16} /> {t("settings.jvm_args")}
                   </h3>
                   <textarea 
                     value={settings.jvm_args}
@@ -210,12 +234,12 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                 {/* RAM */}
                 <section>
                   <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <Cpu size={16} /> Выделение памяти (ОЗУ)
+                    <Cpu size={16} /> {t("settings.min_ram")} & {t("settings.max_ram")}
                   </h3>
                   <div className="bg-background border border-border rounded-xl p-5 flex flex-col gap-4">
                     <div className="flex justify-between items-center text-sm font-medium">
-                      <span className="text-muted">Минимум:</span>
-                      <span className="text-primary">{settings.min_memory} МБ</span>
+                      <span className="text-muted">{t("settings.min_ram")}:</span>
+                      <span className="text-primary">{settings.min_memory} MB</span>
                     </div>
                     <input 
                       type="range" 
@@ -226,8 +250,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                     />
                     
                     <div className="flex justify-between items-center text-sm font-medium mt-2">
-                      <span className="text-muted">Максимум:</span>
-                      <span className="text-primary">{settings.max_memory} МБ</span>
+                      <span className="text-muted">{t("settings.max_ram")}:</span>
+                      <span className="text-primary">{settings.max_memory} MB</span>
                     </div>
                     <input 
                       type="range" 
@@ -237,9 +261,9 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                       className="w-full accent-primary h-2 bg-card rounded-lg appearance-none cursor-pointer"
                     />
                     <div className="relative text-xs text-muted h-4 mt-1">
-                      <span className="absolute left-[6.25%]" style={{ transform: 'translateX(-50%)' }}>1 ГБ</span>
-                      <span className="absolute left-[50%]" style={{ transform: 'translateX(-50%)' }}>8 ГБ</span>
-                      <span className="absolute right-0">16 ГБ</span>
+                      <span className="absolute left-[6.25%]" style={{ transform: 'translateX(-50%)' }}>1 GB</span>
+                      <span className="absolute left-[50%]" style={{ transform: 'translateX(-50%)' }}>8 GB</span>
+                      <span className="absolute right-0">16 GB</span>
                     </div>
                   </div>
 
@@ -255,10 +279,30 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                     </div>
                     <div className="flex flex-col">
                       <label htmlFor="aggressive_optimization" className="text-sm font-medium text-white cursor-pointer">
-                        Агрессивная оптимизация FPS (Launcher-side)
+                        {t("settings.aggressive_opt")}
                       </label>
                       <p className="text-[10px] text-muted mt-0.5">
                         Автоматически подбирает лучшие аргументы Java (ZGC/Shenandoah) в зависимости от ОЗУ и задает процессу игры высокий приоритет в Windows.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex items-start gap-3">
+                    <div className="flex items-center h-5">
+                      <input
+                        id="show_snapshots"
+                        type="checkbox"
+                        checked={settings.show_snapshots}
+                        onChange={(e) => updateSetting("show_snapshots", e.target.checked)}
+                        className="w-4 h-4 rounded border-border bg-background text-primary focus:ring-primary focus:ring-offset-background"
+                      />
+                    </div>
+                    <div className="flex flex-col">
+                      <label htmlFor="show_snapshots" className="text-sm font-medium text-white cursor-pointer">
+                        {t("settings.show_snapshots", "Показывать снапшоты (Snapshots, Alpha, Beta)")}
+                      </label>
+                      <p className="text-[10px] text-muted mt-0.5">
+                        {t("settings.show_snapshots_desc", "Отображать тестовые и старые версии Minecraft при создании сборок.")}
                       </p>
                     </div>
                   </div>
@@ -270,7 +314,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                 <section>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-semibold text-muted uppercase tracking-wider flex items-center gap-2">
-                      <Coffee size={16} /> Выбор Java
+                      <Coffee size={16} /> {t("settings.select_java")}
                     </h3>
                     <button 
                       onClick={searchJava}
@@ -294,8 +338,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                         {settings.java_path === "" && <div className="w-2 h-2 rounded-full bg-primary" />}
                       </div>
                       <div>
-                        <div className="font-semibold text-sm">Автоматически (Рекомендуется)</div>
-                        <div className="text-xs text-muted mt-1">Лаунчер сам скачает и подберет нужную версию Java для выбранной сборки.</div>
+                        <div className="font-semibold text-sm">{t("settings.java_path")}</div>
                       </div>
                     </label>
 

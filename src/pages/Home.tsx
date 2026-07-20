@@ -1,10 +1,12 @@
-import { Plus, Play, Anvil, Feather, TreePine, Hammer, Settings, Loader2, Folder, FileText, Trash2 } from "lucide-react";
+import { Plus, Play, Anvil, Feather, TreePine, Hammer, Settings, Loader2, Folder, FileText, Trash2, Download } from "lucide-react";
 import { useState, useEffect, useMemo, memo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import CreateInstanceModal from "../components/CreateInstanceModal";
 import InstanceManagerModal from "../components/InstanceManagerModal";
 import CrashModal from "../components/CrashModal";
+import ModrinthBrowser from "../components/ModrinthBrowser";
 import { toast } from "../components/Toast";
 import { open, save } from "@tauri-apps/plugin-dialog";
 
@@ -25,14 +27,18 @@ interface HomeProps {
 }
 
 export default memo(function Home({ selectedInstance, onSelectInstance, activeUsername }: HomeProps) {
-  const [greeting, setGreeting] = useState("Добрый вечер");
+  const { t } = useTranslation();
+  const [showModpackBrowser, setShowModpackBrowser] = useState(false);
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 6) return t("home.greeting_night");
+    if (hour < 12) return t("home.greeting_morning");
+    if (hour < 18) return t("home.greeting_day");
+    return t("home.greeting_evening");
+  };
 
   useEffect(() => {
-    const hour = new Date().getHours();
-    if (hour < 6) setGreeting("Доброй ночи");
-    else if (hour < 12) setGreeting("Доброе утро");
-    else if (hour < 18) setGreeting("Добрый день");
-    else setGreeting("Добрый вечер");
     loadInstances();
   }, []);
 
@@ -76,16 +82,16 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
 
   const getPandaMessage = () => {
     switch(pandaState) {
-      case "welcome": return "Рад тебя видеть.";
-      case "greeting": return "Привет! Все обновлено.";
-      case "celebration": return "Всё готово! Погнали!";
-      case "thinking": return "Подбираю лучшие настройки...";
-      case "searching": return "Ищу нужные моды...";
-      case "working": return "Скачиваю зависимости...";
-      case "loading": return "Терпеливо жду...";
-      case "mining": return "Устанавливаю Minecraft...";
-      case "reading": return "Сверяю логи и файлы...";
-      default: return "Рад тебя видеть.";
+      case "welcome": return t("home.panda.welcome");
+      case "greeting": return t("home.panda.greeting");
+      case "celebration": return t("home.panda.celebration");
+      case "thinking": return t("home.panda.thinking");
+      case "searching": return t("home.panda.searching");
+      case "working": return t("home.panda.working");
+      case "loading": return t("home.panda.loading");
+      case "mining": return t("home.panda.mining");
+      case "reading": return t("home.panda.reading");
+      default: return t("home.panda.welcome");
     }
   };
 
@@ -180,10 +186,10 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
            setDownloadSpeed(0);
            speedCalcRef.current = { lastBytes: 0, lastTime: performance.now() };
            
-           if (eventType === "Launch") setDownloadAction("Скачивание игры...");
-           else if (eventType === "Java") setDownloadAction("Скачивание Java...");
-           else if (eventType === "Loader" || eventType === "Modloader") setDownloadAction("Скачивание лоадера...");
-           else if (eventType === "Core" && eventName === "ExtractionStarted") setDownloadAction("Распаковка...");
+           if (eventType === "Launch") setDownloadAction(t("home.download_action.game"));
+           else if (eventType === "Java") setDownloadAction(t("home.download_action.java"));
+           else if (eventType === "Loader" || eventType === "Modloader") setDownloadAction(t("home.download_action.loader"));
+           else if (eventType === "Core" && eventName === "ExtractionStarted") setDownloadAction(t("home.download_action.extract"));
         }
         
         if (eventName === "InstallProgress" || eventName === "ExtractionProgress") {
@@ -201,7 +207,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
         }
         
         if (eventName === "Launching") {
-           setDownloadAction("Запуск...");
+           setDownloadAction(t("home.download_action.launch"));
            setDownloadTotal(0);
         }
       });
@@ -231,7 +237,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
             const path = payload.paths[0];
             if (path.endsWith(".mrpack")) {
                 setIsLaunching(true);
-                setDownloadAction("Подготовка к импорту...");
+                setDownloadAction(t("home.download_action.import_prep"));
                 setDownloadTotal(100);
                 setDownloadedBytes(0);
                 setDownloadSpeed(0);
@@ -341,7 +347,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
       <div className="flex justify-between items-end">
         <div className="mb-2">
           <h1 className="text-3xl font-bold tracking-tight text-white">
-            {greeting}, {activeUsername || "Игрок"}
+            {getGreeting()}, {activeUsername || t("home.player")}
           </h1>
         </div>
         {/* Panda Personality */}
@@ -361,7 +367,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
 
       {/* Steam-like Selected Instance Section */}
       <div className="flex flex-col gap-3">
-        <h2 className="text-[11px] font-semibold tracking-wider text-muted uppercase pl-1">Выбранная сборка</h2>
+        <h2 className="text-[11px] font-semibold tracking-wider text-muted uppercase pl-1">{t("home.selected_instance")}</h2>
         {currentInstance ? (
         <div 
           className="relative group rounded-xl bg-card border border-border transition-colors hover:border-border/80 flex shadow-sm"
@@ -387,7 +393,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                   </span>
                   <span className="text-[13px] text-muted/80">•</span>
                   <span className="text-[13px] text-muted">
-                    {currentInstance.last_played ? new Date(currentInstance.last_played * 1000).toLocaleDateString() : "Никогда не запускалась"}
+                    {currentInstance.last_played ? new Date(currentInstance.last_played * 1000).toLocaleDateString() : t("home.never_played")}
                   </span>
                 </div>
               </div>
@@ -450,9 +456,9 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                  className="bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-white px-7 py-3 rounded-xl font-medium text-[13px] flex items-center gap-2 shadow-sm transition-colors"
                >
                  {isLaunching ? (
-                   <><Loader2 className="animate-spin" size={16} /> <span className="translate-y-[0.5px]">Запуск...</span></>
+                   <><Loader2 className="animate-spin" size={16} /> <span className="translate-y-[0.5px]">{t("home.launching")}</span></>
                  ) : (
-                   <><Play fill="currentColor" size={15} /> <span className="translate-y-[0.5px]">Играть</span></>
+                   <><Play fill="currentColor" size={15} /> <span className="translate-y-[0.5px]">{t("home.play")}</span></>
                  )}
                </button>
             </div>
@@ -460,14 +466,14 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
         </div>
         ) : (
           <div className="p-8 text-center text-muted border border-dashed border-border rounded-xl">
-            Сборки не найдены. Создайте свою первую сборку!
+            {t("home.no_instance")}
           </div>
         )}
       </div>
 
       {/* Other Instances Grid */}
       <div className="flex flex-col gap-3 mt-2 pb-8">
-        <h2 className="text-[11px] font-semibold tracking-wider text-muted uppercase pl-1">Другие сборки</h2>
+        <h2 className="text-[11px] font-semibold tracking-wider text-muted uppercase pl-1">{t("home.other_instances")}</h2>
         
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {/* Add New Instance Button */}
@@ -478,7 +484,17 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
             <div className="w-10 h-10 rounded-full bg-card border border-border flex items-center justify-center group-hover:text-white transition-colors">
               <Plus size={18} />
             </div>
-            <span className="text-[13px] font-medium group-hover:text-white transition-colors">Добавить сборку</span>
+            <span className="text-[13px] font-medium group-hover:text-white transition-colors">{t("home.add_instance")}</span>
+          </button>
+          
+          <button 
+            onClick={() => setShowModpackBrowser(true)}
+            className="bg-transparent hover:bg-card border border-dashed border-border hover:border-muted text-muted rounded-xl flex flex-col items-center justify-center gap-3 min-h-[140px] transition-colors group"
+          >
+            <div className="w-10 h-10 rounded-full bg-card border border-border flex items-center justify-center group-hover:text-white transition-colors">
+              <Download size={18} />
+            </div>
+            <span className="text-[13px] font-medium group-hover:text-white transition-colors">{t("home.install_modpack")}</span>
           </button>
 
           {/* Other Instance Cards */}
@@ -529,6 +545,16 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
         />
       )}
 
+      {showModpackBrowser && (
+        <ModrinthBrowser 
+          onClose={() => {
+            setShowModpackBrowser(false);
+            loadInstances();
+          }}
+          projectType="modpack"
+        />
+      )}
+
       {managingInstance && currentInstance && (
         <InstanceManagerModal 
           instance={currentInstance}
@@ -556,13 +582,13 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           <div className="px-3 py-2 border-b border-border mb-1">
-            <span className="text-xs font-semibold text-muted">Опции сборки</span>
+            <span className="text-xs font-semibold text-muted">{t("home.context_menu.options")}</span>
           </div>
           <button 
             className="w-full text-left px-4 py-2 hover:bg-background text-sm text-white flex items-center gap-3"
             onClick={(e) => { e.stopPropagation(); setManagingInstance(contextMenu.instanceId); setContextMenu(null); }}
           >
-            <Settings size={14} /> Настройки (Изменить...)
+            <Settings size={14} /> {t("home.context_menu.settings")}
           </button>
           <button 
             className="w-full text-left px-4 py-2 hover:bg-background text-sm text-white flex items-center gap-3"
@@ -573,7 +599,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                 setContextMenu(null); 
             }}
           >
-            <Play size={14} /> Запустить
+            <Play size={14} /> {t("home.context_menu.play")}
           </button>
           <button 
             className="w-full text-left px-4 py-2 hover:bg-background text-sm text-white flex items-center gap-3"
@@ -583,7 +609,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                 setContextMenu(null); 
             }}
           >
-            <Folder size={14} /> Папка
+            <Folder size={14} /> {t("home.context_menu.folder")}
           </button>
           
           <div className="my-1 border-t border-border" />
@@ -599,7 +625,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                 setContextMenu(null); 
             }}
           >
-             <FileText size={14} /> Переименовать
+             <FileText size={14} /> {t("home.context_menu.rename")}
           </button>
           
           <button 
@@ -616,14 +642,13 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                   if (selectedPath) {
                     await invoke("set_instance_icon", { id, iconPath: selectedPath });
                     loadInstances();
-                    toast.success("Значок обновлен!");
                   }
                 } catch(err) {
-                  toast.error("Ошибка: " + err);
+                  toast.error(t("common.error") + ": " + err);
                 }
             }}
           >
-             <Plus size={14} /> Выбрать значок
+             <Plus size={14} /> {t("home.context_menu.icon")}
           </button>
           
           <button 
@@ -641,20 +666,18 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                   });
                   if (savePath) {
                     setIsExporting(prev => ({...prev, [id]: true}));
-                    toast.success("Экспорт начался...");
                     await invoke("export_instance", { id, destPath: savePath });
-                    toast.success("Сборка успешно экспортирована!");
                     setIsExporting(prev => ({...prev, [id]: false}));
                   }
                 } catch(err) {
-                  toast.error("Ошибка при экспорте: " + err);
+                  toast.error(t("common.error") + ": " + err);
                   setIsExporting(prev => ({...prev, [id]: false}));
                 }
             }}
           >
-             {isExporting[contextMenu.instanceId] ? <Loader2 size={14} className="animate-spin" /> : <Folder size={14} />} Экспортировать...
+             {isExporting[contextMenu.instanceId] ? <Loader2 size={14} className="animate-spin" /> : <Folder size={14} />} {t("home.context_menu.export")}
           </button>
-
+          
           <div className="my-1 border-t border-border" />
           
           <button 
@@ -665,7 +688,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                 setContextMenu(null); 
             }}
           >
-            <Trash2 size={14} /> Удалить
+            <Trash2 size={14} /> {t("home.context_menu.delete")}
           </button>
         </div>
       )}

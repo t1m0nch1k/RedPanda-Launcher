@@ -13,7 +13,7 @@ struct MojangManifest {
 }
 
 #[tauri::command]
-pub async fn get_minecraft_versions() -> Result<Vec<String>, String> {
+pub async fn get_minecraft_versions(app: tauri::AppHandle) -> Result<Vec<String>, String> {
     let client = Client::new();
     let res = client
         .get("https://launchermeta.mojang.com/mc/game/version_manifest_v2.json")
@@ -23,11 +23,13 @@ pub async fn get_minecraft_versions() -> Result<Vec<String>, String> {
 
     let manifest: MojangManifest = res.json().await.map_err(|e| format!("JSON error: {}", e))?;
 
-    // Return only "release" versions for simplicity, or we can return all.
+    let settings = crate::settings::get_settings(app).unwrap_or_default();
+
+    // Return only "release" versions unless show_snapshots is true
     let releases = manifest
         .versions
         .into_iter()
-        .filter(|v| v.r#type == "release")
+        .filter(|v| settings.show_snapshots || v.r#type == "release")
         .map(|v| v.id)
         .collect();
 

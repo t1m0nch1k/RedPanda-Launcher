@@ -227,6 +227,56 @@ pub async fn download_modrinth_version(
     }
 }
 
+#[tauri::command]
+pub async fn download_modrinth_modpack(
+    app: AppHandle,
+    version_id: String,
+) -> Result<(), String> {
+    // 1. Get the version details to find the primary file URL
+    let client = Client::new();
+    let url = format!("https://api.modrinth.com/v2/version/{}", version_id);
+    let res = client.get(&url).send().await.map_err(|e| e.to_string())?;
+    let version: ModrinthVersion = res.json().await.map_err(|e| e.to_string())?;
+
+    let file = version
+        .files
+        .iter()
+        .find(|f| f.primary)
+        .or_else(|| version.files.first());
+
+    if let Some(file) = file {
+        let download_url = &file.url;
+        let filename = &file.filename;
+
+        // 2. Download the file bytes
+        let file_res = client
+            .get(download_url)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+        let bytes = file_res.bytes().await.map_err(|e| e.to_string())?;
+
+        // 3. Save to a temporary location
+        let mut temp_path = std::env::temp_dir();
+        temp_path.push("RedPandaLauncher");
+        fs::create_dir_all(&temp_path).unwrap_or(());
+        temp_path.push(filename);
+        
+        fs::write(&temp_path, bytes).map_err(|e| e.to_string())?;
+
+        // 4. Import the .mrpack file
+        let path_str = temp_path.to_string_lossy().to_string();
+        crate::import::import_mrpack(app, path_str).await?;
+
+        // 5. Clean up
+        let _ = fs::remove_file(temp_path);
+
+        Ok(())
+    } else {
+        Err("No file found in this version".to_string())
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ModUpdate {
     pub file_name: String,
