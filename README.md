@@ -22,13 +22,6 @@
     <a href="https://github.com/t1m0nch1k/RedPanda-Launcher">GitHub</a>
   </p>
 </div>
-
-━━━━━━━━━━━━━━━━━━
-
-> *[Place your demo GIF or screenshot here, e.g. `![RedPanda Launcher Demo](launch.gif)`]*
-
-━━━━━━━━━━━━━━━━━━
-
 ## ✨ Highlights
 
 🚀 **Lightning Fast**  
