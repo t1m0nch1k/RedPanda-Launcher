@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Puzzle, Palette, Settings as SettingsIcon, Trash2, Plus, Loader2, RefreshCw, ArrowUpCircle } from "lucide-react";
+import { X, Puzzle, Palette, Settings as SettingsIcon, Trash2, Plus, Loader2, RefreshCw, ArrowUpCircle, Globe } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import ModrinthBrowser from "./ModrinthBrowser";
 
@@ -36,9 +36,11 @@ import { useTranslation } from "react-i18next";
 
 export default function InstanceManagerModal({ instance, onClose, onDelete }: InstanceManagerModalProps) {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<"mods" | "resources" | "settings">("mods");
+  const [activeTab, setActiveTab] = useState<"mods" | "resources" | "settings" | "multiplayer">("mods");
   const [showModrinth, setShowModrinth] = useState(false);
   const [modrinthProjectType, setModrinthProjectType] = useState<"mod" | "resourcepack" | "shader">("mod");
+  const [isE4mcInstalled, setIsE4mcInstalled] = useState(false);
+  const [installingE4mc, setInstallingE4mc] = useState(false);
   const [installedMods, setInstalledMods] = useState<Mod[]>([]);
   const [loadingMods, setLoadingMods] = useState(true);
   const [checkingUpdates, setCheckingUpdates] = useState(false);
@@ -99,6 +101,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
     try {
         const mods: Mod[] = await invoke("get_installed_mods", { instanceId: instance.id });
         setInstalledMods(mods);
+        setIsE4mcInstalled(mods.some(m => m.filename.toLowerCase().includes("e4mc")));
     } catch(e) {
         console.error(e);
         setInstalledMods([]);
@@ -161,6 +164,37 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
     }
   }
 
+  const handleInstallE4mc = async () => {
+    setInstallingE4mc(true);
+    try {
+        const versions: any[] = await invoke("get_modrinth_versions", {
+            projectSlug: "e4mc",
+            gameVersion: instance.game_version,
+            loader: instance.loader_type,
+            projectType: "mod"
+        });
+        
+        if (versions.length === 0) {
+            toast.error(t("common.error") + ": e4mc не поддерживает эту версию игры или загрузчик.");
+            return;
+        }
+        
+        await invoke("download_modrinth_version", {
+            instanceId: instance.id,
+            versionId: versions[0].id,
+            projectType: "mod"
+        });
+        
+        toast.success("Мод e4mc успешно установлен!");
+        await loadMods();
+    } catch (e) {
+        console.error(e);
+        toast.error(t("common.error") + ": " + e);
+    } finally {
+        setInstallingE4mc(false);
+    }
+  };
+
   const handleDeleteInstance = async () => {
     setShowConfirmDelete(true);
   };
@@ -211,6 +245,14 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
             >
               <SettingsIcon size={16} /> {t("instance_manager.settings")}
             </button>
+            <button
+              onClick={() => setActiveTab("multiplayer")}
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-none text-sm font-medium transition-colors ${
+                activeTab === "multiplayer" ? "bg-primary/10 text-primary" : "text-muted hover:text-white hover:bg-card"
+              }`}
+            >
+              <Globe size={16} /> Игра по сети
+            </button>
           </nav>
         </div>
 
@@ -221,6 +263,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
               {activeTab === "mods" && t("instance_manager.manage_mods")}
               {activeTab === "resources" && t("instance_manager.resources_and_shaders")}
               {activeTab === "settings" && t("instance_manager.instance_settings")}
+              {activeTab === "multiplayer" && "Игра по сети (e4mc)"}
             </h3>
             <button onClick={onClose} className="p-2 text-muted hover:text-white hover:bg-background rounded-none transition-colors">
               <X size={18} />
@@ -496,6 +539,52 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                          {t("instance_manager.delete")}
                      </button>
                  </div>
+              </div>
+            )}
+
+            {activeTab === "multiplayer" && (
+              <div className="flex flex-col gap-6">
+                <div className="bg-background brutalist-border rounded-none p-6">
+                  <h4 className="text-lg font-bold text-white mb-2">Играйте с друзьями без хостинга</h4>
+                  <p className="text-sm text-muted mb-6 leading-relaxed">
+                    Мод <span className="text-white font-medium">e4mc</span> позволяет вам открывать свой одиночный мир для игры по сети в пару кликов. 
+                    Вам не нужно настраивать порты или платить за сервер.
+                  </p>
+
+                  <div className="flex items-center gap-4">
+                    {isE4mcInstalled ? (
+                        <div className="bg-green-500/10 border-2 border-green-500/20 px-4 py-3 rounded-none flex items-center gap-3 text-green-400">
+                            <div className="w-8 h-8 bg-green-500/20 flex items-center justify-center brutalist-border">
+                                <Globe size={16} />
+                            </div>
+                            <div>
+                                <div className="font-bold text-sm">Мод установлен</div>
+                                <div className="text-xs opacity-80">Вы можете играть по сети! Просто зайдите в мир и нажмите "Открыть для сети".</div>
+                            </div>
+                        </div>
+                    ) : (
+                        <button 
+                            onClick={handleInstallE4mc}
+                            disabled={installingE4mc}
+                            className="brutalist-button-primary flex items-center gap-2"
+                        >
+                            {installingE4mc ? <Loader2 size={18} className="animate-spin" /> : <Globe size={18} />}
+                            {installingE4mc ? "Установка..." : "Установить мод e4mc"}
+                        </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-card brutalist-border rounded-none p-5">
+                    <h5 className="font-bold text-white text-sm mb-3">Как это работает?</h5>
+                    <ol className="list-decimal list-inside text-sm text-muted space-y-2">
+                        <li>Установите мод <strong>e4mc</strong> кнопкой выше.</li>
+                        <li>Запустите игру и зайдите в свой одиночный мир.</li>
+                        <li>Нажмите <strong>Esc</strong> и выберите "Открыть для сети".</li>
+                        <li>В чате появится ссылка (например, <code>имя.e4mc.link</code>).</li>
+                        <li>Отправьте эту ссылку друзьям — они смогут подключиться по ней как по обычному IP-адресу!</li>
+                    </ol>
+                </div>
               </div>
             )}
           </div>
