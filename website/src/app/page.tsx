@@ -51,7 +51,7 @@ export default function Home() {
           <a href="#gallery" className="hover:text-primary transition-colors cursor-pointer">[ Interface ]</a>
         </div>
         <a 
-          href="https://github.com/t1m0nch1k/RedPanda-Launcher/releases/latest" 
+          href="https://github.com/t1m0nch1k/RedPanda-Launcher/releases/tag/0.1.3" 
           target="_blank" 
           className="bg-card hover:bg-primary text-white px-5 py-2.5 font-bold transition-all flex items-center gap-2 cursor-pointer uppercase text-sm border border-border hover:border-primary brutalist-button"
         >
@@ -100,7 +100,7 @@ export default function Home() {
 
           <div className="flex flex-col sm:flex-row items-center gap-6 w-full sm:w-auto">
             <a 
-              href="https://github.com/t1m0nch1k/RedPanda-Launcher/releases/latest" 
+              href="https://github.com/t1m0nch1k/RedPanda-Launcher/releases/tag/0.1.3" 
               target="_blank" 
               className="w-full sm:w-auto flex items-center justify-center gap-3 bg-primary hover:bg-primary-hover text-white px-10 py-5 font-bold text-lg transition-all border border-primary cursor-pointer uppercase brutalist-button"
             >
