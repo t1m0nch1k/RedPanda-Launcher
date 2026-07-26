@@ -3,13 +3,13 @@
 @import "tailwindcss";
 
 :root {
-  --background: #101214;
-  --foreground: #ffffff;
-  --card: #1c1e21;
-  --border: #333333;
+  --background: #0E0F12;
+  --foreground: #F4F4F6;
+  --card: #17191E;
+  --border: #2B2E36;
   --primary: #F55E1D;
   --primary-hover: #E04F0F;
-  --muted: #a0a0a0;
+  --muted: #8E939E;
   
   --sp: 4rem; /* rhythm token */
 }
@@ -34,20 +34,21 @@ body {
   position: relative;
 }
 
-/* Noise overlay */
+/* Noise overlay (2026 Grain pattern) */
 body::before {
   content: "";
   position: fixed;
   top: 0; left: 0; width: 100vw; height: 100vh;
   pointer-events: none;
   z-index: 9999;
-  opacity: 0.05;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
 }
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display), sans-serif;
   text-transform: uppercase;
+  letter-spacing: -0.02em;
 }
 
 ::selection {
@@ -57,13 +58,34 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Typography clamp settings */
 h1 {
-  font-size: clamp(3rem, 10vw, 8rem);
+  font-size: clamp(3.2rem, 9.5vw, 8.5rem);
   line-height: 0.85;
 }
 
 h2 {
-  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-size: clamp(2.2rem, 5vw, 4rem);
   line-height: 0.9;
+}
+
+/* Hard offset brutalist styles */
+.brutalist-shadow-orange {
+  box-shadow: 6px 6px 0px var(--primary);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.brutalist-shadow-orange:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0px var(--primary);
+}
+
+.brutalist-button {
+  box-shadow: 4px 4px 0px #000;
+  transition: all 0.15s ease;
+}
+
+.brutalist-button:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px #000;
 }
 
 /* Brutalist grid and components */
