@@ -102,7 +102,10 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
   };
 
   const getAvatarUrl = (account: Account) => {
-    if (account.account_type === "Offline" || account.account_type === "ElyBy") {
+    if (account.account_type === "ElyBy") {
+      return `https://skinsystem.ely.by/helm/${account.username}/64.png`;
+    }
+    if (account.account_type === "Offline") {
       return `https://minotar.net/helm/${account.username}/64`;
     }
     return `https://minotar.net/helm/${account.uuid || account.username}/64`;
