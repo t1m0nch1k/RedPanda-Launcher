@@ -36,7 +36,7 @@ pub async fn check_for_updates() -> Result<UpdateInfo, String> {
     log::info!("Checking for RedPanda Launcher updates on GitHub...");
 
     let client = Client::builder()
-        .user_agent("RedPandaLauncher-Updater/1.0.0")
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 RedPandaLauncher/0.1.4")
         .build()
         .map_err(|e| e.to_string())?;
 
@@ -44,10 +44,25 @@ pub async fn check_for_updates() -> Result<UpdateInfo, String> {
         .get("https://api.github.com/repos/t1m0nch1k/RedPanda-Launcher/releases/latest")
         .send()
         .await
-        .map_err(|e| format!("Failed to connect to GitHub API: {}", e))?;
+        .map_err(|e| format!("Не удалось подключиться к GitHub API: {}", e))?;
+
+    if res.status() == reqwest::StatusCode::NOT_FOUND {
+        return Ok(UpdateInfo {
+            has_update: false,
+            current_version: CURRENT_VERSION.to_string(),
+            latest_version: CURRENT_VERSION.to_string(),
+            release_notes: "Релизы на GitHub пока не созданы.".to_string(),
+            download_url: String::new(),
+            html_url: "https://github.com/t1m0nch1k/RedPanda-Launcher/releases".to_string(),
+        });
+    }
+
+    if res.status() == reqwest::StatusCode::FORBIDDEN {
+        return Err("Превышен лимит анонимных запросов к GitHub API (403 Forbidden). Попробуйте позже.".to_string());
+    }
 
     if !res.status().is_success() {
-        return Err(format!("GitHub API returned status: {}", res.status()));
+        return Err(format!("GitHub API вернул статус: {}", res.status()));
     }
 
     let release: GithubRelease = res
@@ -88,7 +103,7 @@ pub async fn download_and_install_update(_app: AppHandle, download_url: String) 
     log::info!("Downloading update from: {}", download_url);
 
     let client = Client::builder()
-        .user_agent("RedPandaLauncher-Updater/1.0.0")
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 RedPandaLauncher/0.1.4")
         .build()
         .map_err(|e| e.to_string())?;
 
