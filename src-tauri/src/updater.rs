@@ -29,7 +29,7 @@ struct GithubAsset {
     pub browser_download_url: String,
 }
 
-const CURRENT_VERSION: &str = "0.1.3";
+const CURRENT_VERSION: &str = "0.1.4";
 
 #[tauri::command]
 pub async fn check_for_updates() -> Result<UpdateInfo, String> {

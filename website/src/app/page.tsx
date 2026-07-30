@@ -43,7 +43,7 @@ export default function Home() {
         <div className="flex items-center gap-3">
           <IconTerminal2 className="text-primary" size={28} />
           <span className="font-bold text-lg tracking-widest text-white uppercase font-display">RedPanda</span>
-          <span className="hidden sm:inline-block text-xs font-mono text-muted bg-card px-2 py-0.5 border border-border">{`{ v0.1.3 }`}</span>
+          <span className="hidden sm:inline-block text-xs font-mono text-muted bg-card px-2 py-0.5 border border-border">{`{ v0.1.4 }`}</span>
         </div>
         <div className="hidden md:flex items-center gap-8 text-sm font-bold text-muted uppercase">
           <a href="#metrics" className="hover:text-primary transition-colors cursor-pointer">[ Metrics ]</a>

@@ -1,6 +1,6 @@
 [package]
 name = "redpanda-launcher"
-version = "0.1.2"
+version = "0.1.4"
 description = "RedPanda Launcher"
 authors = ["you"]
 edition = "2021"

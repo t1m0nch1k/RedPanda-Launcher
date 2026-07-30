@@ -167,7 +167,7 @@ export default function App() {
         <div className="flex items-center gap-3 text-muted shrink-0">
           <span className="flex items-center gap-1.5 text-text/80 whitespace-nowrap font-medium">
             <span className="w-2 h-2 rounded-none bg-emerald-500 inline-block shrink-0"></span>
-            v0.1.3 Stable
+            v0.1.4 Stable
           </span>
           <AccountSelector onAccountChange={(username) => setActiveUsername(username)} />
         </div>
