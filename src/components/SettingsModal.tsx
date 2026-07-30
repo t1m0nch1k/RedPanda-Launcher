@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { X, Cpu, Monitor, Code, Coffee, ExternalLink, RefreshCw, Settings, Globe } from "lucide-react";
+import { X, Cpu, Monitor, Code, Coffee, ExternalLink, RefreshCw, Settings, Globe, Sun, Moon, Palette, Image, Smile, Trash2 } from "lucide-react";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useTranslation } from "react-i18next";
 
 interface AppSettings {
@@ -16,6 +17,13 @@ interface AppSettings {
   show_console: boolean;
   aggressive_optimization: boolean;
   show_snapshots: boolean;
+  theme: string;
+  custom_bg_path: string;
+  custom_bg_opacity: number;
+  custom_bg_blur: number;
+  custom_mascot_path: string;
+  mascot_preset: string;
+  accent_color: string;
 }
 
 interface JavaInstallation {
@@ -24,12 +32,34 @@ interface JavaInstallation {
   vendor: string;
 }
 
-export default function SettingsModal({ onClose }: { onClose: () => void }) {
+interface SettingsModalProps {
+  onClose: () => void;
+  onSettingsChanged?: () => void;
+}
+
+export default function SettingsModal({ onClose, onSettingsChanged }: SettingsModalProps) {
   const { t, i18n } = useTranslation();
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [javas, setJavas] = useState<JavaInstallation[]>([]);
   const [isSearchingJava, setIsSearchingJava] = useState(false);
-  const [activeTab, setActiveTab] = useState<"general" | "java">("general");
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [activeTab, setActiveTab] = useState<"general" | "java" | "customization">("general");
+
+  const handleManualUpdateCheck = async () => {
+    setIsCheckingUpdate(true);
+    try {
+      const info: any = await invoke("check_for_updates");
+      if (info && info.has_update) {
+        alert(`Найдено обновление! Доступна версия v${info.latest_version}.`);
+      } else {
+        alert(`У вас установлена самая свежая версия (v${info?.current_version || "0.1.3"})`);
+      }
+    } catch (e) {
+      alert("Ошибка при проверке обновлений: " + e);
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
 
   useEffect(() => {
     loadSettings();
@@ -40,6 +70,9 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
     try {
       const data: AppSettings = await invoke("get_settings");
       setSettings(data);
+      if (data.theme) {
+        document.documentElement.setAttribute("data-theme", data.theme);
+      }
     } catch (e) {
       console.error("Failed to load settings", e);
     }
@@ -49,6 +82,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
     try {
       await invoke("save_settings", { settings: newSettings });
       setSettings(newSettings);
+      onSettingsChanged?.();
     } catch (e) {
       console.error("Failed to save settings", e);
     }
@@ -57,8 +91,43 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const updateSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     if (!settings) return;
     const newSettings = { ...settings, [key]: value };
+    if (key === "theme") {
+      document.documentElement.setAttribute("data-theme", value as string);
+    }
+    if (key === "accent_color") {
+      document.documentElement.style.setProperty("--color-primary", value as string);
+    }
     setSettings(newSettings);
     saveSettings(newSettings);
+  };
+
+  const handleSelectBgImage = async () => {
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [{ name: "Image", extensions: ["png", "jpg", "jpeg", "webp"] }]
+      });
+      if (selected && typeof selected === "string") {
+        updateSetting("custom_bg_path", selected);
+      }
+    } catch (e) {
+      console.error("Failed to pick background image", e);
+    }
+  };
+
+  const handleSelectMascotImage = async () => {
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [{ name: "Image", extensions: ["png", "jpg", "jpeg", "webp"] }]
+      });
+      if (selected && typeof selected === "string") {
+        updateSetting("custom_mascot_path", selected);
+        updateSetting("mascot_preset", "custom");
+      }
+    } catch (e) {
+      console.error("Failed to pick mascot image", e);
+    }
   };
 
   const searchJava = async () => {
@@ -81,7 +150,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border bg-background/50">
           <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-            <SettingsIcon size={24} className="text-primary" />
+            <Settings size={24} className="text-primary" />
             {t("settings.title")}
           </h2>
           <button onClick={onClose} className="p-2 text-muted hover:text-white hover:bg-card rounded-none transition-colors">
@@ -108,8 +177,17 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                 activeTab === "java" ? "bg-primary/20 text-primary" : "text-muted hover:text-white hover:bg-card"
               }`}
             >
-              <Coffee size={18} />
+              <Cpu size={18} />
               {t("settings.tab_java", "Java & RAM")}
+            </button>
+            <button 
+              onClick={() => setActiveTab("customization")}
+              className={`flex items-center gap-3 px-4 py-3 rounded-none font-medium transition-colors ${
+                activeTab === "customization" ? "bg-primary/20 text-primary" : "text-muted hover:text-white hover:bg-card"
+              }`}
+            >
+              <Palette size={18} />
+              Кастомизация
             </button>
           </div>
 
@@ -141,10 +219,66 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
 
                 <hr className="border-border" />
 
+                {/* Theme Selection */}
+                <section>
+                  <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <Sun size={16} /> Тема оформления
+                  </h3>
+                  
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <button
+                      onClick={() => updateSetting("theme", "dark")}
+                      className={`p-3 brutalist-border flex items-center justify-center gap-2 font-semibold text-xs transition-colors ${
+                        (settings.theme || "dark") === "dark" 
+                          ? "bg-primary text-background border-primary" 
+                          : "bg-background text-muted hover:text-white"
+                      }`}
+                    >
+                      <Moon size={14} /> Темная (Dark)
+                    </button>
+                    <button
+                      onClick={() => updateSetting("theme", "light")}
+                      className={`p-3 brutalist-border flex items-center justify-center gap-2 font-semibold text-xs transition-colors ${
+                        settings.theme === "light" 
+                          ? "bg-primary text-background border-primary" 
+                          : "bg-background text-muted hover:text-white"
+                      }`}
+                    >
+                      <Sun size={14} /> Светлая (Light)
+                    </button>
+                  </div>
+                </section>
+
+                <hr className="border-border" />
+
+                {/* Updates check */}
+                <section>
+                  <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <RefreshCw size={16} /> Обновления RedPanda
+                  </h3>
+
+                  <div className="bg-background brutalist-border p-4 flex items-center justify-between">
+                    <div>
+                      <div className="font-bold text-xs text-white">Версия v0.1.3 Stable</div>
+                      <div className="text-[10px] text-muted mt-0.5">Автоматическая проверка релизов с GitHub</div>
+                    </div>
+                    <button
+                      onClick={handleManualUpdateCheck}
+                      disabled={isCheckingUpdate}
+                      className="px-3 py-1.5 bg-card hover:bg-card-hover brutalist-border text-xs font-bold text-white transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      <RefreshCw size={12} className={isCheckingUpdate ? "animate-spin text-primary" : ""} />
+                      Проверить обновления
+                    </button>
+                  </div>
+                </section>
+
+                <hr className="border-border" />
+
                 {/* Launcher Behavior */}
                 <section>
                   <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <SettingsIcon size={16} /> {t("settings.launch_behavior")}
+                    <Settings size={16} /> {t("settings.launch_behavior")}
                   </h3>
                   
                   <div className="flex flex-col gap-3 mb-4">
@@ -383,14 +517,161 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               </div>
             )}
 
+            {activeTab === "customization" && (
+              <div className="flex flex-col gap-8">
+                
+                {/* Background customization */}
+                <section>
+                  <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <Image size={16} /> Пользовательский задний фон
+                  </h3>
+
+                  <div className="bg-background brutalist-border p-4 flex flex-col gap-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="text-xs text-muted truncate">
+                        {settings.custom_bg_path ? (
+                          <span className="text-white font-mono">{settings.custom_bg_path}</span>
+                        ) : (
+                          "Стандартный фон лаунчера"
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={handleSelectBgImage}
+                          className="px-3 py-1.5 bg-primary text-background font-bold text-xs brutalist-border hover:bg-primary-hover transition-colors flex items-center gap-1.5"
+                        >
+                          <Image size={14} /> Выбрать картинку
+                        </button>
+                        {settings.custom_bg_path && (
+                          <button
+                            onClick={() => updateSetting("custom_bg_path", "")}
+                            className="p-1.5 brutalist-border text-muted hover:text-red-400 hover:border-red-400 transition-colors"
+                            title="Сбросить фон"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {settings.custom_bg_path && (
+                      <div className="flex flex-col gap-4 pt-2 border-t border-border">
+                        <div>
+                          <div className="flex justify-between items-center text-xs font-semibold mb-2">
+                            <span className="text-muted">Непрозрачность (Opacity):</span>
+                            <span className="text-primary">{settings.custom_bg_opacity ?? 50}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="10" max="100" step="5"
+                            value={settings.custom_bg_opacity ?? 50}
+                            onChange={(e) => updateSetting("custom_bg_opacity", parseInt(e.target.value))}
+                            className="w-full accent-primary h-2 bg-card rounded-none appearance-none cursor-pointer"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between items-center text-xs font-semibold mb-2">
+                            <span className="text-muted">Размытие (Blur):</span>
+                            <span className="text-primary">{settings.custom_bg_blur ?? 0}px</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0" max="20" step="1"
+                            value={settings.custom_bg_blur ?? 0}
+                            onChange={(e) => updateSetting("custom_bg_blur", parseInt(e.target.value))}
+                            className="w-full accent-primary h-2 bg-card rounded-none appearance-none cursor-pointer"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                <hr className="border-border" />
+
+                {/* Mascot customization */}
+                <section>
+                  <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <Smile size={16} /> Маскот панды в верхнем углу
+                  </h3>
+
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <button
+                      onClick={() => {
+                        updateSetting("mascot_preset", "default");
+                        updateSetting("custom_mascot_path", "");
+                      }}
+                      className={`p-3 brutalist-border flex items-center gap-3 transition-colors ${
+                        (settings.mascot_preset || "default") === "default" && !settings.custom_mascot_path
+                          ? "bg-primary/10 border-primary text-primary"
+                          : "bg-background text-muted hover:text-white"
+                      }`}
+                    >
+                      <img src="/pandas_png/clasped.png" alt="default" className="w-8 h-8 object-contain" />
+                      <div className="text-left">
+                        <div className="font-bold text-xs">RedPanda Original</div>
+                        <div className="text-[10px] text-muted">Классический маскот</div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={handleSelectMascotImage}
+                      className={`p-3 brutalist-border flex items-center gap-3 transition-colors ${
+                        settings.mascot_preset === "custom" || settings.custom_mascot_path
+                          ? "bg-primary/10 border-primary text-primary"
+                          : "bg-background text-muted hover:text-white"
+                      }`}
+                    >
+                      <Smile size={24} className="text-primary shrink-0" />
+                      <div className="text-left overflow-hidden">
+                        <div className="font-bold text-xs truncate">Загрузить свой аватар</div>
+                        <div className="text-[10px] text-muted truncate">
+                          {settings.custom_mascot_path ? "Файл выбран" : "PNG / JPG / WebP"}
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </section>
+
+                <hr className="border-border" />
+
+                {/* Color Palette */}
+                <section>
+                  <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <Palette size={16} /> Акцентный цвет лаунчера
+                  </h3>
+
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {[
+                      { name: "RedPanda Orange", color: "#F55E1D" },
+                      { name: "Cyber Cyan", color: "#00F0FF" },
+                      { name: "Neon Pink", color: "#FF0055" },
+                      { name: "Emerald Green", color: "#10B981" },
+                      { name: "Deep Purple", color: "#8B5CF6" },
+                    ].map((preset) => (
+                      <button
+                        key={preset.color}
+                        onClick={() => updateSetting("accent_color", preset.color)}
+                        className={`px-3 py-2 brutalist-border text-xs font-bold flex items-center gap-2 transition-all ${
+                          (settings.accent_color || "#F55E1D").toLowerCase() === preset.color.toLowerCase()
+                            ? "border-primary scale-105"
+                            : "opacity-80 hover:opacity-100"
+                        }`}
+                        style={{ backgroundColor: preset.color, color: "#0E0F12" }}
+                      >
+                        {preset.name}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+              </div>
+            )}
+
           </div>
         </div>
       </div>
     </div>
   );
-}
-
-// Icon for the header
-function SettingsIcon(props: any) {
-  return <Settings {...props} />;
 }

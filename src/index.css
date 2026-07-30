@@ -2,11 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-bg: #101214;
+  --color-card: #16181a;
+  --color-card-hover: #1e2124;
+  --color-muted: #8a8a8e;
+  --color-border: #2a2d30;
+  --color-text: #ffffff;
+  --color-primary: #F55E1D;
+  --color-primary-hover: #FF6B26;
+}
+
+[data-theme="light"], .light {
+  --color-bg: #F0F2F5;
+  --color-card: #FFFFFF;
+  --color-card-hover: #E4E7EE;
+  --color-muted: #646875;
+  --color-border: #CBD0DC;
+  --color-text: #0E0F12;
+}
+
 @layer base {
   body {
-    @apply bg-background text-white antialiased overflow-x-hidden select-none;
-    /* Apply noise background if needed, or keep it solid */
-    background-color: #101214;
+    @apply bg-background text-text antialiased overflow-x-hidden select-none;
+    background-color: var(--color-bg);
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
   }
 

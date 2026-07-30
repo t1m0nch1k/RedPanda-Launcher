@@ -19,6 +19,13 @@ pub struct AppSettings {
     pub show_console: bool,
     pub aggressive_optimization: bool,
     pub show_snapshots: bool,
+    pub theme: String,
+    pub custom_bg_path: String,
+    pub custom_bg_opacity: u32,
+    pub custom_bg_blur: u32,
+    pub custom_mascot_path: String,
+    pub mascot_preset: String,
+    pub accent_color: String,
 }
 
 impl Default for AppSettings {
@@ -36,6 +43,13 @@ impl Default for AppSettings {
             show_console: false,
             aggressive_optimization: false,
             show_snapshots: false,
+            theme: "dark".to_string(),
+            custom_bg_path: "".to_string(),
+            custom_bg_opacity: 50,
+            custom_bg_blur: 0,
+            custom_mascot_path: "".to_string(),
+            mascot_preset: "default".to_string(),
+            accent_color: "#F55E1D".to_string(),
         }
     }
 }
@@ -132,7 +146,13 @@ pub async fn find_java_installations() -> Result<Vec<JavaInstallation>, String> 
 }
 
 fn check_java(path: &Path) -> Option<JavaInstallation> {
-    let output = Command::new(path).arg("-version").output().ok()?;
+    let mut cmd = Command::new(path);
+    #[cfg(target_os = "windows")]
+    use std::os::windows::process::CommandExt;
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(0x08000000);
+
+    let output = cmd.arg("-version").output().ok()?;
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     let stdout = String::from_utf8_lossy(&output.stdout);

@@ -10,6 +10,7 @@ pub async fn launch_game(
     version: String,
     loader_type: String,
     loader_version: String,
+    server: Option<String>,
 ) -> Result<(), String> {
     // Initialize lighty-launcher global state (ignore error if already initialized)
     let _ = AppState::init("RedPandaLauncher");
@@ -93,6 +94,11 @@ pub async fn launch_game(
 
     let launch_behavior = settings.launch_behavior.clone();
     
+    // Ensure required Java version is installed
+    if let Err(e) = crate::java::ensure_java_runtime(&version).await {
+        log::warn!("Java auto-downloader warning: {}, falling back to default distribution", e);
+    }
+
     // Build launch configuration
     let mut builder = instance
         .launch(&profile, JavaDistribution::Temurin)
@@ -150,6 +156,16 @@ pub async fn launch_game(
         arg_builder = arg_builder.set("fullscreen", "");
     }
 
+    if let Some(srv) = server {
+        let trimmed = srv.trim();
+        if !trimmed.is_empty() {
+            let parts: Vec<&str> = trimmed.split(':').collect();
+            let host = parts[0];
+            let port = parts.get(1).unwrap_or(&"25565");
+            arg_builder = arg_builder.set("server", host).set("port", *port);
+        }
+    }
+
     let builder = arg_builder.done();
 
     let agg_opt = settings.aggressive_optimization;
@@ -165,7 +181,8 @@ pub async fn launch_game(
                     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
                     log::info!("Applying aggressive optimization (High Priority)...");
                     let cmd = "wmic process where \"(name='javaw.exe' or name='java.exe') and commandline like '%RedPandaLauncher%'\" CALL setpriority 128";
-                    let _ = std::process::Command::new("cmd").args(["/C", cmd]).output();
+                    use std::os::windows::process::CommandExt;
+                    let _ = std::process::Command::new("cmd").creation_flags(0x08000000).args(["/C", cmd]).output();
                 });
             }
 

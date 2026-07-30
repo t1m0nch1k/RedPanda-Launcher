@@ -154,6 +154,25 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
     setIsCreating(false);
   };
 
+  const handleImportMrpack = async () => {
+    try {
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const selected = await open({
+        multiple: false,
+        filters: [{ name: "Modrinth Modpack", extensions: ["mrpack"] }]
+      });
+      if (selected && typeof selected === "string") {
+        toast.info("Импорт сборки .mrpack запущен...");
+        await invoke("import_mrpack", { path: selected });
+        toast.success("Сборка успешно импортирована!");
+        onCreated();
+      }
+    } catch(e) {
+      console.error(e);
+      toast.error(t("common.error") + ": " + e);
+    }
+  };
+
   const loaderOptions = [
     { id: "Vanilla", name: "Vanilla", desc: t("create_instance.desc_vanilla"), color: "text-white" },
     { id: "Fabric", name: "Fabric", desc: t("create_instance.desc_fabric"), color: "text-[#DBC39A]" },
@@ -274,20 +293,28 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-border bg-background/50 rounded-b-2xl flex justify-end gap-3">
-          <button 
-            onClick={onClose} 
-            className="px-5 py-2.5 rounded-none font-medium text-[13px] text-muted hover:text-white transition-colors"
+        <div className="p-4 border-t border-border bg-background/50 rounded-b-2xl flex justify-between items-center gap-3">
+          <button
+            onClick={handleImportMrpack}
+            className="px-3 py-2 rounded-none font-semibold text-xs border border-primary/40 text-primary hover:bg-primary/10 transition-colors flex items-center gap-1.5"
           >
-            {t("create_instance.cancel")}
+            <Box size={14} /> Импорт сборки (.mrpack)
           </button>
-          <button 
-            onClick={handleCreate}
-            disabled={isCreating || !name.trim() || !gameVersion.trim()}
-            className="bg-primary hover:bg-primary-hover text-white px-6 py-2.5 rounded-none font-semibold text-[13px] disabled:opacity-50 transition-colors  flex items-center gap-2"
-          >
-            {isCreating ? t("create_instance.creating") : <><Play size={14} /> {t("create_instance.create")}</>}
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={onClose} 
+              className="px-5 py-2.5 rounded-none font-medium text-[13px] text-muted hover:text-white transition-colors"
+            >
+              {t("create_instance.cancel")}
+            </button>
+            <button 
+              onClick={handleCreate}
+              disabled={isCreating || !name.trim() || !gameVersion.trim()}
+              className="bg-primary hover:bg-primary-hover text-white px-6 py-2.5 rounded-none font-semibold text-[13px] disabled:opacity-50 transition-colors flex items-center gap-2"
+            >
+              {isCreating ? t("create_instance.creating") : <><Play size={14} /> {t("create_instance.create")}</>}
+            </button>
+          </div>
         </div>
 
       </div>

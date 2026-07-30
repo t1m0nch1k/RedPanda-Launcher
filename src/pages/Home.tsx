@@ -1,4 +1,4 @@
-import { Plus, Play, Anvil, Feather, TreePine, Hammer, Settings, Loader2, Folder, FileText, Trash2, Download } from "lucide-react";
+import { Plus, Play, Anvil, Feather, TreePine, Hammer, Settings, Loader2, Folder, FileText, Trash2, Download, Globe } from "lucide-react";
 import { useState, useEffect, useMemo, memo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
@@ -63,8 +63,27 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
 
   type PandaState = "welcome" | "greeting" | "celebration" | "thinking" | "searching" | "working" | "loading" | "mining" | "reading";
   const [pandaState, setPandaState] = useState<PandaState>("welcome");
+  const [customMascotPath, setCustomMascotPath] = useState<string>("");
+
+  useEffect(() => {
+    const checkSettings = () => {
+      invoke<any>("get_settings").then(s => {
+        if (s && s.custom_mascot_path) {
+          setCustomMascotPath(s.custom_mascot_path);
+        } else {
+          setCustomMascotPath("");
+        }
+      }).catch(console.error);
+    };
+    checkSettings();
+    window.addEventListener("focus", checkSettings);
+    return () => window.removeEventListener("focus", checkSettings);
+  }, []);
 
   const getPandaImage = () => {
+    if (customMascotPath) {
+      return convertFileSrc(customMascotPath);
+    }
     switch(pandaState) {
       case "welcome": return "/pandas_png/clasped.png";
       case "greeting": return "/pandas_png/waving.png";
@@ -118,6 +137,8 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
   const gameLogsRef = useRef<{stream: string, line: string}[]>([]);
   const [crashLogs, setCrashLogs] = useState<{stream: string, line: string}[]>([]);
   const [showCrashModal, setShowCrashModal] = useState(false);
+  const [quickServer, setQuickServer] = useState("");
+  const [showServerInput, setShowServerInput] = useState(false);
 
   const currentInstanceRef = useRef(currentInstance);
   useEffect(() => {
@@ -304,10 +325,10 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
     }
   }, [pandaState, isLaunching]);
 
-  const handleLaunch = async () => {
+  const handleLaunch = async (serverUrl?: string) => {
+    if (isLaunching) return;
     setIsLaunching(true);
     setPandaState("working");
-    gameLogsRef.current = [];
     
     try {
       const accounts: any[] = await invoke("get_accounts");
@@ -320,12 +341,15 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
         return;
       }
       
+      const targetServer = typeof serverUrl === "string" ? serverUrl : (quickServer.trim() || undefined);
+
       await invoke("launch_game", { 
         username: activeAccount.username,
         instanceId: currentInstance.id,
         version: currentInstance.game_version,
         loaderType: currentInstance.loader_type,
-        loaderVersion: currentInstance.loader_version
+        loaderVersion: currentInstance.loader_version,
+        server: targetServer || null
       });
       
       await invoke("update_instance_played", { id: currentInstance.id });
@@ -441,26 +465,44 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                     </button>
                     <button 
                       onClick={() => setManagingInstance(currentInstance.id)}
-                      className="bg-card hover:bg-background brutalist-border text-muted hover:text-white px-3 py-3 rounded-none  transition-colors"
+                      className="bg-card hover:bg-background brutalist-border text-muted hover:text-white px-3 py-3 rounded-none transition-colors"
                       title="Управление сборкой (Моды, Ресурспаки)"
                     >
                       <Settings size={18} />
                     </button>
+                    <button 
+                      onClick={() => setShowServerInput(!showServerInput)}
+                      className={`bg-card hover:bg-background brutalist-border text-muted hover:text-white px-3 py-3 rounded-none transition-colors ${showServerInput ? "text-primary border-primary" : ""}`}
+                      title="Быстрое подключение к серверу"
+                    >
+                      <Globe size={18} />
+                    </button>
                   </div>
                 )}
-               <button 
-                 onClick={handleLaunch}
-                 disabled={isLaunching}
-                 onMouseEnter={() => !isLaunching && setPandaState("celebration")}
-                 onMouseLeave={() => !isLaunching && setPandaState("welcome")}
-                 className="brutalist-button-primary disabled:opacity-50 disabled:cursor-not-allowed px-7 py-3 text-[13px] flex items-center gap-2"
-               >
-                 {isLaunching ? (
-                   <><Loader2 className="animate-spin" size={16} /> <span className="translate-y-[0.5px]">{t("home.launching")}</span></>
-                 ) : (
-                   <><Play fill="currentColor" size={15} /> <span className="translate-y-[0.5px]">{t("home.play")}</span></>
+               <div className="flex flex-col items-end gap-2">
+                 {showServerInput && (
+                   <input
+                     type="text"
+                     placeholder="IP сервера (напр. play.hypixel.net)"
+                     value={quickServer}
+                     onChange={(e) => setQuickServer(e.target.value)}
+                     className="bg-background brutalist-border px-3 py-1.5 text-xs text-white placeholder:text-muted focus:outline-none focus:border-primary w-64"
+                   />
                  )}
-               </button>
+                 <button 
+                   onClick={() => handleLaunch()}
+                   disabled={isLaunching}
+                   onMouseEnter={() => !isLaunching && setPandaState("celebration")}
+                   onMouseLeave={() => !isLaunching && setPandaState("welcome")}
+                   className="brutalist-button-primary disabled:opacity-50 disabled:cursor-not-allowed px-7 py-3 text-[13px] flex items-center gap-2"
+                 >
+                   {isLaunching ? (
+                     <><Loader2 className="animate-spin" size={16} /> <span className="translate-y-[0.5px]">{t("home.launching")}</span></>
+                   ) : (
+                     <><Play fill="currentColor" size={15} /> <span className="translate-y-[0.5px]">{quickServer.trim() ? "Подключиться к серверу" : t("home.play")}</span></>
+                   )}
+                 </button>
+               </div>
             </div>
           </div>
         </div>

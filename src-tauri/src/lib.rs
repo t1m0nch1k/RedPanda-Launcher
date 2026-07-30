@@ -1,10 +1,12 @@
 mod accounts;
 pub mod import;
 pub mod instances;
+pub mod java;
 mod launcher;
 mod modrinth;
 mod oauth;
 pub mod settings;
+pub mod updater;
 mod versions;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
@@ -69,6 +71,8 @@ pub fn run() {
             modrinth::download_modrinth_modpack,
             modrinth::check_mod_updates,
             modrinth::update_mod,
+            updater::check_for_updates,
+            updater::download_and_install_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
