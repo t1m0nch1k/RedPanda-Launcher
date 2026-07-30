@@ -142,7 +142,8 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
         <div className="w-6 h-6 bg-background rounded-none overflow-hidden brutalist-border flex-shrink-0">
           <img 
             src={activeAccount ? getAvatarUrl(activeAccount) : "https://minotar.net/helm/MHF_Steve/64"} 
-            alt="Avatar" 
+            alt="" 
+            onError={(e) => { e.currentTarget.src = "https://minotar.net/helm/MHF_Steve/64"; }}
             className="w-full h-full object-cover rendering-pixelated"
           />
         </div>
@@ -155,20 +156,25 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
       </button>
 
       {isOpen && (
-        <div className="absolute bottom-full left-0 mb-2 w-full bg-card brutalist-border rounded-none  overflow-hidden flex flex-col z-50">
-          <div className="max-h-48 overflow-y-auto p-1 custom-scrollbar">
+        <div className="absolute bottom-full left-0 mb-2 w-64 bg-card brutalist-border rounded-none shadow-2xl flex flex-col z-50">
+          <div className="max-h-60 overflow-y-auto p-1 custom-scrollbar">
             {accounts.map(account => (
-                <div key={account.id} className="flex items-center justify-between group p-2 hover:bg-background rounded-none transition-colors cursor-pointer" onClick={() => handleSelectAccount(account.id)}>
-                  <div className="flex items-center gap-3">
-                    <img src={getAvatarUrl(account)} alt="Avatar" className="w-8 h-8 rounded-none rendering-pixelated" />
-                    <div>
-                      <div className="text-[13px] font-semibold text-white/90">{account.username}</div>
-                      <div className="text-[11px] text-muted mt-0.5">{account.account_type}</div>
+                <div key={account.id} className="flex items-center justify-between group p-2 hover:bg-card-hover rounded-none transition-colors cursor-pointer" onClick={() => handleSelectAccount(account.id)}>
+                  <div className="flex items-center gap-3 overflow-hidden pr-2">
+                    <img 
+                      src={getAvatarUrl(account)} 
+                      alt="" 
+                      onError={(e) => { e.currentTarget.src = "https://minotar.net/helm/MHF_Steve/64"; }}
+                      className="w-7 h-7 rounded-none rendering-pixelated flex-shrink-0 bg-background" 
+                    />
+                    <div className="overflow-hidden">
+                      <div className="text-[13px] font-semibold text-text truncate">{account.username}</div>
+                      <div className="text-[11px] text-muted truncate">{account.account_type}</div>
                     </div>
                   </div>
                   <button 
                     onClick={(e) => { e.stopPropagation(); handleRemoveAccount(account.id); }}
-                    className="p-1.5 text-muted hover:text-red-400 hover:bg-red-500/10 rounded-none opacity-0 group-hover:opacity-100 transition-all"
+                    className="p-1.5 text-muted hover:text-red-400 hover:bg-red-500/10 rounded-none opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -185,7 +191,7 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
           <div className="p-2 border-t border-border bg-background/50">
             <button 
               onClick={() => { setIsOpen(false); setShowAddModal(true); }}
-              className="flex items-center justify-center gap-2 w-full py-2 bg-card hover:bg-card-hover text-muted hover:text-white brutalist-border hover:border-muted/50 rounded-none transition-colors text-[13px] font-medium"
+              className="flex items-center justify-center gap-2 w-full py-2 bg-card hover:bg-card-hover text-muted hover:text-text brutalist-border hover:border-muted/50 rounded-none transition-colors text-[13px] font-medium"
             >
               <Plus size={16} /> {t("account.add_account")}
             </button>
