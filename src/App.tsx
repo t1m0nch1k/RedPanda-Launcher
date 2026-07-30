@@ -97,7 +97,7 @@ export default function App() {
       >
         <div className="flex items-center gap-2.5 pointer-events-none pl-1">
           <img src="/logo.png" alt="RedPanda" className="w-5 h-5 object-contain" />
-          <span className="font-semibold text-[13px] tracking-wide text-white/80">RedPanda Launcher</span>
+          <span className="font-semibold text-[13px] tracking-wide text-text/80">RedPanda Launcher</span>
         </div>
         
         <div className="flex items-center gap-2 z-10 text-muted" data-tauri-drag-region="false">
@@ -112,14 +112,14 @@ export default function App() {
           )}
           <button 
             onClick={() => appWindow.minimize()}
-            className="p-2 hover:bg-card-hover hover:text-white rounded-none transition-colors"
+            className="p-2 hover:bg-card-hover hover:text-text rounded-none transition-colors"
             data-tauri-drag-region="false"
           >
             <Minus size={16} data-tauri-drag-region="false" />
           </button>
           <button 
             onClick={() => appWindow.toggleMaximize()}
-            className="p-2 hover:bg-card-hover hover:text-white rounded-none transition-colors"
+            className="p-2 hover:bg-card-hover hover:text-text rounded-none transition-colors"
             data-tauri-drag-region="false"
           >
             <Square size={14} data-tauri-drag-region="false" />
@@ -165,7 +165,7 @@ export default function App() {
       {/* Bottom status bar */}
       <div className="h-10 bg-background border-t border-border flex items-center justify-between px-4 text-xs font-mono shrink-0 z-10">
         <div className="flex items-center gap-4 text-muted w-1/3">
-          <span className="flex items-center gap-1.5 text-white/80">
+          <span className="flex items-center gap-1.5 text-text/80">
             <span className="w-2 h-2 rounded-none bg-emerald-500 inline-block"></span>
             v0.1.3 Stable
           </span>
@@ -186,21 +186,21 @@ export default function App() {
 
         <div className="flex items-center justify-end gap-3 w-1/3 text-muted">
           <button 
-            className="p-2 hover:text-white hover:bg-card-hover rounded-none transition-colors" 
+            className="p-2 hover:text-text hover:bg-card-hover rounded-none transition-colors" 
             title={t("app.launcher_settings", "Launcher Settings")}
             onClick={() => setIsSettingsOpen(true)}
           >
             <Settings size={18} />
           </button>
           <button 
-            className="p-2 hover:text-white hover:bg-card-hover rounded-none transition-colors" 
+            className="p-2 hover:text-text hover:bg-card-hover rounded-none transition-colors" 
             title={t("app.launcher_folder", "Launcher Folder")}
             onClick={handleOpenFolder}
           >
             <Folder size={18} />
           </button>
           <button 
-            className="p-2 hover:text-white hover:bg-card-hover rounded-none transition-colors" 
+            className="p-2 hover:text-text hover:bg-card-hover rounded-none transition-colors" 
             title={t("app.logs_folder", "Logs Folder")}
             onClick={handleOpenLogs}
           >

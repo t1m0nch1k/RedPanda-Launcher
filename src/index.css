@@ -17,9 +17,45 @@
   --color-bg: #F0F2F5;
   --color-card: #FFFFFF;
   --color-card-hover: #E4E7EE;
-  --color-muted: #646875;
+  --color-muted: #525866;
   --color-border: #CBD0DC;
   --color-text: #0E0F12;
+}
+
+/* Light Theme Typography & Dynamic Contrast Overrides */
+[data-theme="light"] {
+  color: #0E0F12;
+}
+
+[data-theme="light"] .text-white {
+  color: #0E0F12 !important;
+}
+
+[data-theme="light"] .text-white\/90 {
+  color: rgba(14, 15, 18, 0.9) !important;
+}
+
+[data-theme="light"] .text-white\/80 {
+  color: rgba(14, 15, 18, 0.8) !important;
+}
+
+[data-theme="light"] .text-white\/70 {
+  color: rgba(14, 15, 18, 0.7) !important;
+}
+
+[data-theme="light"] .text-white\/60 {
+  color: rgba(14, 15, 18, 0.6) !important;
+}
+
+[data-theme="light"] .hover\:text-white:hover {
+  color: #0E0F12 !important;
+}
+
+/* Keep white text for buttons with primary colored background */
+[data-theme="light"] .bg-primary,
+[data-theme="light"] .bg-primary .text-white,
+[data-theme="light"] button.bg-primary {
+  color: #FFFFFF !important;
 }
 
 @layer base {
