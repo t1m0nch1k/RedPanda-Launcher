@@ -163,10 +163,10 @@ export default function App() {
       </div>
 
       {/* Bottom status bar */}
-      <div className="h-10 bg-background border-t border-border flex items-center justify-between px-4 text-xs font-mono shrink-0 z-10">
-        <div className="flex items-center gap-4 text-muted w-1/3">
-          <span className="flex items-center gap-1.5 text-text/80">
-            <span className="w-2 h-2 rounded-none bg-emerald-500 inline-block"></span>
+      <div className="h-11 bg-background border-t border-border flex items-center justify-between px-4 text-xs font-mono shrink-0 z-20">
+        <div className="flex items-center gap-3 text-muted shrink-0">
+          <span className="flex items-center gap-1.5 text-text/80 whitespace-nowrap font-medium">
+            <span className="w-2 h-2 rounded-none bg-emerald-500 inline-block shrink-0"></span>
             v0.1.3 Stable
           </span>
           <AccountSelector onAccountChange={(username) => setActiveUsername(username)} />

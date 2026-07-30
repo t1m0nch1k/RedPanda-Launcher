@@ -133,28 +133,25 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
   const activeAccount = accounts.find(a => a.is_active);
 
   return (
-    <div className="flex flex-col relative" ref={dropdownRef}>
-      <span className="text-[10px] text-muted font-bold mb-1.5 uppercase tracking-[0.15em] pl-1">{t("account.title", "Аккаунт")}</span>
+    <div className="flex items-center relative" ref={dropdownRef}>
       <button 
-        className="flex items-center gap-3 bg-transparent border border-transparent rounded-none px-2 py-1.5 hover:bg-card-hover transition-colors w-56 text-left group -ml-2"
+        className="flex items-center gap-2 bg-card/80 hover:bg-card-hover border border-border rounded-none px-2.5 py-1 transition-colors text-left group shrink-0"
         onClick={() => setIsOpen(!isOpen)}
+        title={activeAccount ? `${activeAccount.username} (${activeAccount.account_type})` : t("account.no_account")}
       >
-        <div className="w-8 h-8 bg-background rounded-none overflow-hidden brutalist-border flex-shrink-0">
+        <div className="w-6 h-6 bg-background rounded-none overflow-hidden brutalist-border flex-shrink-0">
           <img 
             src={activeAccount ? getAvatarUrl(activeAccount) : "https://minotar.net/helm/MHF_Steve/64"} 
             alt="Avatar" 
             className="w-full h-full object-cover rendering-pixelated"
           />
         </div>
-        <div className="flex flex-col items-start overflow-hidden flex-1">
-          <div className="font-semibold text-[13px] text-white/90 truncate w-full">
+        <div className="flex items-center gap-1.5 overflow-hidden">
+          <span className="font-semibold text-xs text-text truncate max-w-[110px]">
             {activeAccount ? activeAccount.username : t("account.no_account")}
-          </div>
-          <div className="text-[11px] text-muted truncate w-full mt-0.5">
-            {activeAccount ? activeAccount.account_type : t("account.add")}
-          </div>
+          </span>
         </div>
-        <ChevronDown size={14} className={`text-muted transition-transform ml-1 flex-shrink-0 ${isOpen ? "rotate-180" : ""}`} />
+        <ChevronDown size={14} className={`text-muted transition-transform ml-0.5 flex-shrink-0 ${isOpen ? "rotate-180" : ""}`} />
       </button>
 
       {isOpen && (
