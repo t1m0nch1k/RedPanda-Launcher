@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "RedPanda Launcher",
-  "version": "0.1.4",
-  "identifier": "com.redpanda.launcher",
+  "version": "0.1.5",
+  "identifier": "com.t1m0nch1k.redpanda.launcher",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",

@@ -7,6 +7,7 @@ import CreateInstanceModal from "../components/CreateInstanceModal";
 import InstanceManagerModal from "../components/InstanceManagerModal";
 import CrashModal from "../components/CrashModal";
 import ModrinthBrowser from "../components/ModrinthBrowser";
+import CurseForgeBrowser from "../components/CurseForgeBrowser";
 import { toast } from "../components/Toast";
 import { open, save } from "@tauri-apps/plugin-dialog";
 
@@ -29,6 +30,7 @@ interface HomeProps {
 export default memo(function Home({ selectedInstance, onSelectInstance, activeUsername }: HomeProps) {
   const { t } = useTranslation();
   const [showModpackBrowser, setShowModpackBrowser] = useState(false);
+  const [showCurseForgeModpackBrowser, setShowCurseForgeModpackBrowser] = useState(false);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -366,7 +368,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
   };
 
   return (
-    <div className="flex flex-col h-full gap-10 pb-8 max-w-5xl mx-auto w-full">
+    <div className="flex flex-col h-full gap-10 pb-8 max-w-5xl mx-auto w-full overflow-y-auto custom-scrollbar pr-4">
       
       <div className="flex justify-between items-end">
         <div className="mb-2">
@@ -531,12 +533,22 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
           
           <button 
             onClick={() => setShowModpackBrowser(true)}
-            className="bg-transparent hover:bg-card border border-dashed border-border hover:border-muted text-muted rounded-none flex flex-col items-center justify-center gap-3 min-h-[140px] transition-colors group"
+            className="bg-transparent hover:bg-card border border-dashed border-border hover:border-primary/50 text-primary/80 rounded-none flex flex-col items-center justify-center gap-3 min-h-[140px] transition-colors group"
           >
-            <div className="w-10 h-10 rounded-none bg-card brutalist-border flex items-center justify-center group-hover:text-white transition-colors">
+            <div className="w-10 h-10 rounded-none bg-card brutalist-border flex items-center justify-center group-hover:text-primary transition-colors">
               <Download size={18} />
             </div>
-            <span className="text-[13px] font-medium group-hover:text-white transition-colors">{t("home.install_modpack")}</span>
+            <span className="text-[13px] font-medium group-hover:text-primary transition-colors">Сборка Modrinth</span>
+          </button>
+
+          <button 
+            onClick={() => setShowCurseForgeModpackBrowser(true)}
+            className="bg-transparent hover:bg-card border border-dashed border-border hover:border-[#F55E1D]/50 text-[#F55E1D]/80 rounded-none flex flex-col items-center justify-center gap-3 min-h-[140px] transition-colors group"
+          >
+            <div className="w-10 h-10 rounded-none bg-card brutalist-border flex items-center justify-center group-hover:text-[#F55E1D] transition-colors">
+              <Download size={18} />
+            </div>
+            <span className="text-[13px] font-medium group-hover:text-[#F55E1D] transition-colors">Сборка CurseForge</span>
           </button>
 
           {/* Other Instance Cards */}
@@ -591,6 +603,16 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
         <ModrinthBrowser 
           onClose={() => {
             setShowModpackBrowser(false);
+            loadInstances();
+          }}
+          projectType="modpack"
+        />
+      )}
+
+      {showCurseForgeModpackBrowser && (
+        <CurseForgeBrowser 
+          onClose={() => {
+            setShowCurseForgeModpackBrowser(false);
             loadInstances();
           }}
           projectType="modpack"

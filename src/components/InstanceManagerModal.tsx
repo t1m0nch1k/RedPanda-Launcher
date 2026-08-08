@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { X, Puzzle, Palette, Settings as SettingsIcon, Trash2, Plus, Loader2, RefreshCw, ArrowUpCircle, Globe } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import ModrinthBrowser from "./ModrinthBrowser";
+import CurseForgeBrowser from "./CurseForgeBrowser";
 
 interface Instance {
   id: string;
@@ -38,6 +39,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<"mods" | "resources" | "settings" | "multiplayer">("mods");
   const [showModrinth, setShowModrinth] = useState(false);
+  const [showCurseForge, setShowCurseForge] = useState(false);
   const [modrinthProjectType, setModrinthProjectType] = useState<"mod" | "resourcepack" | "shader">("mod");
   const [isE4mcInstalled, setIsE4mcInstalled] = useState(false);
   const [installingE4mc, setInstallingE4mc] = useState(false);
@@ -127,12 +129,13 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
   };
 
   useEffect(() => {
-    if (activeTab === "mods" && !showModrinth) {
-        loadMods();
-    } else if (activeTab === "resources") {
+    if (activeTab === "mods" && !showModrinth && !showCurseForge) {
+      loadMods();
+    } else if (activeTab === "resources" && !showModrinth && !showCurseForge) {
         loadResources();
     }
-  }, [activeTab, showModrinth]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, showModrinth, showCurseForge]);
 
   const handleDeleteMod = async (filename: string) => {
     try {
@@ -198,6 +201,14 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
   const handleDeleteInstance = async () => {
     setShowConfirmDelete(true);
   };
+
+  if (showCurseForge) {
+    return <CurseForgeBrowser 
+        instance={instance} 
+        onClose={() => setShowCurseForge(false)} 
+        projectType={modrinthProjectType} // Reusing modrinthProjectType state as it maps to the same values
+    />;
+  }
 
   if (showModrinth) {
     return <ModrinthBrowser 
@@ -288,7 +299,13 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                         onClick={() => { setModrinthProjectType("mod"); setShowModrinth(true); }}
                         className="brutalist-button-primary   text-xs font-semibold flex items-center gap-2 "
                       >
-                        <Plus size={14} /> {t("instance_manager.download_mods")}
+                        <Plus size={14} /> {t("instance_manager.add_from_modrinth")}
+                      </button>
+                      <button 
+                        onClick={() => { setModrinthProjectType("mod"); setShowCurseForge(true); }}
+                        className="brutalist-button-primary !bg-[#F55E1D] hover:!bg-[#D94F16] text-xs font-semibold flex items-center gap-2"
+                      >
+                        <Plus size={14} /> Добавить из CurseForge
                       </button>
                   </div>
                 </div>
@@ -357,15 +374,26 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                 <div>
                     <div className="flex items-center justify-between mb-3">
                         <h3 className="text-sm font-semibold text-white">{t("instance_manager.resources")}</h3>
-                        <button 
-                            onClick={() => {
-                                setModrinthProjectType("resourcepack");
-                                setShowModrinth(true);
-                            }}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-none bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-xs font-medium"
-                        >
-                            <Plus size={14} /> Добавить из Modrinth
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button 
+                                onClick={() => {
+                                    setModrinthProjectType("resourcepack");
+                                    setShowModrinth(true);
+                                }}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-none bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-xs font-medium"
+                            >
+                                <Plus size={14} /> Добавить из Modrinth
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    setModrinthProjectType("resourcepack");
+                                    setShowCurseForge(true);
+                                }}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-none bg-[#F55E1D]/10 text-[#F55E1D] hover:bg-[#F55E1D]/20 transition-colors text-xs font-medium"
+                            >
+                                <Plus size={14} /> CurseForge
+                            </button>
+                        </div>
                     </div>
                     <div className="bg-background brutalist-border rounded-none overflow-hidden min-h-[100px]">
                         {loadingResources ? (
@@ -406,15 +434,26 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                 <div>
                     <div className="flex items-center justify-between mb-3">
                         <h3 className="text-sm font-semibold text-white">{t("instance_manager.shaders")}</h3>
-                        <button 
-                            onClick={() => {
-                                setModrinthProjectType("shader");
-                                setShowModrinth(true);
-                            }}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-none bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-xs font-medium"
-                        >
-                            <Plus size={14} /> {t("instance_manager.add_from_modrinth")}
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button 
+                                onClick={() => {
+                                    setModrinthProjectType("shader");
+                                    setShowModrinth(true);
+                                }}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-none bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-xs font-medium"
+                            >
+                                <Plus size={14} /> {t("instance_manager.add_from_modrinth")}
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    setModrinthProjectType("shader");
+                                    setShowCurseForge(true);
+                                }}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-none bg-[#F55E1D]/10 text-[#F55E1D] hover:bg-[#F55E1D]/20 transition-colors text-xs font-medium"
+                            >
+                                <Plus size={14} /> CurseForge
+                            </button>
+                        </div>
                     </div>
                     <div className="bg-background brutalist-border rounded-none overflow-hidden min-h-[100px]">
                         {loadingResources ? (

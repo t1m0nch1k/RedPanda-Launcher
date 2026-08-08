@@ -1,4 +1,5 @@
 mod accounts;
+pub mod curseforge;
 pub mod import;
 pub mod instances;
 pub mod java;
@@ -71,6 +72,10 @@ pub fn run() {
             modrinth::download_modrinth_modpack,
             modrinth::check_mod_updates,
             modrinth::update_mod,
+            curseforge::search_curseforge,
+            curseforge::get_curseforge_versions,
+            curseforge::download_curseforge_version,
+            curseforge::download_curseforge_modpack,
             updater::check_for_updates,
             updater::download_and_install_update,
         ])

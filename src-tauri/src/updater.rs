@@ -29,14 +29,14 @@ struct GithubAsset {
     pub browser_download_url: String,
 }
 
-const CURRENT_VERSION: &str = "0.1.4";
+const CURRENT_VERSION: &str = "0.1.5";
 
 #[tauri::command]
 pub async fn check_for_updates() -> Result<UpdateInfo, String> {
     log::info!("Checking for RedPanda Launcher updates on GitHub...");
 
     let client = Client::builder()
-        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 RedPandaLauncher/0.1.4")
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 RedPandaLauncher/0.1.5")
         .build()
         .map_err(|e| e.to_string())?;
 
@@ -103,7 +103,7 @@ pub async fn download_and_install_update(_app: AppHandle, download_url: String) 
     log::info!("Downloading update from: {}", download_url);
 
     let client = Client::builder()
-        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 RedPandaLauncher/0.1.4")
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 RedPandaLauncher/0.1.5")
         .build()
         .map_err(|e| e.to_string())?;
 
