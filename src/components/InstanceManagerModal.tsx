@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Puzzle, Palette, Settings as SettingsIcon, Trash2, Plus, Loader2, RefreshCw, ArrowUpCircle, Globe } from "lucide-react";
+import { X, Puzzle, Palette, Settings as SettingsIcon, Trash2, Plus, Loader2, RefreshCw, ArrowUpCircle, Globe, Gamepad2, Check } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import ModrinthBrowser from "./ModrinthBrowser";
 import CurseForgeBrowser from "./CurseForgeBrowser";
@@ -12,6 +12,10 @@ interface Instance {
   loader_version: string;
   min_memory?: number | null;
   max_memory?: number | null;
+  java_path?: string | null;
+  jvm_args?: string | null;
+  window_width?: number | null;
+  window_height?: number | null;
 }
 
 interface Mod {
@@ -42,7 +46,10 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
   const [showCurseForge, setShowCurseForge] = useState(false);
   const [modrinthProjectType, setModrinthProjectType] = useState<"mod" | "resourcepack" | "shader">("mod");
   const [isE4mcInstalled, setIsE4mcInstalled] = useState(false);
+  const [isE4steamInstalled, setIsE4steamInstalled] = useState(false);
   const [installingE4mc, setInstallingE4mc] = useState(false);
+  const [installingE4steam, setInstallingE4steam] = useState(false);
+  const [uninstallingMod, setUninstallingMod] = useState<string | null>(null);
   const [installedMods, setInstalledMods] = useState<Mod[]>([]);
   const [loadingMods, setLoadingMods] = useState(true);
   const [checkingUpdates, setCheckingUpdates] = useState(false);
@@ -103,7 +110,8 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
     try {
         const mods: Mod[] = await invoke("get_installed_mods", { instanceId: instance.id });
         setInstalledMods(mods);
-        setIsE4mcInstalled(mods.some(m => m.filename.toLowerCase().includes("e4mc")));
+        setIsE4mcInstalled(mods.some(m => m.filename.toLowerCase().includes("e4mc") && !m.filename.toLowerCase().includes("e4steam")));
+        setIsE4steamInstalled(mods.some(m => m.filename.toLowerCase().includes("e4steam")));
     } catch(e) {
         console.error(e);
         setInstalledMods([]);
@@ -133,6 +141,8 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
       loadMods();
     } else if (activeTab === "resources" && !showModrinth && !showCurseForge) {
         loadResources();
+    } else if (activeTab === "multiplayer") {
+        loadMods();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, showModrinth, showCurseForge]);
@@ -182,19 +192,128 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
             return;
         }
         
-        await invoke("download_modrinth_version", {
+        const tasks: any[] = await invoke("resolve_dependencies", {
             instanceId: instance.id,
-            versionId: versions[0].id,
-            projectType: "mod"
+            source: "modrinth",
+            id: versions[0].id,
+            gameVersion: instance.game_version,
+            loader: instance.loader_type,
         });
+
+        for (const task of tasks) {
+            if (task.source === "modrinth") {
+                await invoke("download_modrinth_version", {
+                    instanceId: instance.id,
+                    versionId: task.id,
+                    projectType: "mod"
+                });
+            } else if (task.source === "curseforge") {
+                await invoke("download_curseforge_version", {
+                    instanceId: instance.id,
+                    downloadUrl: task.url,
+                    fileName: task.filename,
+                    projectType: "mod"
+                });
+            }
+        }
         
         toast.success("Мод e4mc успешно установлен!");
         await loadMods();
-    } catch (e) {
+    } catch (e: any) {
         console.error(e);
         toast.error(t("common.error") + ": " + e);
     } finally {
         setInstallingE4mc(false);
+    }
+  };
+
+  const handleInstallE4steam = async () => {
+    setInstallingE4steam(true);
+    try {
+        // e4steam mod_id on CurseForge is 1633302
+        let versions: any[] = await invoke("get_curseforge_versions", {
+            modId: 1633302,
+            gameVersion: instance.game_version,
+        });
+
+        const loaderLower = instance.loader_type.toLowerCase();
+        let targetVersion = versions.find((v: any) => {
+            const gvList = (v.gameVersions || []).map((gv: string) => gv.toLowerCase());
+            return gvList.includes(loaderLower);
+        });
+
+        // Fallback: search all versions if not matched with gameVersion param directly
+        if (!targetVersion) {
+            versions = await invoke("get_curseforge_versions", {
+                modId: 1633302,
+                gameVersion: null,
+            });
+            targetVersion = versions.find((v: any) => {
+                const gvList = (v.gameVersions || []).map((gv: string) => gv.toLowerCase());
+                return gvList.includes(loaderLower) && gvList.includes(instance.game_version.toLowerCase());
+            });
+        }
+
+        if (!targetVersion) {
+            toast.error(t("common.error") + `: e4steam не найден для версии ${instance.game_version} (${instance.loader_type}).`);
+            return;
+        }
+
+        const tasks: any[] = await invoke("resolve_dependencies", {
+            instanceId: instance.id,
+            source: "curseforge",
+            id: targetVersion.id.toString(),
+            gameVersion: instance.game_version,
+            loader: instance.loader_type,
+        });
+
+        for (const task of tasks) {
+            if (task.source === "modrinth") {
+                await invoke("download_modrinth_version", {
+                    instanceId: instance.id,
+                    versionId: task.id,
+                    projectType: "mod"
+                });
+            } else if (task.source === "curseforge") {
+                await invoke("download_curseforge_version", {
+                    instanceId: instance.id,
+                    downloadUrl: task.url,
+                    fileName: task.filename,
+                    projectType: "mod"
+                });
+            }
+        }
+
+        toast.success("Мод e4steam успешно установлен!");
+        await loadMods();
+    } catch (e: any) {
+        console.error(e);
+        toast.error(t("common.error") + ": " + e);
+    } finally {
+        setInstallingE4steam(false);
+    }
+  };
+
+  const handleUninstallMultiplayerMod = async (modType: "e4mc" | "e4steam") => {
+    setUninstallingMod(modType);
+    try {
+        const targetMod = installedMods.find(m => 
+            modType === "e4steam"
+                ? m.filename.toLowerCase().includes("e4steam")
+                : (m.filename.toLowerCase().includes("e4mc") && !m.filename.toLowerCase().includes("e4steam"))
+        );
+        if (targetMod) {
+            await invoke("delete_mod", { instanceId: instance.id, filename: targetMod.filename });
+            toast.success(`Мод ${modType} успешно удален!`);
+            await loadMods();
+        } else {
+            toast.error(`Файл мода ${modType} не найден.`);
+        }
+    } catch (e: any) {
+        console.error(e);
+        toast.error(t("common.error") + ": " + e);
+    } finally {
+        setUninstallingMod(null);
     }
   };
 
@@ -274,7 +393,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
               {activeTab === "mods" && t("instance_manager.manage_mods")}
               {activeTab === "resources" && t("instance_manager.resources_and_shaders")}
               {activeTab === "settings" && t("instance_manager.instance_settings")}
-              {activeTab === "multiplayer" && "Игра по сети (e4mc)"}
+              {activeTab === "multiplayer" && "Игра по сети (e4mc / e4steam)"}
             </h3>
             <button onClick={onClose} className="p-2 text-muted hover:text-white hover:bg-background rounded-none transition-colors">
               <X size={18} />
@@ -537,7 +656,11 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                                 invoke("save_instance_settings", {
                                     id: instance.id,
                                     minMemory: val,
-                                    maxMemory: instance.max_memory
+                                    maxMemory: instance.max_memory,
+                                    javaPath: instance.java_path,
+                                    jvmArgs: instance.jvm_args,
+                                    windowWidth: instance.window_width,
+                                    windowHeight: instance.window_height
                                 }).then(() => {
                                     instance.min_memory = val;
                                 }).catch(console.error);
@@ -556,12 +679,115 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                                 invoke("save_instance_settings", {
                                     id: instance.id,
                                     minMemory: instance.min_memory,
-                                    maxMemory: val
+                                    maxMemory: val,
+                                    javaPath: instance.java_path,
+                                    jvmArgs: instance.jvm_args,
+                                    windowWidth: instance.window_width,
+                                    windowHeight: instance.window_height
                                 }).then(() => {
                                     instance.max_memory = val;
                                 }).catch(console.error);
                             }}
                         />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Advanced Settings */}
+                <div className="bg-background brutalist-border rounded-none p-5">
+                  <h4 className="text-sm font-semibold text-white mb-4">{t("instance_manager.advanced_settings")}</h4>
+                  <div className="space-y-4">
+                    <div>
+                        <label className="block text-xs text-muted mb-1">{t("instance_manager.java_path")}</label>
+                        <input 
+                            type="text" 
+                            placeholder={t("instance_manager.default")}
+                            className="w-full bg-card brutalist-border rounded-none px-3 py-2 text-sm text-white" 
+                            value={instance.java_path || ""}
+                            onChange={(e) => {
+                                const val = e.target.value || null;
+                                invoke("save_instance_settings", {
+                                    id: instance.id,
+                                    minMemory: instance.min_memory,
+                                    maxMemory: instance.max_memory,
+                                    javaPath: val,
+                                    jvmArgs: instance.jvm_args,
+                                    windowWidth: instance.window_width,
+                                    windowHeight: instance.window_height
+                                }).then(() => {
+                                    instance.java_path = val;
+                                }).catch(console.error);
+                            }}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs text-muted mb-1">{t("instance_manager.jvm_args")}</label>
+                        <input 
+                            type="text" 
+                            placeholder="-Xms2G -Xmx4G ..."
+                            className="w-full bg-card brutalist-border rounded-none px-3 py-2 text-sm text-white" 
+                            value={instance.jvm_args || ""}
+                            onChange={(e) => {
+                                const val = e.target.value || null;
+                                invoke("save_instance_settings", {
+                                    id: instance.id,
+                                    minMemory: instance.min_memory,
+                                    maxMemory: instance.max_memory,
+                                    javaPath: instance.java_path,
+                                    jvmArgs: val,
+                                    windowWidth: instance.window_width,
+                                    windowHeight: instance.window_height
+                                }).then(() => {
+                                    instance.jvm_args = val;
+                                }).catch(console.error);
+                            }}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs text-muted mb-1">{t("instance_manager.window_size")}</label>
+                        <div className="flex items-center gap-2">
+                          <input 
+                              type="number" 
+                              placeholder="854"
+                              className="w-full bg-card brutalist-border rounded-none px-3 py-2 text-sm text-white" 
+                              value={instance.window_width || ""}
+                              onChange={(e) => {
+                                  const val = e.target.value ? parseInt(e.target.value) : null;
+                                  invoke("save_instance_settings", {
+                                      id: instance.id,
+                                      minMemory: instance.min_memory,
+                                      maxMemory: instance.max_memory,
+                                      javaPath: instance.java_path,
+                                      jvmArgs: instance.jvm_args,
+                                      windowWidth: val,
+                                      windowHeight: instance.window_height
+                                  }).then(() => {
+                                      instance.window_width = val;
+                                  }).catch(console.error);
+                              }}
+                          />
+                          <span className="text-muted">x</span>
+                          <input 
+                              type="number" 
+                              placeholder="480"
+                              className="w-full bg-card brutalist-border rounded-none px-3 py-2 text-sm text-white" 
+                              value={instance.window_height || ""}
+                              onChange={(e) => {
+                                  const val = e.target.value ? parseInt(e.target.value) : null;
+                                  invoke("save_instance_settings", {
+                                      id: instance.id,
+                                      minMemory: instance.min_memory,
+                                      maxMemory: instance.max_memory,
+                                      javaPath: instance.java_path,
+                                      jvmArgs: instance.jvm_args,
+                                      windowWidth: instance.window_width,
+                                      windowHeight: val
+                                  }).then(() => {
+                                      instance.window_height = val;
+                                  }).catch(console.error);
+                              }}
+                          />
+                        </div>
                     </div>
                   </div>
                 </div>
@@ -583,46 +809,195 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
 
             {activeTab === "multiplayer" && (
               <div className="flex flex-col gap-6">
-                <div className="bg-background brutalist-border rounded-none p-6">
-                  <h4 className="text-lg font-bold text-white mb-2">Играйте с друзьями без хостинга</h4>
-                  <p className="text-sm text-muted mb-6 leading-relaxed">
-                    Мод <span className="text-white font-medium">e4mc</span> позволяет вам открывать свой одиночный мир для игры по сети в пару кликов. 
-                    Вам не нужно настраивать порты или платить за сервер.
+                {/* Intro Card */}
+                <div className="bg-background brutalist-border rounded-none p-5">
+                  <h4 className="text-lg font-bold text-white mb-1.5 flex items-center gap-2">
+                    <Globe className="text-primary" size={20} />
+                    Играйте с друзьями без белого IP и стороннего хостинга
+                  </h4>
+                  <p className="text-sm text-muted leading-relaxed">
+                    Выберите удобный способ создания сетевой игры прямо из одиночного мира. 
+                    Оба мода работают без сложной настройки роутера и проброса портов.
                   </p>
+                </div>
 
-                  <div className="flex items-center gap-4">
-                    {isE4mcInstalled ? (
-                        <div className="bg-green-500/10 border-2 border-green-500/20 px-4 py-3 rounded-none flex items-center gap-3 text-green-400">
-                            <div className="w-8 h-8 bg-green-500/20 flex items-center justify-center brutalist-border">
-                                <Globe size={16} />
-                            </div>
-                            <div>
-                                <div className="font-bold text-sm">Мод установлен</div>
-                                <div className="text-xs opacity-80">Вы можете играть по сети! Просто зайдите в мир и нажмите "Открыть для сети".</div>
-                            </div>
+                {/* Mod Cards Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  {/* Card 1: e4mc */}
+                  <div className={`bg-card brutalist-border rounded-none p-5 flex flex-col justify-between transition-colors ${
+                    isE4mcInstalled ? "border-primary/50" : ""
+                  }`}>
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                            <Globe size={20} />
+                          </div>
+                          <div>
+                            <h5 className="font-bold text-white text-base">e4mc</h5>
+                            <span className="text-[11px] text-muted font-mono">Публичный веб-прокси</span>
+                          </div>
                         </div>
-                    ) : (
-                        <button 
-                            onClick={handleInstallE4mc}
-                            disabled={installingE4mc}
-                            className="brutalist-button-primary flex items-center gap-2"
+                        <span className="px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider bg-primary/10 text-primary border border-primary/20">
+                          Modrinth
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-muted mb-4 leading-relaxed">
+                        Генерирует временную веб-ссылку (например, <code className="text-primary font-mono">*.e4mc.link</code>). 
+                        Друзьям не нужны сторонние программы — они просто подключаются по ссылке как к обычному серверу.
+                      </p>
+
+                      <ul className="text-xs text-muted/90 space-y-1.5 mb-5">
+                        <li className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 bg-primary rounded-full"></span>
+                          <span>Работает со всеми лаунчерами и клиентами</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 bg-primary rounded-full"></span>
+                          <span>Подключение в 1 клик через чат</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 bg-primary rounded-full"></span>
+                          <span>Не требует запущенного Steam</span>
+                        </li>
+                      </ul>
+                    </div>
+
+                    <div className="pt-3 border-t border-border/60 flex items-center justify-between gap-3">
+                      {isE4mcInstalled ? (
+                        <>
+                          <div className="flex items-center gap-2 text-green-400 text-xs font-semibold">
+                            <div className="w-5 h-5 bg-green-500/20 rounded-full flex items-center justify-center">
+                              <Check size={12} />
+                            </div>
+                            <span>Установлен</span>
+                          </div>
+                          <button
+                            onClick={() => handleUninstallMultiplayerMod("e4mc")}
+                            disabled={uninstallingMod === "e4mc"}
+                            className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5"
+                          >
+                            {uninstallingMod === "e4mc" ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                            {uninstallingMod === "e4mc" ? "Удаление..." : "Удалить"}
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={handleInstallE4mc}
+                          disabled={installingE4mc || installingE4steam}
+                          className="brutalist-button-primary w-full flex items-center justify-center gap-2 py-2 text-xs font-bold"
                         >
-                            {installingE4mc ? <Loader2 size={18} className="animate-spin" /> : <Globe size={18} />}
-                            {installingE4mc ? "Установка..." : "Установить мод e4mc"}
+                          {installingE4mc ? <Loader2 size={15} className="animate-spin" /> : <Globe size={15} />}
+                          {installingE4mc ? "Установка..." : "Установить e4mc"}
                         </button>
-                    )}
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Card 2: e4steam */}
+                  <div className={`bg-card brutalist-border rounded-none p-5 flex flex-col justify-between transition-colors ${
+                    isE4steamInstalled ? "border-[#66c0f4]/50" : ""
+                  }`}>
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 bg-[#66c0f4]/10 border border-[#66c0f4]/20 flex items-center justify-center text-[#66c0f4]">
+                            <Gamepad2 size={20} />
+                          </div>
+                          <div>
+                            <h5 className="font-bold text-white text-base">e4steam</h5>
+                            <span className="text-[11px] text-muted font-mono">Steam P2P Relay</span>
+                          </div>
+                        </div>
+                        <span className="px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider bg-[#66c0f4]/10 text-[#66c0f4] border border-[#66c0f4]/20">
+                          CurseForge
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-muted mb-4 leading-relaxed">
+                        Форк e4mc на основе защищенной сети Valve Steam. Позволяет подключаться через Steam Overlay 
+                        (Shift+Tab) и приглашать друзей из списка контактов Steam.
+                      </p>
+
+                      <ul className="text-xs text-muted/90 space-y-1.5 mb-5">
+                        <li className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 bg-[#66c0f4] rounded-full"></span>
+                          <span>Приглашения через оверлей Steam (Shift+Tab)</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 bg-[#66c0f4] rounded-full"></span>
+                          <span>Прямое P2P-соединение с минимальным пингом</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 bg-[#66c0f4] rounded-full"></span>
+                          <span>Подключение в 1 клик через список друзей Steam</span>
+                        </li>
+                      </ul>
+                    </div>
+
+                    <div className="pt-3 border-t border-border/60 flex items-center justify-between gap-3">
+                      {isE4steamInstalled ? (
+                        <>
+                          <div className="flex items-center gap-2 text-green-400 text-xs font-semibold">
+                            <div className="w-5 h-5 bg-green-500/20 rounded-full flex items-center justify-center">
+                              <Check size={12} />
+                            </div>
+                            <span>Установлен</span>
+                          </div>
+                          <button
+                            onClick={() => handleUninstallMultiplayerMod("e4steam")}
+                            disabled={uninstallingMod === "e4steam"}
+                            className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5"
+                          >
+                            {uninstallingMod === "e4steam" ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                            {uninstallingMod === "e4steam" ? "Удаление..." : "Удалить"}
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={handleInstallE4steam}
+                          disabled={installingE4mc || installingE4steam}
+                          className="brutalist-button-primary !bg-[#66c0f4] hover:!bg-[#4ba3d9] !text-black w-full flex items-center justify-center gap-2 py-2 text-xs font-bold"
+                        >
+                          {installingE4steam ? <Loader2 size={15} className="animate-spin text-black" /> : <Gamepad2 size={15} />}
+                          {installingE4steam ? "Установка..." : "Установить e4steam"}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
+                {/* Instructions Section */}
                 <div className="bg-card brutalist-border rounded-none p-5">
-                    <h5 className="font-bold text-white text-sm mb-3">Как это работает?</h5>
-                    <ol className="list-decimal list-inside text-sm text-muted space-y-2">
+                  <h5 className="font-bold text-white text-sm mb-3">Инструкция по использованию:</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-muted">
+                    <div className="bg-background/60 p-3.5 border border-border/70 space-y-2">
+                      <div className="font-bold text-primary flex items-center gap-1.5 text-xs">
+                        <Globe size={14} /> Для e4mc:
+                      </div>
+                      <ol className="list-decimal list-inside space-y-1 leading-relaxed">
                         <li>Установите мод <strong>e4mc</strong> кнопкой выше.</li>
-                        <li>Запустите игру и зайдите в свой одиночный мир.</li>
-                        <li>Нажмите <strong>Esc</strong> и выберите "Открыть для сети".</li>
-                        <li>В чате появится ссылка (например, <code>имя.e4mc.link</code>).</li>
-                        <li>Отправьте эту ссылку друзьям — они смогут подключиться по ней как по обычному IP-адресу!</li>
-                    </ol>
+                        <li>Зайдите в свой одиночный мир.</li>
+                        <li>Нажмите <strong>Esc</strong> &rarr; <strong>«Открыть для сети»</strong>.</li>
+                        <li>Скопируйте полученную ссылку <code className="text-white bg-card px-1">*.e4mc.link</code>.</li>
+                        <li>Друзья подключаются через «Сетевая игра» &rarr; «Прямое подключение».</li>
+                      </ol>
+                    </div>
+
+                    <div className="bg-background/60 p-3.5 border border-border/70 space-y-2">
+                      <div className="font-bold text-[#66c0f4] flex items-center gap-1.5 text-xs">
+                        <Gamepad2 size={14} /> Для e4steam:
+                      </div>
+                      <ol className="list-decimal list-inside space-y-1 leading-relaxed">
+                        <li>Убедитесь, что клиент <strong>Steam</strong> запущен на вашем ПК.</li>
+                        <li>Установите мод <strong>e4steam</strong> кнопкой выше.</li>
+                        <li>Зайдите в свой одиночный мир и откройте его для сети.</li>
+                        <li>Нажмите <strong>Shift + Tab</strong> в оверлее Steam.</li>
+                        <li>Нажмите правой кнопкой на друга в Steam &rarr; <strong>«Пригласить в игру»</strong>!</li>
+                      </ol>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

@@ -1,5 +1,7 @@
 mod accounts;
+pub mod backup;
 pub mod curseforge;
+pub mod discord;
 pub mod import;
 pub mod instances;
 pub mod java;
@@ -9,6 +11,10 @@ mod oauth;
 pub mod settings;
 pub mod updater;
 mod versions;
+pub mod dependencies;
+
+use crate::discord::DiscordState;
+use std::sync::Mutex;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -19,6 +25,10 @@ fn greet(name: &str) -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(DiscordState {
+            client: Mutex::new(None),
+            is_enabled: Mutex::new(false),
+        })
         .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_log::Builder::new()
@@ -44,9 +54,11 @@ pub fn run() {
             instances::get_instances,
             instances::add_instance,
             instances::remove_instance,
+            instances::clone_instance,
             instances::rename_instance,
             instances::set_instance_icon,
             instances::export_instance,
+
             instances::update_instance_played,
             instances::edit_instance,
             instances::save_instance_settings,
@@ -54,6 +66,7 @@ pub fn run() {
             instances::delete_mod,
             instances::install_mod_jar,
             instances::open_instance_folder,
+            instances::open_instance_logs,
             instances::open_launcher_folder,
             instances::open_logs_folder,
             instances::get_installed_resourcepacks,
@@ -63,6 +76,11 @@ pub fn run() {
             instances::install_resourcepack_zip,
             instances::install_shader_zip,
             import::import_mrpack,
+            import::import_curseforge_pack,
+            import::is_curseforge_pack,
+            discord::init_discord,
+            discord::set_discord_activity,
+            discord::clear_discord_activity,
             versions::get_minecraft_versions,
             versions::get_loader_versions,
             versions::get_supported_game_versions,
@@ -78,6 +96,7 @@ pub fn run() {
             curseforge::download_curseforge_modpack,
             updater::check_for_updates,
             updater::download_and_install_update,
+            dependencies::resolve_dependencies,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

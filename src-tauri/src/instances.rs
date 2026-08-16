@@ -17,6 +17,11 @@ pub struct Instance {
     pub min_memory: Option<u32>,
     pub max_memory: Option<u32>,
     pub icon_path: Option<String>,
+    pub java_path: Option<String>,
+    pub jvm_args: Option<String>,
+    pub window_width: Option<u32>,
+    pub window_height: Option<u32>,
+    pub total_play_time_seconds: Option<u64>,
 }
 
 pub fn get_instances_file(app: &AppHandle) -> PathBuf {
@@ -139,6 +144,11 @@ pub async fn add_instance(
         min_memory: None,
         max_memory: None,
         icon_path: None,
+        java_path: None,
+        jvm_args: None,
+        window_width: None,
+        window_height: None,
+        total_play_time_seconds: Some(0),
     };
 
     instances.push(new_instance.clone());
@@ -166,6 +176,59 @@ pub async fn remove_instance(app: AppHandle, id: String) -> Result<(), String> {
     let _ = std::fs::remove_dir_all(&dir_path);
 
     Ok(())
+}
+
+fn copy_dir_all(src: impl AsRef<std::path::Path>, dst: impl AsRef<std::path::Path>) -> std::io::Result<()> {
+    std::fs::create_dir_all(&dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        if ty.is_dir() {
+            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        } else {
+            std::fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn clone_instance(app: AppHandle, id: String) -> Result<Instance, String> {
+    let mut instances = get_instances(app.clone()).await?;
+    
+    let original = instances.iter().find(|i| i.id == id).ok_or("Инстанс не найден")?.clone();
+    
+    let new_name = format!("{} (Копия)", original.name);
+    let new_id = generate_instance_id(&new_name, &instances);
+    
+    // Copy folders
+    let mut old_dir = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+    old_dir.push("RedPandaLauncher");
+    old_dir.push(&id);
+    
+    let mut new_dir = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+    new_dir.push("RedPandaLauncher");
+    new_dir.push(&new_id);
+    
+    if old_dir.exists() {
+        copy_dir_all(&old_dir, &new_dir).map_err(|e| format!("Не удалось скопировать файлы: {}", e))?;
+    }
+    
+    let new_instance = Instance {
+        id: new_id,
+        name: new_name,
+        last_played: None,
+        total_play_time_seconds: Some(0),
+        ..original
+    };
+    
+    instances.push(new_instance.clone());
+    
+    let path = get_instances_file(&app);
+    let data = serde_json::to_string_pretty(&instances).map_err(|e| e.to_string())?;
+    std::fs::write(path, data).map_err(|e| e.to_string())?;
+    
+    Ok(new_instance)
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -342,6 +405,10 @@ pub async fn save_instance_settings(
     id: String,
     min_memory: Option<u32>,
     max_memory: Option<u32>,
+    java_path: Option<String>,
+    jvm_args: Option<String>,
+    window_width: Option<u32>,
+    window_height: Option<u32>,
 ) -> Result<(), String> {
     let mut instances = get_instances(app.clone()).await?;
 
@@ -349,6 +416,10 @@ pub async fn save_instance_settings(
         if instance.id == id {
             instance.min_memory = min_memory;
             instance.max_memory = max_memory;
+            instance.java_path = java_path;
+            instance.jvm_args = jvm_args;
+            instance.window_width = window_width;
+            instance.window_height = window_height;
             break;
         }
     }
@@ -386,6 +457,42 @@ pub async fn open_instance_folder(id: String) -> Result<(), String> {
     path.push(&id);
 
     // Attempt to open the directory
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(path.to_str().unwrap_or(""))
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(path.to_str().unwrap_or(""))
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(path.to_str().unwrap_or(""))
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn open_instance_logs(id: String) -> Result<(), String> {
+    let mut path = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+    path.push("RedPandaLauncher");
+    path.push(&id);
+    path.push("logs");
+    
+    let _ = std::fs::create_dir_all(&path);
+
     #[cfg(target_os = "windows")]
     {
         std::process::Command::new("explorer")
@@ -672,3 +779,18 @@ pub async fn export_instance(app: AppHandle, id: String, dest_path: String) -> R
     zip.finish().map_err(|e| e.to_string())?;
     Ok(())
 }
+
+pub async fn add_play_time(app: AppHandle, id: String, elapsed_seconds: u64) -> Result<(), String> {
+    let mut instances = get_instances(app.clone()).await?;
+    if let Some(instance) = instances.iter_mut().find(|i| i.id == id) {
+        let current = instance.total_play_time_seconds.unwrap_or(0);
+        instance.total_play_time_seconds = Some(current + elapsed_seconds);
+        
+        let path = get_instances_file(&app);
+        let data = serde_json::to_string_pretty(&instances).map_err(|e| e.to_string())?;
+        std::fs::write(path, data).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+

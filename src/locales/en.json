@@ -106,7 +106,11 @@
     "delete_instance": "Delete Instance",
     "delete_warning": "This action will permanently delete all files, mods and worlds.",
     "delete_confirm": "Are you sure you want to delete instance",
-    "delete_permanently": "Delete Permanently"
+    "delete_permanently": "Delete Permanently",
+    "advanced_settings": "Advanced Settings",
+    "java_path": "Java Path (leave empty for auto)",
+    "jvm_args": "JVM Arguments (space separated)",
+    "window_size": "Window Size (Width x Height)"
   },
   "modrinth": {
     "title": "Mods",

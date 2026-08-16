@@ -41,7 +41,12 @@ export default function App() {
 
   useEffect(() => {
     invoke<any>("get_settings")
-      .then(applyCustomSettings)
+      .then((s) => {
+        applyCustomSettings(s);
+        if (s.discord_rpc) {
+          invoke("init_discord", { enabled: true }).catch(console.error);
+        }
+      })
       .catch(console.error);
 
     // Auto check updates on launch

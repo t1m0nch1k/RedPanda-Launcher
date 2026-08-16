@@ -25,6 +25,8 @@ interface AppSettings {
   mascot_preset: string;
   accent_color: string;
   curseforge_api_key: string;
+  discord_rpc: boolean;
+  auto_backup_worlds: boolean;
 }
 
 interface JavaInstallation {
@@ -189,6 +191,15 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
             >
               <Palette size={18} />
               Кастомизация
+            </button>
+            <button 
+              onClick={() => setActiveTab("integrations")}
+              className={`flex items-center gap-3 px-4 py-3 rounded-none font-medium transition-colors ${
+                activeTab === "integrations" ? "bg-primary/20 text-primary" : "text-muted hover:text-white hover:bg-card"
+              }`}
+            >
+              <Monitor size={18} />
+              Интеграции
             </button>
           </div>
 
@@ -665,6 +676,72 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
                         {preset.name}
                       </button>
                     ))}
+                  </div>
+                </section>
+
+              </div>
+            )}
+
+            {activeTab === "integrations" && (
+              <div className="flex flex-col gap-8">
+                
+                {/* Discord RPC */}
+                <section>
+                  <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <Monitor size={16} /> Discord Rich Presence
+                  </h3>
+                  
+                  <div className="bg-background brutalist-border p-4 flex flex-col gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex items-center h-5">
+                        <input
+                          id="discord_rpc"
+                          type="checkbox"
+                          checked={settings.discord_rpc}
+                          onChange={(e) => updateSetting("discord_rpc", e.target.checked)}
+                          className="w-4 h-4 rounded-none border-border bg-background text-primary focus:ring-primary focus:ring-offset-background"
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <label htmlFor="discord_rpc" className="text-sm font-medium text-white cursor-pointer">
+                          Включить Discord интеграцию
+                        </label>
+                        <p className="text-[10px] text-muted mt-0.5">
+                          Показывать статус "В игре" в Discord и название сборки.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <hr className="border-border" />
+
+                {/* Auto Backup Worlds */}
+                <section>
+                  <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <RefreshCw size={16} /> Резервное копирование миров
+                  </h3>
+                  
+                  <div className="bg-background brutalist-border p-4 flex flex-col gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex items-center h-5">
+                        <input
+                          id="auto_backup_worlds"
+                          type="checkbox"
+                          checked={settings.auto_backup_worlds}
+                          onChange={(e) => updateSetting("auto_backup_worlds", e.target.checked)}
+                          className="w-4 h-4 rounded-none border-border bg-background text-primary focus:ring-primary focus:ring-offset-background"
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <label htmlFor="auto_backup_worlds" className="text-sm font-medium text-white cursor-pointer">
+                          Автоматически создавать копии миров
+                        </label>
+                        <p className="text-[10px] text-muted mt-0.5">
+                          Авто-сохранение папки saves перед запуском игры.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </section>
 

@@ -106,7 +106,11 @@
     "delete_instance": "Удаление сборки",
     "delete_warning": "Это действие необратимо удалит все файлы, моды и миры.",
     "delete_confirm": "Вы уверены, что хотите удалить сборку",
-    "delete_permanently": "Удалить навсегда"
+    "delete_permanently": "Удалить навсегда",
+    "advanced_settings": "Расширенные настройки",
+    "java_path": "Путь к Java (оставьте пустым для авто)",
+    "jvm_args": "JVM Аргументы (через пробел)",
+    "window_size": "Размер окна (Ширина x Высота)"
   },
   "modrinth": {
     "title": "Моды",

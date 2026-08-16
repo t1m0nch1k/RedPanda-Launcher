@@ -9,8 +9,10 @@ export default function Home() {
   const typedPhrases = [
     "[ LIGHTNING_FAST ]",
     "[ MODRINTH_NATIVE ]",
+    "[ CURSEFORGE_SUPPORT ]",
     "[ ZERO_BLOAT ]",
-    "[ E4MC_MULTIPLAYER ]"
+    "[ E4MC_&_STEAM_P2P ]",
+    "[ 3D_SKIN_PREVIEW ]"
   ];
 
   useEffect(() => {
@@ -23,10 +25,10 @@ export default function Home() {
   const features = [
     { icon: <IconBolt size={24} />, title: "LIGHTNING_FAST", desc: "{ built_with: 'Rust & Tauri',\n  memory_footprint: 'minimal',\n  startup: '< 0.8s' }" },
     { icon: <IconLayoutGrid size={24} />, title: "CYBER_BRUTALISM", desc: "{ design: 'brutalist_mono',\n  shadows: 'hard_offset',\n  noise: 'grain_svg' }" },
-    { icon: <IconPuzzle size={24} />, title: "MODRINTH_NATIVE", desc: "{ action: 'search_download_manage',\n  scope: 'mods_shaders_resourcepacks' }" },
-    { icon: <IconGlobe size={24} />, title: "E4MC_MULTIPLAYER", desc: "{ p2p_hosting: 'built-in',\n  ports_required: false,\n  tunnel: 'e4mc.link' }" },
+    { icon: <IconPuzzle size={24} />, title: "DUAL_MOD_ECOSYSTEM", desc: "{ sources: ['Modrinth', 'CurseForge'],\n  dependencies: 'recursive_auto_resolve',\n  scope: 'mods_shaders_resourcepacks' }" },
+    { icon: <IconGlobe size={24} />, title: "E4MC_&_STEAM_P2P", desc: "{ modes: ['e4mc.link', 'e4steam'],\n  p2p_hosting: 'built-in',\n  ports_required: false }" },
     { icon: <IconRocket size={24} />, title: "MULTI_LOADER", desc: "[ 'Vanilla',\n  'Fabric',\n  'Forge',\n  'Quilt',\n  'NeoForge' ]" },
-    { icon: <IconCpu size={24} />, title: "RESOURCE_EFFICIENT", desc: "{ ram_usage: '~45MB',\n  cpu_idle: '0.1%',\n  bloatware: false }" },
+    { icon: <IconCpu size={24} />, title: "ADVANCED_CONTROL", desc: "{ custom_java: 'auto_detect & path',\n  ram_tuning: 'per_instance',\n  discord_rpc: 'async_non_blocking' }" },
   ];
 
   const metrics = [
@@ -70,7 +72,7 @@ export default function Home() {
           <div className="space-y-1">
             <div>STATUS: <span className="text-white">ONLINE</span></div>
             <div>ARCH: <span className="text-white">TAURI_RUST_X64</span></div>
-            <div>E4MC_TUNNEL: <span className="text-white">ACTIVE</span></div>
+            <div>MULTIPLAYER: <span className="text-white">E4MC_&_STEAM</span></div>
             <div>MEMORY: <span className="text-white">MINIMAL</span></div>
           </div>
         </div>
@@ -95,7 +97,7 @@ export default function Home() {
 
           <p className="text-base md:text-lg text-muted mb-10 max-w-2xl font-mono leading-relaxed bg-card/40 p-4 border-l-2 border-primary">
             // High-performance Minecraft launcher built with Rust & Tauri.<br/>
-            // Modrinth integration, e4mc multiplayer & cyber-brutalist UX.
+            // Modrinth & CurseForge support, e4mc/e4steam multiplayer & cyber-brutalist UX.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center gap-6 w-full sm:w-auto">

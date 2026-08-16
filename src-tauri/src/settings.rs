@@ -26,6 +26,8 @@ pub struct AppSettings {
     pub custom_mascot_path: String,
     pub mascot_preset: String,
     pub accent_color: String,
+    pub discord_rpc: bool,
+    pub auto_backup_worlds: bool,
 }
 
 impl Default for AppSettings {
@@ -50,6 +52,8 @@ impl Default for AppSettings {
             custom_mascot_path: "".to_string(),
             mascot_preset: "default".to_string(),
             accent_color: "#F55E1D".to_string(),
+            discord_rpc: true,
+            auto_backup_worlds: false,
         }
     }
 }

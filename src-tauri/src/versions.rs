@@ -31,6 +31,19 @@ pub async fn get_minecraft_versions(app: tauri::AppHandle) -> Result<Vec<String>
         .into_iter()
         .filter(|v| settings.show_snapshots || v.r#type == "release")
         .map(|v| v.id)
+        .filter(|id| {
+            if id.starts_with("1.") {
+                // Remove versions older than 1.7 for stability/support reasons
+                if let Some(minor_str) = id.split('.').nth(1) {
+                    if let Ok(minor) = minor_str.parse::<u32>() {
+                        return minor >= 7;
+                    }
+                }
+                true
+            } else {
+                false
+            }
+        })
         .collect();
 
     Ok(releases)

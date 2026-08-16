@@ -1,4 +1,4 @@
-import { Plus, Play, Anvil, Feather, TreePine, Hammer, Settings, Loader2, Folder, FileText, Trash2, Download, Globe } from "lucide-react";
+import { Plus, Play, Anvil, Feather, TreePine, Hammer, Settings, Loader2, Folder, FileText, Trash2, Download, Globe, Copy } from "lucide-react";
 import { useState, useEffect, useMemo, memo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
@@ -9,6 +9,7 @@ import CrashModal from "../components/CrashModal";
 import ModrinthBrowser from "../components/ModrinthBrowser";
 import CurseForgeBrowser from "../components/CurseForgeBrowser";
 import { toast } from "../components/Toast";
+import SkinViewer from "../components/SkinViewer";
 import { open, save } from "@tauri-apps/plugin-dialog";
 
 interface Instance {
@@ -19,6 +20,7 @@ interface Instance {
   loader_version: string;
   last_played: number | null;
   icon_path?: string;
+  total_play_time_seconds?: number;
 }
 
 interface HomeProps {
@@ -31,6 +33,22 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
   const { t } = useTranslation();
   const [showModpackBrowser, setShowModpackBrowser] = useState(false);
   const [showCurseForgeModpackBrowser, setShowCurseForgeModpackBrowser] = useState(false);
+  const [activeAccountObj, setActiveAccountObj] = useState<any>(null);
+
+  useEffect(() => {
+    invoke<any[]>("get_accounts").then(accs => {
+      const active = accs.find(a => a.is_active);
+      setActiveAccountObj(active || null);
+    }).catch(console.error);
+  }, [activeUsername]);
+
+  const getSkinUrl = () => {
+    if (!activeAccountObj) return "https://minotar.net/skin/MHF_Steve";
+    if (activeAccountObj.account_type === "ElyBy") {
+      return `https://skinsystem.ely.by/skins/${activeAccountObj.username}.png`;
+    }
+    return `https://minotar.net/skin/${activeAccountObj.uuid || activeAccountObj.username}`;
+  };
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -287,6 +305,11 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                     toast.error("Ошибка установки мода: " + e);
                 }
             } else if (path.endsWith(".zip")) {
+                const isCF: boolean = await invoke("is_curseforge_pack", { path });
+                if (isCF) {
+                    await invoke("import_curseforge_pack", { path });
+                    return;
+                }
                 const instance = currentInstanceRef.current;
                 if (!instance) {
                     toast.error("Сначала создайте и выберите сборку.");
@@ -376,8 +399,11 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
             {getGreeting()}, {activeUsername || t("home.player")}
           </h1>
         </div>
-        {/* Panda Personality */}
+        {/* Panda Personality & SkinViewer */}
         <div className="flex items-center transition-all duration-300">
+          <div className="mr-6 pointer-events-none opacity-80 hover:opacity-100 transition-opacity">
+              <SkinViewer skinUrl={getSkinUrl()} width={90} height={120} />
+          </div>
           {/* Speech Bubble */}
           <div className="relative bg-card brutalist-border px-4 py-2.5 rounded-none  flex items-center justify-center mr-5 mb-3">
             <span className="text-[13px] text-white/90 font-medium transition-all duration-300 leading-none">{getPandaMessage()}</span>
@@ -421,6 +447,14 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                   <span className="text-[13px] text-muted">
                     {currentInstance.last_played ? new Date(currentInstance.last_played * 1000).toLocaleDateString() : t("home.never_played")}
                   </span>
+                  {currentInstance.total_play_time_seconds !== undefined && (
+                    <>
+                      <span className="text-[13px] text-muted/80">•</span>
+                      <span className="text-[13px] text-muted">
+                        {Math.floor((currentInstance.total_play_time_seconds || 0) / 3600)} ч {Math.floor(((currentInstance.total_play_time_seconds || 0) % 3600) / 60)} м
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -448,13 +482,20 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                  </div>
                 ) : (
                   <div className="flex gap-2">
-                    <button 
-                      onClick={() => invoke("open_instance_folder", { id: currentInstance.id }).catch(console.error)}
-                      className="bg-card hover:bg-background brutalist-border text-muted hover:text-white px-3 py-3 rounded-none  transition-colors"
-                      title="Открыть папку сборки"
-                    >
-                      <Folder size={18} />
-                    </button>
+                      <button 
+                        onClick={() => invoke("open_instance_folder", { id: currentInstance.id }).catch(console.error)}
+                        className="bg-card hover:bg-background brutalist-border text-muted hover:text-white px-3 py-3 rounded-none  transition-colors"
+                        title="Открыть папку сборки"
+                      >
+                        <Folder size={18} />
+                      </button>
+                      <button 
+                        onClick={() => invoke("open_instance_logs", { id: currentInstance.id }).catch(console.error)}
+                        className="bg-card hover:bg-background brutalist-border text-muted hover:text-white px-3 py-3 rounded-none transition-colors"
+                        title="Открыть логи"
+                      >
+                        <FileText size={18} />
+                      </button>
                     <button 
                       onClick={() => {
                           setCrashLogs(gameLogsRef.current);
@@ -665,16 +706,26 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
           >
             <Play size={14} /> {t("home.context_menu.play")}
           </button>
-          <button 
-            className="w-full text-left px-4 py-2 hover:bg-background text-sm text-white flex items-center gap-3"
-            onClick={async (e) => { 
-                e.stopPropagation(); 
-                try { await invoke("open_instance_folder", { id: contextMenu.instanceId }); } catch(err) { alert(err); }
-                setContextMenu(null); 
-            }}
-          >
-            <Folder size={14} /> {t("home.context_menu.folder")}
-          </button>
+            <button 
+              className="w-full text-left px-4 py-2 hover:bg-background text-sm text-white flex items-center gap-3"
+              onClick={async (e) => { 
+                  e.stopPropagation(); 
+                  try { await invoke("open_instance_folder", { id: contextMenu.instanceId }); } catch(err) { alert(err); }
+                  setContextMenu(null); 
+              }}
+            >
+              <Folder size={14} /> {t("home.context_menu.folder")}
+            </button>
+            <button 
+              className="w-full text-left px-4 py-2 hover:bg-background text-sm text-white flex items-center gap-3"
+              onClick={async (e) => { 
+                  e.stopPropagation(); 
+                  try { await invoke("open_instance_logs", { id: contextMenu.instanceId }); } catch(err) { alert(err); }
+                  setContextMenu(null); 
+              }}
+            >
+              <FileText size={14} /> {t("home.context_menu.logs") || "Logs"}
+            </button>
           
           <div className="my-1 border-t border-border" />
           
@@ -690,6 +741,24 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
             }}
           >
              <FileText size={14} /> {t("home.context_menu.rename")}
+          </button>
+          
+          <button 
+            className="w-full text-left px-4 py-2 hover:bg-background text-sm text-white flex items-center gap-3 transition-colors"
+            onClick={async (e) => { 
+                e.stopPropagation(); 
+                const id = contextMenu.instanceId;
+                setContextMenu(null); 
+                try {
+                  await invoke("clone_instance", { id });
+                  loadInstances();
+                  toast.success("Сборка успешно скопирована");
+                } catch(err) {
+                  toast.error("Ошибка при копировании: " + err);
+                }
+            }}
+          >
+             <Copy size={14} /> Дублировать
           </button>
           
           <button 

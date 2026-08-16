@@ -1,6 +1,7 @@
 import { useState, useEffect, memo } from "react";
 import { Search, Download, Loader2, ArrowLeft } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
+import { ask } from "@tauri-apps/plugin-dialog";
 
 interface Instance {
   id: string;
@@ -188,11 +189,42 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
                 toast.success(t("modrinth.install_success_modpack"));
                 onClose();
             } else {
-                await invoke("download_modrinth_version", {
-                    instanceId: instance?.id,
-                    versionId,
-                    projectType
+                const tasks: any[] = await invoke("resolve_dependencies", {
+                    instanceId: instance?.id || "",
+                    source: "modrinth",
+                    id: versionId,
+                    gameVersion: instance?.game_version || "",
+                    loader: instance?.loader_type || "",
                 });
+
+                if (tasks.length > 1) {
+                    const confirm = await ask(`Установка ${selectedMod?.title} потребует загрузки ещё ${tasks.length - 1} зависимостей. Продолжить?`, {
+                        title: "Установка зависимостей",
+                        kind: "info"
+                    });
+                    if (!confirm) {
+                        setInstallingVersion(null);
+                        return;
+                    }
+                }
+
+                for (const task of tasks) {
+                    if (task.source === "modrinth") {
+                        await invoke("download_modrinth_version", {
+                            instanceId: instance?.id,
+                            versionId: task.id,
+                            projectType
+                        });
+                    } else if (task.source === "curseforge") {
+                        await invoke("download_curseforge_version", {
+                            instanceId: instance?.id,
+                            downloadUrl: task.url,
+                            fileName: task.filename,
+                            projectType
+                        });
+                    }
+                }
+                
                 if (projectType === "resourcepack") {
                     toast.success(t("modrinth.install_success_resourcepack"));
                 } else if (projectType === "shader") {

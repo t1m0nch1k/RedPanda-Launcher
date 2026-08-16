@@ -24,6 +24,14 @@ pub struct ModrinthVersion {
     pub name: String,
     pub version_number: String,
     pub files: Vec<ModrinthFile>,
+    pub dependencies: Option<Vec<ModrinthDependency>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ModrinthDependency {
+    pub version_id: Option<String>,
+    pub project_id: Option<String>,
+    pub dependency_type: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -38,6 +38,14 @@ pub struct CurseForgeFile {
     pub file_length: u64,
     pub download_url: Option<String>,
     pub game_versions: Vec<String>,
+    pub dependencies: Option<Vec<CurseForgeDependency>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CurseForgeDependency {
+    pub mod_id: u32,
+    pub relation_type: u32, // 3 = RequiredDependency
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -45,7 +53,7 @@ struct FilesResponse {
     data: Vec<CurseForgeFile>,
 }
 
-const CURSEFORGE_API_KEY: &str = "$2a$10$QdP21DmwEcYxV.f.T1orWeyr7SB65NMbFxme2NGVEsEpyFeen44RK"; // TODO: Замените на ваш API ключ
+pub const CURSEFORGE_API_KEY: &str = "$2a$10$QdP21DmwEcYxV.f.T1orWeyr7SB65NMbFxme2NGVEsEpyFeen44RK"; // TODO: Замените на ваш API ключ
 
 #[tauri::command]
 pub async fn search_curseforge(
@@ -213,3 +221,4 @@ pub async fn download_curseforge_modpack(
     // In a full implementation, you would call your import logic here, passing the downloaded zip path.
     Ok(())
 }
+
