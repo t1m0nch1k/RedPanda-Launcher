@@ -17,37 +17,33 @@
   </p>
 
   <p>
+    <a href="https://www.redlauncher.ru/"><b>🌐 Website (redlauncher.ru)</b></a> •
     <a href="https://t.me/redpanda_launcher">Telegram</a> •
     <a href="https://www.tiktok.com/@redpanda_launcher?_r=1&_t=ZS-989vwnwL4LN">TikTok</a> •
     <a href="https://github.com/t1m0nch1k/RedPanda-Launcher">GitHub</a>
   </p>
 </div>
+
 ## ✨ Highlights
 
-🚀 **Lightning Fast**  
-🦀 **Powered by Rust**  
-🎮 **Vanilla & Modded**  
-🧩 **Modrinth Integration**  
-📦 **.mrpack Support**  
-🐼 **RedPanda Mascot**  
-🎨 **Modern Desktop UI**  
-⚡ **Native Performance**
+🚀 **Lightning Fast** (Cold startup < 0.8s, ~40 MB RAM)  
+🦀 **Powered by Rust & Tauri v2**  
+🎮 **Vanilla & All Major Loaders** (Fabric, Forge, NeoForge, Quilt)  
+🧩 **Dual Mod Ecosystem** (Modrinth & CurseForge native support + recursive dependencies)  
+🌐 **Built-in Multiplayer** (e4mc & Steam P2P with zero port forwarding)  
+🕺 **3D Skin & Cape Previewer** (Ely.by, Mojang, Steve)  
+📦 **Standalone Cyber-Brutalist GUI Installer**  
+🐼 **RedPanda Mascot & Zero Bloat/Telemetry**  
 
 ## ❤️ Why RedPanda Launcher?
 
-Most Minecraft launchers focus on adding more settings.  
-RedPanda focuses on making Minecraft easier to enjoy.  
+Most Minecraft launchers focus on adding heavy ads and complicated settings.  
+RedPanda focuses on making Minecraft faster, simpler, and cleaner to enjoy.  
 
 Minimal interface.  
 Fast startup.  
-Beautiful experience.  
-Powered by a friendly mascot.  
-
-## ☯️ Philosophy
-
-Less clutter.  
-More playing.  
-Every pixel has a purpose.
+Beautiful cyber-brutalist experience.  
+Open-source under the MIT license.  
 
 ## 🐼 Meet RedPanda
 
@@ -59,22 +55,21 @@ Makes the launcher feel alive.
 
 ## 📥 Download
 
-**[📥 Download the latest release here!](https://github.com/t1m0nch1k/RedPanda-Launcher/releases/latest)**
+- **[📥 Download Setup v0.2.0 (Windows)](https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.2.0/RedPanda_Setup_0.2.0.exe)**
+- **[🌐 Official Website: redlauncher.ru](https://www.redlauncher.ru/)**
 
 ## 🗺️ Roadmap
 
-- [x] Modern UI
-- [x] Vanilla
-- [x] Fabric
-- [x] Forge
-- [x] NeoForge
-- [x] Quilt
-- [ ] CurseForge
-- [ ] AI Assistant
+- [x] Modern Cyber-Brutalist UI
+- [x] Vanilla, Fabric, Forge, NeoForge, Quilt
+- [x] Modrinth & CurseForge Browsers
+- [x] Automatic Dependency Resolution
+- [x] e4mc & Steam P2P Multiplayer Tunneling
+- [x] 3D Skin & Cape Engine
+- [x] Standalone GUI Installer (`RedPanda_Setup_0.2.0.exe`)
 - [ ] Cloud Sync
 - [ ] Plugin System
-- [ ] Marketplace
-- [ ] Bedrock Support
+- [ ] Custom Themes Engine
 
 ## 🛠️ Tech Stack
 
