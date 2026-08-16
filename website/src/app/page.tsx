@@ -8,11 +8,11 @@ export default function Home() {
   const [typedIndex, setTypedIndex] = useState(0);
   const typedPhrases = [
     "[ LIGHTNING_FAST ]",
-    "[ MODRINTH_NATIVE ]",
-    "[ CURSEFORGE_SUPPORT ]",
-    "[ ZERO_BLOAT ]",
+    "[ CUSTOM_GUI_INSTALLER ]",
+    "[ MODRINTH_&_CURSEFORGE ]",
     "[ E4MC_&_STEAM_P2P ]",
-    "[ 3D_SKIN_PREVIEW ]"
+    "[ 3D_SKIN_PREVIEWER ]",
+    "[ ZERO_BLOATWARE ]"
   ];
 
   useEffect(() => {
@@ -24,11 +24,11 @@ export default function Home() {
 
   const features = [
     { icon: <IconBolt size={24} />, title: "LIGHTNING_FAST", desc: "{ built_with: 'Rust & Tauri',\n  memory_footprint: 'minimal',\n  startup: '< 0.8s' }" },
-    { icon: <IconLayoutGrid size={24} />, title: "CYBER_BRUTALISM", desc: "{ design: 'brutalist_mono',\n  shadows: 'hard_offset',\n  noise: 'grain_svg' }" },
+    { icon: <IconLayoutGrid size={24} />, title: "CUSTOM_GUI_INSTALLER", desc: "{ type: 'cyber_brutalist_gui',\n  setup: 'RedPanda_Setup_0.2.0.exe',\n  registry_integration: true }" },
     { icon: <IconPuzzle size={24} />, title: "DUAL_MOD_ECOSYSTEM", desc: "{ sources: ['Modrinth', 'CurseForge'],\n  dependencies: 'recursive_auto_resolve',\n  scope: 'mods_shaders_resourcepacks' }" },
     { icon: <IconGlobe size={24} />, title: "E4MC_&_STEAM_P2P", desc: "{ modes: ['e4mc.link', 'e4steam'],\n  p2p_hosting: 'built-in',\n  ports_required: false }" },
-    { icon: <IconRocket size={24} />, title: "MULTI_LOADER", desc: "[ 'Vanilla',\n  'Fabric',\n  'Forge',\n  'Quilt',\n  'NeoForge' ]" },
-    { icon: <IconCpu size={24} />, title: "ADVANCED_CONTROL", desc: "{ custom_java: 'auto_detect & path',\n  ram_tuning: 'per_instance',\n  discord_rpc: 'async_non_blocking' }" },
+    { icon: <IconRocket size={24} />, title: "3D_SKIN_PREVIEWER", desc: "{ engine: 'skinview3d',\n  sources: ['Ely.by', 'Mojang', 'Fallback'],\n  interactivity: 'rotate & animate' }" },
+    { icon: <IconCpu size={24} />, title: "ADVANCED_INSTANCE_CONTROL", desc: "{ custom_java: 'auto_detect & path',\n  ram_tuning: 'per_instance',\n  backups: 'zip_export_import' }" },
   ];
 
   const metrics = [
@@ -53,7 +53,7 @@ export default function Home() {
           <a href="#gallery" className="hover:text-primary transition-colors cursor-pointer">[ Interface ]</a>
         </div>
         <a 
-          href="https://github.com/t1m0nch1k/RedPanda-Launcher/releases/latest" 
+          href="https://github.com/t1m0nch1k/RedPanda-Launcher/releases/tag/v0.2.0" 
           target="_blank" 
           className="bg-card hover:bg-primary text-white px-5 py-2.5 font-bold transition-all flex items-center gap-2 cursor-pointer uppercase text-sm border border-border hover:border-primary brutalist-button"
         >
@@ -71,9 +71,9 @@ export default function Home() {
           </div>
           <div className="space-y-1">
             <div>STATUS: <span className="text-white">ONLINE</span></div>
-            <div>ARCH: <span className="text-white">TAURI_RUST_X64</span></div>
+            <div>VERSION: <span className="text-white">v0.2.0_RELEASE</span></div>
+            <div>INSTALLER: <span className="text-white">STANDALONE_GUI</span></div>
             <div>MULTIPLAYER: <span className="text-white">E4MC_&_STEAM</span></div>
-            <div>MEMORY: <span className="text-white">MINIMAL</span></div>
           </div>
         </div>
 
@@ -97,16 +97,16 @@ export default function Home() {
 
           <p className="text-base md:text-lg text-muted mb-10 max-w-2xl font-mono leading-relaxed bg-card/40 p-4 border-l-2 border-primary">
             // High-performance Minecraft launcher built with Rust & Tauri.<br/>
-            // Modrinth & CurseForge support, e4mc/e4steam multiplayer & cyber-brutalist UX.
+            // Custom GUI setup, Modrinth & CurseForge, e4mc/e4steam multiplayer & 3D skins.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center gap-6 w-full sm:w-auto">
             <a 
-              href="https://github.com/t1m0nch1k/RedPanda-Launcher/releases/latest" 
+              href="https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.2.0/RedPanda_Setup_0.2.0.exe" 
               target="_blank" 
               className="w-full sm:w-auto flex items-center justify-center gap-3 bg-primary hover:bg-primary-hover text-white px-10 py-5 font-bold text-lg transition-all border border-primary cursor-pointer uppercase brutalist-button"
             >
-              <IconDownload size={24} /> DOWNLOAD_WIN_X64.EXE
+              <IconDownload size={24} /> DOWNLOAD_SETUP_v0.2.0.EXE
             </a>
             <a 
               href="#metrics" 
