@@ -17,7 +17,9 @@ pub fn run() {
             remove_shortcuts,
             unregister_uninstaller,
             uninstall_files,
-            launch_app
+            launch_app,
+            close_window,
+            minimize_window
         ])
         .run(tauri::generate_context!())
         .expect("error while running RedPanda Installer");

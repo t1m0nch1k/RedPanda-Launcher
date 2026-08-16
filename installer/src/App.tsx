@@ -125,10 +125,14 @@ export default function App() {
       setStatusMessage("Установка успешно завершена!");
       addLog("[00:00:06] Готово! RedPanda Launcher v0.2.0 установлен.");
 
-      setTimeout(() => {
+      setTimeout(async () => {
         if (launchAfterInstall) {
-          invoke("launch_app", { targetDir: installPath }).catch(console.error);
-          getCurrentWindow().close();
+          try {
+            await invoke("launch_app", { targetDir: installPath });
+          } catch (e) {
+            console.error("Failed to launch app:", e);
+            handleClose();
+          }
         } else {
           setStep("completed");
         }
@@ -173,21 +177,36 @@ export default function App() {
     setLogs((prev) => [...prev, msg]);
   };
 
-  const handleClose = () => {
-    getCurrentWindow().close();
+  const handleClose = async () => {
+    try {
+      await invoke("close_window");
+    } catch {
+      try {
+        await getCurrentWindow().close();
+      } catch (e) {
+        console.error(e);
+      }
+    }
   };
 
-  const handleMinimize = () => {
-    getCurrentWindow().minimize();
+  const handleMinimize = async () => {
+    try {
+      await invoke("minimize_window");
+    } catch {
+      try {
+        await getCurrentWindow().minimize();
+      } catch (e) {
+        console.error(e);
+      }
+    }
   };
 
   const handleLaunchApp = async () => {
     try {
       await invoke("launch_app", { targetDir: installPath });
-      getCurrentWindow().close();
     } catch (err) {
       console.error("Failed to launch app", err);
-      getCurrentWindow().close();
+      handleClose();
     }
   };
 
@@ -195,8 +214,12 @@ export default function App() {
     <div className="w-full h-screen bg-background text-text flex flex-col brutalist-border overflow-hidden select-none">
       {/* Frameless Custom Titlebar */}
       <div 
-        data-tauri-drag-region 
-        className="h-10 bg-card border-b border-border flex items-center justify-between px-4 shrink-0 z-50 cursor-grab active:cursor-grabbing"
+        className="h-10 bg-card border-b border-border flex items-center justify-between px-4 shrink-0 z-50 select-none cursor-default"
+        onMouseDown={(e) => {
+          if (!(e.target as HTMLElement).closest('button')) {
+            getCurrentWindow().startDragging().catch(() => {});
+          }
+        }}
       >
         <div className="flex items-center gap-2.5 pointer-events-none">
           <img src="/logo.png" alt="Logo" className="w-5 h-5 object-contain" />
@@ -210,15 +233,21 @@ export default function App() {
 
         <div className="flex items-center gap-1">
           <button 
-            onClick={handleMinimize}
-            className="w-7 h-7 flex items-center justify-center hover:bg-card-hover text-muted hover:text-white transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleMinimize();
+            }}
+            className="w-7 h-7 flex items-center justify-center hover:bg-card-hover text-muted hover:text-white transition-colors cursor-pointer"
             title="Свернуть"
           >
             <Minus size={14} />
           </button>
           <button 
-            onClick={handleClose}
-            className="w-7 h-7 flex items-center justify-center hover:bg-red-500/20 text-muted hover:text-red-400 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleClose();
+            }}
+            className="w-7 h-7 flex items-center justify-center hover:bg-red-500/20 text-muted hover:text-red-400 transition-colors cursor-pointer"
             title="Закрыть"
           >
             <X size={14} />

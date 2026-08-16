@@ -234,7 +234,20 @@ pub async fn uninstall_files(clean_user_data: bool) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn launch_app(target_dir: String) -> Result<(), String> {
+pub fn close_window(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
+#[tauri::command]
+pub fn minimize_window(app: tauri::AppHandle) {
+    use tauri::Manager;
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.minimize();
+    }
+}
+
+#[tauri::command]
+pub async fn launch_app(app: tauri::AppHandle, target_dir: String) -> Result<(), String> {
     let exe = PathBuf::from(&target_dir).join("redpanda-launcher.exe");
     if !exe.exists() {
         return Err("Executable not found".to_string());
@@ -256,5 +269,7 @@ pub async fn launch_app(target_dir: String) -> Result<(), String> {
         cmd.spawn().map_err(|e| format!("Failed to spawn launcher: {}", e))?;
     }
 
+    // Exit installer process
+    app.exit(0);
     Ok(())
 }
