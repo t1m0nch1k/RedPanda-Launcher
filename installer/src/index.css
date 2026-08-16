@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-text select-none overflow-hidden font-sans;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+.brutalist-border {
+  border: 1px solid #26292d;
+}
+
+.brutalist-shadow-orange {
+  box-shadow: 4px 4px 0px 0px #F55E1D;
+}
+
+.brutalist-button-primary {
+  @apply bg-primary hover:bg-primary-hover text-white font-bold transition-all duration-150 active:translate-x-0.5 active:translate-y-0.5 border border-primary;
+}
+
+.brutalist-button-secondary {
+  @apply bg-card hover:bg-card-hover text-white font-bold transition-all duration-150 active:translate-x-0.5 active:translate-y-0.5 border border-border;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0c0d0e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #26292d;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #F55E1D;
+}
