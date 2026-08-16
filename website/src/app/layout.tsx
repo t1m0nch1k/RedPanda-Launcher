@@ -4,6 +4,11 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "RedPanda Launcher - The modern Minecraft launcher",
   description: "Beautiful. Fast. Intelligent. Built for Vanilla, Fabric, Forge, NeoForge, and Quilt.",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({
