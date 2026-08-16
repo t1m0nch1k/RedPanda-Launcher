@@ -23,8 +23,7 @@ New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 
 # 2. Build RedPanda Launcher
 Write-Host "`n[1/4] Building RedPanda Launcher Release Binary..." -ForegroundColor Yellow
-npm run build
-cargo build --release --manifest-path src-tauri/Cargo.toml
+npm run tauri build -- --no-bundle
 
 $LauncherExe = Join-Path $RootDir "src-tauri\target\release\redpanda-launcher.exe"
 if (-not (Test-Path $LauncherExe)) {
@@ -53,9 +52,8 @@ Write-Host "Payload archive created: $([math]::Round((Get-Item $PayloadZip).Leng
 Remove-Item -Recurse -Force $PayloadDir
 
 # 4. Build Custom GUI Installer
-Write-Host "`n[3/4] Building Custom GUI Installer Frontend & Binary..." -ForegroundColor Yellow
-npm --prefix installer run build
-cargo build --release --manifest-path installer/src-tauri/Cargo.toml
+Write-Host "`n[3/4] Building Custom GUI Installer Frontend & Binary with Embedded UI..." -ForegroundColor Yellow
+npm --prefix installer run tauri build -- --no-bundle
 
 $InstallerExe = Join-Path $RootDir "installer\src-tauri\target\release\redpanda-installer.exe"
 if (-not (Test-Path $InstallerExe)) {
