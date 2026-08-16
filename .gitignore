@@ -19,6 +19,11 @@ dist-ssr
 .DS_Store
 *.sw?
 
+# Environment secrets
+.env
+.env.*
+!.env.example
+
 # Build outputs & Installer artifacts
 release_output/
 installer/node_modules/
