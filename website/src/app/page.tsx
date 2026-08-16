@@ -2,10 +2,26 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { IconDownload, IconBolt, IconPuzzle, IconLayoutGrid, IconRocket, IconBrandTelegram, IconBrandGithub, IconTerminal2, IconGlobe, IconCpu } from "@tabler/icons-react";
+import { 
+  IconDownload, 
+  IconBolt, 
+  IconPuzzle, 
+  IconLayoutGrid, 
+  IconRocket, 
+  IconBrandTelegram, 
+  IconBrandGithub, 
+  IconTerminal2, 
+  IconGlobe, 
+  IconCpu,
+  IconHelp,
+  IconChevronDown,
+  IconCheck
+} from "@tabler/icons-react";
 
 export default function Home() {
   const [typedIndex, setTypedIndex] = useState(0);
+  const [openFaq, setOpenFaq] = useState<number | null>(0);
+
   const typedPhrases = [
     "[ LIGHTNING_FAST ]",
     "[ CUSTOM_GUI_INSTALLER ]",
@@ -38,6 +54,33 @@ export default function Home() {
     { value: "100%", label: "OPEN_SOURCE", sub: "Zero ads & telemetry" },
   ];
 
+  const faqs = [
+    {
+      q: "Как играть с друзьями по сети без открытия портов и сторонних программ?",
+      a: "В RedPanda Launcher встроен мультиплеер на базе e4mc и Steam P2P (e4steam). Откройте мир для сети (LAN), лаунчер сгенерирует публичную безопасную ссылку или позволит пригласить друзей через Steam (Shift+Tab) без настройки роутера, белых IP и Хамачи."
+    },
+    {
+      q: "Какие версии и мод-лоадеры поддерживает RedPanda Launcher?",
+      a: "Поддерживаются абсолютно все версии Minecraft (от классических релизов до новейших снапшотов 1.21+), а также ключевые загрузчики модов: Fabric, Forge, NeoForge, Quilt и чистая Vanilla."
+    },
+    {
+      q: "Как устроена загрузка модов, шейдеров и ресурс-паков?",
+      a: "Прямо внутри лаунчера доступен единый каталог Modrinth и CurseForge. Вы можете искать, устанавливать и обновлять моды в один клик с автоматической рекурсивной установкой всех требуемых библиотек и зависимостей."
+    },
+    {
+      q: "Поддерживаются ли аккаунты Ely.by и Microsoft?",
+      a: "Да! Вы можете авторизоваться через официальный аккаунт Microsoft, систему скинов Ely.by или играть в автономном (офлайн) режиме. Все скины и плащи отображаются в интерактивном 3D вьювере."
+    },
+    {
+      q: "Почему RedPanda Launcher работает быстрее традиционных лаунчеров?",
+      a: "Лаунчер написан на нативном Rust и Tauri, минуя тяжелые среды вроде Electron или Java-интерфейсов. Время холодного старта — менее 0.8 секунд, а потребление оперативной памяти в фоне составляет всего ~40 МБ."
+    },
+    {
+      q: "Безопасен ли лаунчер и есть ли в нём реклама?",
+      a: "RedPanda Launcher полностью бесплатен, свободен от рекламы, телеметрии и скрытых процессов. Исходный код открыт на GitHub для аудита сообществом."
+    }
+  ];
+
   return (
     <div className="min-h-screen relative selection:bg-primary selection:text-white">
       {/* Top Bar / Navigation */}
@@ -51,6 +94,7 @@ export default function Home() {
           <a href="#metrics" className="hover:text-primary transition-colors cursor-pointer">[ Metrics ]</a>
           <a href="#features" className="hover:text-primary transition-colors cursor-pointer">[ Features ]</a>
           <a href="#gallery" className="hover:text-primary transition-colors cursor-pointer">[ Interface ]</a>
+          <a href="#faq" className="hover:text-primary transition-colors cursor-pointer">[ FAQ ]</a>
         </div>
         <a 
           href="https://github.com/t1m0nch1k/RedPanda-Launcher/releases/tag/v0.2.0" 
@@ -96,8 +140,8 @@ export default function Home() {
           </div>
 
           <p className="text-base md:text-lg text-muted mb-10 max-w-2xl font-mono leading-relaxed bg-card/40 p-4 border-l-2 border-primary">
-            // High-performance Minecraft launcher built with Rust & Tauri.<br/>
-            // Custom GUI setup, Modrinth & CurseForge, e4mc/e4steam multiplayer & 3D skins.
+            // Высокопроизводительный лаунчер Майнкрафт нового поколения на Rust & Tauri.<br/>
+            // Кастомный GUI установщик, Modrinth & CurseForge, e4mc/e4steam мультиплеер и 3D скины.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center gap-6 w-full sm:w-auto">
@@ -106,13 +150,13 @@ export default function Home() {
               target="_blank" 
               className="w-full sm:w-auto flex items-center justify-center gap-3 bg-primary hover:bg-primary-hover text-white px-10 py-5 font-bold text-lg transition-all border border-primary cursor-pointer uppercase brutalist-button"
             >
-              <IconDownload size={24} /> DOWNLOAD_SETUP_v0.2.0.EXE
+              <IconDownload size={24} /> СКАЧАТЬ_SETUP_v0.2.0.EXE
             </a>
             <a 
-              href="#metrics" 
+              href="#features" 
               className="w-full sm:w-auto flex items-center justify-center gap-3 bg-card hover:bg-background border border-border text-white px-10 py-5 font-bold text-lg transition-colors cursor-pointer uppercase"
             >
-              METRICS()
+              ВОЗМОЖНОСТИ()
             </a>
           </div>
         </div>
@@ -137,8 +181,8 @@ export default function Home() {
       <section id="gallery" className="py-20 border-b border-border bg-card">
         <div className="max-w-[1400px] mx-auto px-6">
           <div className="mb-12 border-l-4 border-primary pl-6">
-            <h2 className="text-white mb-2 font-bold">INTERFACE_PREVIEW</h2>
-            <p className="text-muted font-mono">{"// Pure brutalist design without compromise"}</p>
+            <h2 className="text-white mb-2 font-bold">ИНТЕРФЕЙС ЛАУНЧЕРА</h2>
+            <p className="text-muted font-mono">{"// Чистый кибер-брутализм без компромиссов"}</p>
           </div>
         </div>
         
@@ -170,8 +214,8 @@ export default function Home() {
       <section id="features" className="py-24 px-6 border-b border-border">
         <div className="max-w-[1400px] mx-auto">
           <div className="mb-16 border-l-4 border-primary pl-6">
-            <h2 className="text-white mb-2 font-bold">SYSTEM_FEATURES</h2>
-            <p className="text-muted font-mono">{"// We threw away legacy bloatware"}</p>
+            <h2 className="text-white mb-2 font-bold">ОСНОВНЫЕ ВОЗМОЖНОСТИ</h2>
+            <p className="text-muted font-mono">{"// Всё, что нужно для комфортной игры в Майнкрафт"}</p>
           </div>
           
           <div className="brutalist-grid">
@@ -191,6 +235,50 @@ export default function Home() {
         </div>
       </section>
 
+      {/* SEO FAQ Section */}
+      <section id="faq" className="py-24 px-6 border-b border-border bg-card/40">
+        <div className="max-w-[1000px] mx-auto">
+          <div className="mb-16 border-l-4 border-primary pl-6">
+            <h2 className="text-white mb-2 font-bold uppercase font-display flex items-center gap-3">
+              <IconHelp className="text-primary" size={32} />
+              Часто задаваемые вопросы (FAQ)
+            </h2>
+            <p className="text-muted font-mono">{"// Ответы на популярные вопросы о RedPanda Launcher"}</p>
+          </div>
+
+          <div className="space-y-4">
+            {faqs.map((faq, idx) => {
+              const isOpen = openFaq === idx;
+              return (
+                <div 
+                  key={idx} 
+                  className="bg-card border border-border transition-all duration-200"
+                >
+                  <button
+                    onClick={() => setOpenFaq(isOpen ? null : idx)}
+                    className="w-full p-6 text-left flex items-center justify-between gap-4 cursor-pointer hover:bg-card-hover transition-colors"
+                  >
+                    <span className="font-bold text-white text-base md:text-lg font-display flex items-center gap-3">
+                      <span className="text-primary font-mono text-sm">0{idx + 1}.</span>
+                      {faq.q}
+                    </span>
+                    <IconChevronDown 
+                      className={`text-primary shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} 
+                      size={22} 
+                    />
+                  </button>
+                  {isOpen && (
+                    <div className="px-6 pb-6 pt-2 border-t border-border/60 text-muted font-mono text-sm leading-relaxed">
+                      {faq.a}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="py-12 px-6 bg-card">
         <div className="max-w-[1400px] mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
@@ -198,7 +286,7 @@ export default function Home() {
             <IconTerminal2 className="text-primary" size={32} />
             <div>
               <div className="font-bold text-white uppercase font-display tracking-widest text-xl">RedPanda</div>
-              <div className="text-muted font-mono text-xs mt-1">{"// COPYRIGHT 2026 • BUILT WITH RUST & TAURI"}</div>
+              <div className="text-muted font-mono text-xs mt-1">{"// COPYRIGHT 2026 • BUILT WITH RUST & TAURI • REDLAUNCHER.RU"}</div>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-6 text-muted font-bold uppercase text-sm">
@@ -214,3 +302,4 @@ export default function Home() {
     </div>
   );
 }
+
