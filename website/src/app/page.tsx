@@ -15,7 +15,8 @@ import {
   IconCpu,
   IconHelp,
   IconChevronDown,
-  IconCheck
+  IconCheck,
+  IconShieldLock
 } from "@tabler/icons-react";
 
 export default function Home() {
@@ -25,6 +26,7 @@ export default function Home() {
   const typedPhrases = [
     "[ LIGHTNING_FAST ]",
     "[ CUSTOM_GUI_INSTALLER ]",
+    "[ AES_256_GCM_VAULT ]",
     "[ MODRINTH_&_CURSEFORGE ]",
     "[ E4MC_&_STEAM_P2P ]",
     "[ 3D_SKIN_PREVIEWER ]",
@@ -40,11 +42,11 @@ export default function Home() {
 
   const features = [
     { icon: <IconBolt size={24} />, title: "LIGHTNING_FAST", desc: "{ built_with: 'Rust & Tauri',\n  memory_footprint: 'minimal',\n  startup: '< 0.8s' }" },
-    { icon: <IconLayoutGrid size={24} />, title: "CUSTOM_GUI_INSTALLER", desc: "{ type: 'cyber_brutalist_gui',\n  setup: 'RedPanda_Setup_0.2.0.exe',\n  registry_integration: true }" },
+    { icon: <IconLayoutGrid size={24} />, title: "CUSTOM_GUI_INSTALLER", desc: "{ type: 'cyber_brutalist_gui',\n  setup: 'RedPanda_Setup_0.2.1.exe',\n  registry_integration: true }" },
+    { icon: <IconShieldLock size={24} />, title: "AES_256_VAULT_&_SECURITY", desc: "{ encryption: 'AES-256-GCM + OsRng',\n  path_traversal: 'safe_join_protection',\n  concurrency: 'mutex_synchronized' }" },
     { icon: <IconPuzzle size={24} />, title: "DUAL_MOD_ECOSYSTEM", desc: "{ sources: ['Modrinth', 'CurseForge'],\n  dependencies: 'recursive_auto_resolve',\n  scope: 'mods_shaders_resourcepacks' }" },
     { icon: <IconGlobe size={24} />, title: "E4MC_&_STEAM_P2P", desc: "{ modes: ['e4mc.link', 'e4steam'],\n  p2p_hosting: 'built-in',\n  ports_required: false }" },
     { icon: <IconRocket size={24} />, title: "3D_SKIN_PREVIEWER", desc: "{ engine: 'skinview3d',\n  sources: ['Ely.by', 'Mojang', 'Fallback'],\n  interactivity: 'rotate & animate' }" },
-    { icon: <IconCpu size={24} />, title: "ADVANCED_INSTANCE_CONTROL", desc: "{ custom_java: 'auto_detect & path',\n  ram_tuning: 'per_instance',\n  backups: 'zip_export_import' }" },
   ];
 
   const metrics = [
@@ -69,7 +71,7 @@ export default function Home() {
     },
     {
       q: "Поддерживаются ли аккаунты Ely.by и Microsoft?",
-      a: "Да! Вы можете авторизоваться через официальный аккаунт Microsoft, систему скинов Ely.by или играть в автономном (офлайн) режиме. Все скины и плащи отображаются в интерактивном 3D вьювере."
+      a: "Да! Вы можете авторизоваться через официальный аккаунт Microsoft, систему скинов Ely.by или играть в автономном (офлайн) режиме. Все токены авторизации шифруются аппаратно-привязанным алгоритмом AES-256-GCM."
     },
     {
       q: "Почему RedPanda Launcher работает быстрее традиционных лаунчеров?",
@@ -77,7 +79,7 @@ export default function Home() {
     },
     {
       q: "Безопасен ли лаунчер и есть ли в нём реклама?",
-      a: "RedPanda Launcher полностью бесплатен, свободен от рекламы, телеметрии и скрытых процессов. Исходный код открыт на GitHub для аудита сообществом."
+      a: "RedPanda Launcher полностью бесплатен, свободен от рекламы, телеметрии и скрытых процессов. В версии 0.2.1 проведена полная проверка безопасности (Security Audit), внедрены мьютексы и криптографическая защита."
     }
   ];
 
@@ -88,7 +90,7 @@ export default function Home() {
         <div className="flex items-center gap-3">
           <IconTerminal2 className="text-primary" size={28} />
           <span className="font-bold text-lg tracking-widest text-white uppercase font-display">RedPanda</span>
-          <span className="hidden sm:inline-block text-xs font-mono text-muted bg-card px-2 py-0.5 border border-border">{`{ v0.2.0 }`}</span>
+          <span className="hidden sm:inline-block text-xs font-mono text-muted bg-card px-2 py-0.5 border border-border">{`{ v0.2.1 }`}</span>
         </div>
         <div className="hidden md:flex items-center gap-8 text-sm font-bold text-muted uppercase">
           <a href="#metrics" className="hover:text-primary transition-colors cursor-pointer">[ Metrics ]</a>
@@ -97,7 +99,7 @@ export default function Home() {
           <a href="#faq" className="hover:text-primary transition-colors cursor-pointer">[ FAQ ]</a>
         </div>
         <a 
-          href="https://github.com/t1m0nch1k/RedPanda-Launcher/releases/tag/v0.2.0" 
+          href="https://github.com/t1m0nch1k/RedPanda-Launcher/releases/tag/v0.2.1" 
           target="_blank" 
           className="bg-card hover:bg-primary text-white px-5 py-2.5 font-bold transition-all flex items-center gap-2 cursor-pointer uppercase text-sm border border-border hover:border-primary brutalist-button"
         >
@@ -115,7 +117,8 @@ export default function Home() {
           </div>
           <div className="space-y-1">
             <div>STATUS: <span className="text-white">ONLINE</span></div>
-            <div>VERSION: <span className="text-white">v0.2.0_RELEASE</span></div>
+            <div>VERSION: <span className="text-white">v0.2.1_RELEASE</span></div>
+            <div>SECURITY: <span className="text-white">AES_256_GCM_VAULT</span></div>
             <div>INSTALLER: <span className="text-white">STANDALONE_GUI</span></div>
             <div>MULTIPLAYER: <span className="text-white">E4MC_&_STEAM</span></div>
           </div>
@@ -141,16 +144,16 @@ export default function Home() {
 
           <p className="text-base md:text-lg text-muted mb-10 max-w-2xl font-mono leading-relaxed bg-card/40 p-4 border-l-2 border-primary">
             // Высокопроизводительный лаунчер Майнкрафт нового поколения на Rust & Tauri.<br/>
-            // Кастомный GUI установщик, Modrinth & CurseForge, e4mc/e4steam мультиплеер и 3D скины.
+            // Кастомный GUI установщик, AES-256 хранилище, Modrinth & CurseForge, e4mc/e4steam и 3D скины.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center gap-6 w-full sm:w-auto">
             <a 
-              href="https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.2.0/RedPanda_Setup_0.2.0.exe" 
+              href="https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.2.1/RedPanda_Setup_0.2.1.exe" 
               target="_blank" 
               className="w-full sm:w-auto flex items-center justify-center gap-3 bg-primary hover:bg-primary-hover text-white px-10 py-5 font-bold text-lg transition-all border border-primary cursor-pointer uppercase brutalist-button"
             >
-              <IconDownload size={24} /> СКАЧАТЬ_SETUP_v0.2.0.EXE
+              <IconDownload size={24} /> СКАЧАТЬ_SETUP_v0.2.1.EXE
             </a>
             <a 
               href="#features" 
