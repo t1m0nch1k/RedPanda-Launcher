@@ -142,6 +142,36 @@ def post_v020_release():
     photo = ROOT_DIR / "installer" / "public" / "logo.png"
     if not photo.exists():
         photo = ROOT_DIR / "logo.png"
+    return send_post(caption, str(photo) if photo.exists() else None, buttons)
+
+def post_v021_release():
+    caption = (
+        "🐼 <b>RedPanda Launcher v0.2.1 — Безопасность, стабильность и новый установщик!</b>\n\n"
+        "Мы провели глубокий аудит безопасности (Security Audit) и выпустили обновление <b>v0.2.1</b> с аппаратным шифрованием, авто-обновлением сессий и защитой от race conditions!\n\n"
+        "🛡️ <b>Ключевые изменения версии 0.2.1:</b>\n"
+        "▫️ <b>Крипто-сейф AES-256-GCM</b> — все токены авторизации шифруются на диске с генерацией криптографически стойких Nonce (<code>OsRng</code>).\n"
+        "▫️ <b>Автоматический Refresh сессий</b> — токены Microsoft и Ely.by проверяются и обновляются на лету перед стартом Minecraft.\n"
+        "▫️ <b>Microsoft Device Code Flow</b> — бесшовный вход через код устройства.\n"
+        "▫️ <b>Потокобезопасность (Мьютексы)</b> — исключены сбои и повреждение конфигураций при одновременных файловых операциях.\n"
+        "▫️ <b>Защита от Path Traversal</b> — безопасная распаковка манифестов Modrinth / CurseForge и санитизация путей.\n"
+        "▫️ <b>Кастомные соцсети в настройках</b> — управление ссылками сообщества прямо в интерфейсе лаунчера.\n"
+        "▫️ <b>Новый инсталлятор <code>RedPanda_Setup_0.2.1.exe</code></b> (38.6 МБ).\n\n"
+        "🚀 <i>Скачивайте обновление на сайте или напрямую с GitHub!</i>"
+    )
+    
+    buttons = [
+        [
+            {"text": "📥 Скачать Setup v0.2.1 (.exe)", "url": "https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.2.1/RedPanda_Setup_0.2.1.exe"},
+        ],
+        [
+            {"text": "🌐 Официальный сайт", "url": "https://www.redlauncher.ru/"},
+            {"text": "🐙 Репозиторий GitHub", "url": "https://github.com/t1m0nch1k/RedPanda-Launcher"}
+        ]
+    ]
+    
+    photo = ROOT_DIR / "installer" / "public" / "logo.png"
+    if not photo.exists():
+        photo = ROOT_DIR / "logo.png"
         
     return send_post(caption, str(photo) if photo.exists() else None, buttons)
 
@@ -149,6 +179,7 @@ def main():
     parser = argparse.ArgumentParser(description="RedPanda Launcher Telegram Publisher")
     parser.add_argument("--test", action="store_true", help="Test bot authentication")
     parser.add_argument("--post-v020", action="store_true", help="Publish v0.2.0 release announcement")
+    parser.add_argument("--post-v021", action="store_true", help="Publish v0.2.1 release announcement")
     parser.add_argument("--custom-text", type=str, help="Custom message text (HTML supported)")
     parser.add_argument("--photo", type=str, help="Path to photo")
     
@@ -159,6 +190,9 @@ def main():
     elif args.post_v020:
         if check_bot():
             post_v020_release()
+    elif args.post_v021:
+        if check_bot():
+            post_v021_release()
     elif args.custom_text:
         if check_bot():
             send_post(args.custom_text, args.photo)
