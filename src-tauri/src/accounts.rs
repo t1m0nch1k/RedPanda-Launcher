@@ -1,5 +1,5 @@
 use aes_gcm::{
-    aead::{Aead, KeyInit},
+    aead::{Aead, KeyInit, OsRng, rand_core::RngCore},
     Aes256Gcm, Nonce,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
@@ -60,17 +60,37 @@ fn encrypt_secret(plain: &str) -> String {
     }
     let key = get_encryption_key();
     if let Ok(cipher) = Aes256Gcm::new_from_slice(&key) {
-        let nonce_bytes = [0x52, 0x65, 0x64, 0x50, 0x61, 0x6E, 0x64, 0x61, 0x53, 0x65, 0x63, 0x31]; // "RedPandaSec1"
+        let mut nonce_bytes = [0u8; 12];
+        OsRng.fill_bytes(&mut nonce_bytes);
         let nonce = Nonce::from_slice(&nonce_bytes);
         if let Ok(ciphertext) = cipher.encrypt(nonce, plain.as_bytes()) {
-            return format!("enc:{}", BASE64.encode(ciphertext));
+            let mut payload = Vec::with_capacity(12 + ciphertext.len());
+            payload.extend_from_slice(&nonce_bytes);
+            payload.extend_from_slice(&ciphertext);
+            return format!("enc:v2:{}", BASE64.encode(payload));
         }
     }
     plain.to_string()
 }
 
 fn decrypt_secret(enc: &str) -> String {
-    if let Some(stripped) = enc.strip_prefix("enc:") {
+    if let Some(stripped) = enc.strip_prefix("enc:v2:") {
+        if let Ok(decoded) = BASE64.decode(stripped) {
+            if decoded.len() > 12 {
+                let (nonce_bytes, ciphertext) = decoded.split_at(12);
+                let key = get_encryption_key();
+                if let Ok(cipher) = Aes256Gcm::new_from_slice(&key) {
+                    let nonce = Nonce::from_slice(nonce_bytes);
+                    if let Ok(plaintext) = cipher.decrypt(nonce, ciphertext) {
+                        if let Ok(s) = String::from_utf8(plaintext) {
+                            return s;
+                        }
+                    }
+                }
+            }
+        }
+    } else if let Some(stripped) = enc.strip_prefix("enc:") {
+        // Legacy fallback
         if let Ok(decoded) = BASE64.decode(stripped) {
             let key = get_encryption_key();
             if let Ok(cipher) = Aes256Gcm::new_from_slice(&key) {

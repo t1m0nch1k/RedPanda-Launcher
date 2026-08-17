@@ -171,7 +171,13 @@ pub async fn import_mrpack(app: AppHandle, path: String) -> Result<(), String> {
                 }
 
                 let url = &file_meta.downloads[0];
-                let target_path = instance_dir.join(&file_meta.path);
+                let target_path = match crate::security::safe_join(&instance_dir, &file_meta.path) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        log::error!("Skipping unsafe file path '{}': {}", file_meta.path, e);
+                        return Ok(());
+                    }
+                };
 
                 if let Some(p) = target_path.parent() {
                     let _ = fs::create_dir_all(p);
@@ -422,7 +428,8 @@ pub async fn import_curseforge_pack(app: AppHandle, path: String) -> Result<(), 
                     }
 
                     if let Some(dl_url) = url {
-                        let target_path = instance_dir.join("mods").join(info.file_name);
+                        let clean_filename = crate::security::sanitize_filename(&info.file_name);
+                        let target_path = instance_dir.join("mods").join(clean_filename);
                         
                         if let Some(p) = target_path.parent() {
                             let _ = fs::create_dir_all(p);

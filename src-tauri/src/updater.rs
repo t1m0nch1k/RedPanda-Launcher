@@ -96,14 +96,24 @@ pub async fn check_for_updates() -> Result<UpdateInfo, String> {
 
 #[tauri::command]
 pub async fn download_and_install_update(_app: AppHandle, download_url: String) -> Result<(), String> {
-    if download_url.is_empty() || !download_url.starts_with("http") {
-        return Err("Invalid download URL".to_string());
+    const MAX_UPDATE_BYTES: usize = 500 * 1024 * 1024; // 500 MB
+
+    if download_url.is_empty() {
+        return Err("Download URL is empty".to_string());
+    }
+
+    let is_valid_source = download_url.starts_with("https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/")
+        || download_url.starts_with("https://objects.githubusercontent.com/")
+        || download_url.starts_with("https://github.com/t1m0nch1k/RedPanda-Launcher/releases/tag/");
+
+    if !is_valid_source {
+        return Err("Untrusted update source URL. Updates are only permitted from official GitHub releases.".to_string());
     }
 
     log::info!("Downloading update from: {}", download_url);
 
     let client = Client::builder()
-        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 RedPandaLauncher/0.1.5")
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 RedPandaLauncher/0.2.0")
         .build()
         .map_err(|e| e.to_string())?;
 
@@ -117,10 +127,20 @@ pub async fn download_and_install_update(_app: AppHandle, download_url: String) 
         return Err(format!("Download failed with status: {}", res.status()));
     }
 
+    if let Some(cl) = res.content_length() {
+        if cl > (MAX_UPDATE_BYTES as u64) {
+            return Err(format!("Размер файла обновления превышает лимит: {} МБ", cl / (1024 * 1024)));
+        }
+    }
+
     let bytes = res
         .bytes()
         .await
         .map_err(|e| format!("Failed to read update bytes: {}", e))?;
+
+    if bytes.len() > MAX_UPDATE_BYTES {
+        return Err("Размер загруженных данных обновления превысил допустимый лимит".to_string());
+    }
 
     let temp_dir = std::env::temp_dir();
     let file_name = if download_url.ends_with(".msi") {

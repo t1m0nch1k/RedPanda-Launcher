@@ -442,7 +442,8 @@ pub async fn save_instance_settings(
     Ok(())
 }
 #[tauri::command]
-pub async fn install_mod_jar(app: AppHandle, id: String, jar_path: String) -> Result<(), String> {
+pub async fn install_mod_jar(_app: AppHandle, id: String, jar_path: String) -> Result<(), String> {
+    crate::security::validate_instance_id(&id)?;
     let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
     path.push("RedPandaLauncher");
     path.push(&id);
@@ -450,11 +451,12 @@ pub async fn install_mod_jar(app: AppHandle, id: String, jar_path: String) -> Re
 
     fs::create_dir_all(&path).map_err(|e| e.to_string())?;
 
-    let file_name = PathBuf::from(&jar_path)
+    let raw_name = PathBuf::from(&jar_path)
         .file_name()
         .and_then(|n| n.to_str())
         .ok_or("Invalid jar path")?
         .to_string();
+    let file_name = crate::security::sanitize_filename(&raw_name);
 
     path.push(file_name);
     fs::copy(&jar_path, &path).map_err(|e| e.to_string())?;
@@ -463,6 +465,7 @@ pub async fn install_mod_jar(app: AppHandle, id: String, jar_path: String) -> Re
 }
 #[tauri::command]
 pub async fn open_instance_folder(id: String) -> Result<(), String> {
+    crate::security::validate_instance_id(&id)?;
     let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
     path.push("RedPandaLauncher");
     path.push(&id);
@@ -497,6 +500,7 @@ pub async fn open_instance_folder(id: String) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn open_instance_logs(id: String) -> Result<(), String> {
+    crate::security::validate_instance_id(&id)?;
     let mut path = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
     path.push("RedPandaLauncher");
     path.push(&id);
@@ -601,10 +605,11 @@ pub async fn open_logs_folder() -> Result<(), String> {
 
 #[tauri::command]
 pub async fn install_resourcepack_zip(
-    app: AppHandle,
+    _app: AppHandle,
     id: String,
     zip_path: String,
 ) -> Result<(), String> {
+    crate::security::validate_instance_id(&id)?;
     let mut path = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
     path.push("RedPandaLauncher");
     path.push(&id);
@@ -612,11 +617,12 @@ pub async fn install_resourcepack_zip(
 
     fs::create_dir_all(&path).map_err(|e| e.to_string())?;
 
-    let file_name = std::path::PathBuf::from(&zip_path)
+    let raw_name = std::path::PathBuf::from(&zip_path)
         .file_name()
         .and_then(|n| n.to_str())
         .ok_or("Invalid zip path")?
         .to_string();
+    let file_name = crate::security::sanitize_filename(&raw_name);
 
     path.push(file_name);
     fs::copy(&zip_path, &path).map_err(|e| e.to_string())?;
@@ -626,10 +632,11 @@ pub async fn install_resourcepack_zip(
 
 #[tauri::command]
 pub async fn install_shader_zip(
-    app: AppHandle,
+    _app: AppHandle,
     id: String,
     zip_path: String,
 ) -> Result<(), String> {
+    crate::security::validate_instance_id(&id)?;
     let mut path = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
     path.push("RedPandaLauncher");
     path.push(&id);
@@ -637,11 +644,12 @@ pub async fn install_shader_zip(
 
     fs::create_dir_all(&path).map_err(|e| e.to_string())?;
 
-    let file_name = std::path::PathBuf::from(&zip_path)
+    let raw_name = std::path::PathBuf::from(&zip_path)
         .file_name()
         .and_then(|n| n.to_str())
         .ok_or("Invalid zip path")?
         .to_string();
+    let file_name = crate::security::sanitize_filename(&raw_name);
 
     path.push(file_name);
     fs::copy(&zip_path, &path).map_err(|e| e.to_string())?;
