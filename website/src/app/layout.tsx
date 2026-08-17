@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.redlauncher.ru"),
   title: "RedPanda Launcher — Быстрый лаунчер Майнкрафт с модами без рекламы",
-  description: "Скачать RedPanda Launcher v0.2.0 для Windows. Быстрый и лёгкий Minecraft лаунчер на Rust & Tauri. Поддержка Modrinth и CurseForge, игра по сети без открытия портов (e4mc, Steam P2P), 3D скины и 0 рекламы.",
+  description: "Скачать RedPanda Launcher v0.2.1 для Windows. Быстрый и лёгкий Minecraft лаунчер на Rust & Tauri. Поддержка Modrinth и CurseForge, игра по сети без открытия портов (e4mc, Steam P2P), 3D скины и 0 рекламы.",
   keywords: [
     "майнкрафт лаунчер",
     "скачать лаунчер майнкрафт",
@@ -62,7 +62,7 @@ const jsonLd = {
   "name": "RedPanda Launcher",
   "operatingSystem": "Windows 10, Windows 11, Windows 8, Windows 7 (x64)",
   "applicationCategory": "GameApplication",
-  "softwareVersion": "0.2.0",
+  "softwareVersion": "0.2.1",
   "description": "Высокопроизводительный лаунчер Minecraft на Rust и Tauri с поддержкой Modrinth, CurseForge, встроенным мультиплеером e4mc/Steam и 3D скинами.",
   "offers": {
     "@type": "Offer",
@@ -70,7 +70,7 @@ const jsonLd = {
     "priceCurrency": "RUB"
   },
   "url": "https://www.redlauncher.ru/",
-  "downloadUrl": "https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.2.0/RedPanda_Setup_0.2.0.exe",
+  "downloadUrl": "https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.2.1/RedPanda_Setup_0.2.1.exe",
   "fileSize": "39MB",
   "author": {
     "@type": "Organization",
