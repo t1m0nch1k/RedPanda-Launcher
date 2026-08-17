@@ -202,9 +202,11 @@ pub async fn download_modrinth_version(
         .find(|f| f.primary)
         .or_else(|| version.files.first());
 
+    const MAX_DOWNLOAD_BYTES: usize = 500 * 1024 * 1024; // 500 MB
+
     if let Some(file) = file {
         let download_url = &file.url;
-        let filename = &file.filename;
+        let filename = crate::security::sanitize_filename(&file.filename);
 
         // 2. Download the file bytes
         let file_res = client
@@ -212,7 +214,17 @@ pub async fn download_modrinth_version(
             .send()
             .await
             .map_err(|e| e.to_string())?;
+
+        if let Some(cl) = file_res.content_length() {
+            if cl > (MAX_DOWNLOAD_BYTES as u64) {
+                return Err(format!("Размер файла превышает лимит 500 МБ: {} МБ", cl / (1024 * 1024)));
+            }
+        }
+
         let bytes = file_res.bytes().await.map_err(|e| e.to_string())?;
+        if bytes.len() > MAX_DOWNLOAD_BYTES {
+            return Err("Размер загруженных данных превысил лимит 500 МБ".to_string());
+        }
 
         let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
         path.push("RedPandaLauncher");
@@ -224,7 +236,7 @@ pub async fn download_modrinth_version(
             _ => path.push("mods"),
         }
 
-        fs::create_dir_all(&path).unwrap_or(());
+        fs::create_dir_all(&path).map_err(|e| format!("Failed to create folder {:?}: {}", path, e))?;
 
         path.push(filename);
         fs::write(path, bytes).map_err(|e| e.to_string())?;
@@ -240,6 +252,8 @@ pub async fn download_modrinth_modpack(
     app: AppHandle,
     version_id: String,
 ) -> Result<(), String> {
+    const MAX_DOWNLOAD_BYTES: usize = 500 * 1024 * 1024; // 500 MB
+
     // 1. Get the version details to find the primary file URL
     let client = Client::new();
     let url = format!("https://api.modrinth.com/v2/version/{}", version_id);
@@ -254,7 +268,7 @@ pub async fn download_modrinth_modpack(
 
     if let Some(file) = file {
         let download_url = &file.url;
-        let filename = &file.filename;
+        let filename = crate::security::sanitize_filename(&file.filename);
 
         // 2. Download the file bytes
         let file_res = client
@@ -262,12 +276,22 @@ pub async fn download_modrinth_modpack(
             .send()
             .await
             .map_err(|e| e.to_string())?;
+
+        if let Some(cl) = file_res.content_length() {
+            if cl > (MAX_DOWNLOAD_BYTES as u64) {
+                return Err(format!("Размер модпака превышает лимит 500 МБ: {} МБ", cl / (1024 * 1024)));
+            }
+        }
+
         let bytes = file_res.bytes().await.map_err(|e| e.to_string())?;
+        if bytes.len() > MAX_DOWNLOAD_BYTES {
+            return Err("Размер загруженных данных модпака превысил лимит 500 МБ".to_string());
+        }
 
         // 3. Save to a temporary location
         let mut temp_path = std::env::temp_dir();
         temp_path.push("RedPandaLauncher");
-        fs::create_dir_all(&temp_path).unwrap_or(());
+        fs::create_dir_all(&temp_path).map_err(|e| format!("Failed to create temp dir: {}", e))?;
         temp_path.push(filename);
         
         fs::write(&temp_path, bytes).map_err(|e| e.to_string())?;

@@ -1,8 +1,14 @@
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
+
+lazy_static! {
+    static ref SETTINGS_MUTEX: Mutex<()> = Mutex::new(());
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(default)]
@@ -28,6 +34,10 @@ pub struct AppSettings {
     pub accent_color: String,
     pub discord_rpc: bool,
     pub auto_backup_worlds: bool,
+    pub telegram_url: String,
+    pub github_url: String,
+    pub website_url: String,
+    pub tiktok_url: String,
 }
 
 impl Default for AppSettings {
@@ -54,6 +64,10 @@ impl Default for AppSettings {
             accent_color: "#F55E1D".to_string(),
             discord_rpc: true,
             auto_backup_worlds: false,
+            telegram_url: "https://t.me/redpanda_launcher".to_string(),
+            github_url: "https://github.com/t1m0nch1k/RedPanda-Launcher".to_string(),
+            website_url: "https://www.redlauncher.ru".to_string(),
+            tiktok_url: "https://www.tiktok.com/@redpanda_launcher".to_string(),
         }
     }
 }
@@ -74,6 +88,10 @@ fn get_settings_file_path(app: &AppHandle) -> Result<PathBuf, String> {
 
 #[tauri::command]
 pub fn get_settings(app: AppHandle) -> Result<AppSettings, String> {
+    let _guard = SETTINGS_MUTEX
+        .lock()
+        .map_err(|_| "Failed to acquire settings mutex lock".to_string())?;
+
     let path = get_settings_file_path(&app)?;
 
     if !path.exists() {
@@ -89,6 +107,10 @@ pub fn get_settings(app: AppHandle) -> Result<AppSettings, String> {
 
 #[tauri::command]
 pub fn save_settings(app: AppHandle, settings: AppSettings) -> Result<(), String> {
+    let _guard = SETTINGS_MUTEX
+        .lock()
+        .map_err(|_| "Failed to acquire settings mutex lock".to_string())?;
+
     let path = get_settings_file_path(&app)?;
     let contents = serde_json::to_string_pretty(&settings)
         .map_err(|e| format!("Failed to serialize settings: {}", e))?;

@@ -12,6 +12,7 @@ pub mod settings;
 pub mod updater;
 mod versions;
 pub mod dependencies;
+pub mod security;
 
 use crate::discord::DiscordState;
 use std::sync::Mutex;
@@ -45,6 +46,8 @@ pub fn run() {
             accounts::add_elyby_account,
             accounts::microsoft_device_code,
             accounts::add_microsoft_account,
+            accounts::poll_microsoft_device_code,
+            accounts::validate_and_refresh_account,
             accounts::add_microsoft_account_oauth,
             accounts::add_elyby_account_oauth,
             launcher::launch_game,

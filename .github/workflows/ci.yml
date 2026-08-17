@@ -1,0 +1,59 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  rust-check:
+    name: Rust Check & Tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri -> src-tauri/target
+            installer/src-tauri -> installer/src-tauri/target
+
+      - name: Cargo Check
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Cargo Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml
+
+      - name: Cargo Test
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+  frontend-build:
+    name: Frontend & Website Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install App Dependencies
+        run: npm ci
+
+      - name: Build Launcher Frontend
+        run: npm run build
+
+      - name: Install Website Dependencies
+        run: npm --prefix website ci
+
+      - name: Build Website
+        run: npm --prefix website run build

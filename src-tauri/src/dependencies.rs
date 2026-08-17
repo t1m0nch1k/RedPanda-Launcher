@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashSet, VecDeque};
 use tauri::AppHandle;
 
-use crate::curseforge::{CurseForgeFile, CurseForgeSearchResult, CURSEFORGE_API_KEY};
+use crate::curseforge::{CurseForgeFile, CurseForgeSearchResult, get_curseforge_api_key};
 use crate::modrinth::{ModrinthSearchResult, ModrinthVersion};
 use crate::instances::get_instances;
 
@@ -46,7 +46,8 @@ async fn get_modrinth_project_name(project_id: &str, client: &Client) -> Option<
 
 async fn get_curseforge_mod_name(mod_id: u32, client: &Client) -> Option<String> {
     let url = format!("https://api.curseforge.com/v1/mods/{}", mod_id);
-    if let Ok(res) = client.get(&url).header("x-api-key", CURSEFORGE_API_KEY).send().await {
+    let api_key = get_curseforge_api_key();
+    if let Ok(res) = client.get(&url).header("x-api-key", &api_key).send().await {
         if let Ok(m) = res.json::<CurseForgeModResponse>().await {
             return Some(m.data.name);
         }
@@ -107,7 +108,8 @@ async fn resolve_curseforge_latest(
         data: Vec<CurseForgeFile>,
     }
     
-    if let Ok(res) = client.get(&url).header("x-api-key", CURSEFORGE_API_KEY).send().await {
+    let api_key = get_curseforge_api_key();
+    if let Ok(res) = client.get(&url).header("x-api-key", &api_key).send().await {
         if let Ok(mut files) = res.json::<FilesResponse>().await {
             if !files.data.is_empty() {
                 return Some(files.data.remove(0));
@@ -154,10 +156,7 @@ pub async fn resolve_dependencies(
                 let url = format!("https://api.modrinth.com/v2/version/{}", version_id);
                 if let Ok(res) = client.get(&url).send().await {
                     if let Ok(version) = res.json::<ModrinthVersion>().await {
-                        // For modrinth, we can try to guess the project ID from the version API if it's there.
-                        // Actually, version.project_id is in ModrinthVersion in the API usually, 
-                        // but we just use the name as fallback for set.
-                        let proj_key = format!("modrinth:{}", version.name); // Actually we should use project_id but we don't have it easily in ModrinthVersion unless added.
+                        let proj_key = format!("modrinth:{}", version.name);
                         if visited_projects.contains(&proj_key) { continue; }
                         visited_projects.insert(proj_key);
 
@@ -165,7 +164,7 @@ pub async fn resolve_dependencies(
                         if let Some(f) = file {
                             tasks.push(InstallTask {
                                 id: version_id.clone(),
-                                project_id: version.name.clone(), // using name as id fallback
+                                project_id: version.name.clone(),
                                 name: version.name.clone(),
                                 url: f.url.clone(),
                                 filename: f.filename.clone(),
@@ -180,10 +179,7 @@ pub async fn resolve_dependencies(
                                     if let Some(vid) = dep.version_id {
                                         queue.push_back(DepItem::Modrinth(vid));
                                     } else if let Some(pid) = dep.project_id {
-                                        // fetch project name
                                         if let Some(name) = get_modrinth_project_name(&pid, &client).await {
-                                            // Prefer CF? For now let's just stick to Modrinth if we are on Modrinth unless cross-site is explicitly needed.
-                                            // Actually user said: "поиск зависимостей по обоим сайтам ... по дефолту качает с curse forge"
                                             if let Ok(mut cf_res) = crate::curseforge::search_curseforge(name.clone(), game_version.clone(), 6, 0, 5).await {
                                                 if !cf_res.is_empty() && cf_res[0].name.to_lowercase() == name.to_lowercase() {
                                                     if let Some(cf_file) = resolve_curseforge_latest(cf_res[0].id, &game_version, &loader, &client).await {
@@ -194,7 +190,6 @@ pub async fn resolve_dependencies(
                                             }
                                         }
                                         
-                                        // Fallback Modrinth
                                         if let Some(mv) = resolve_modrinth_latest(&pid, &game_version, &loader, &client).await {
                                             queue.push_back(DepItem::Modrinth(mv.id));
                                         }
@@ -206,23 +201,14 @@ pub async fn resolve_dependencies(
                 }
             }
             DepItem::CurseForge(file_id) => {
-                // Actually CurseForge files endpoint needs mod_id usually, but there is also /v1/mods/files/{fileId}
-                // Wait, it's actually /v1/mods/files endpoint or we just search. But `id` passed initially might be file_id.
-                // We need mod_id. Wait, `resolve_dependencies` takes `file_id`. 
-                // Wait! CurseForge API doesn't let us easily fetch file dependencies by file_id alone without mod_id, wait, it does! /v1/mods/files endpoint takes multiple fileIds.
-                
-                // For simplicity, let's just assume we can get file info if we use the search.
-                // Actually `resolve_curseforge_latest` gives us `CurseForgeFile` which HAS dependencies.
-                // Wait, if we are passed `file_id` initially, how do we get `CurseForgeFile`?
-                // We can just rely on the frontend passing the dependencies list, but wait, recursive is backend.
-                // Let's just do a POST to https://api.curseforge.com/v1/mods/files with { "fileIds": [file_id] }
                 let url = "https://api.curseforge.com/v1/mods/files";
                 #[derive(Serialize)]
-                struct FilesReq { fileIds: Vec<u32> }
+                struct FilesReq { file_ids: Vec<u32> }
                 #[derive(Deserialize)]
                 struct FilesRes { data: Vec<CurseForgeFile> }
                 
-                if let Ok(res) = client.post(url).header("x-api-key", CURSEFORGE_API_KEY).json(&FilesReq { fileIds: vec![file_id] }).send().await {
+                let api_key = get_curseforge_api_key();
+                if let Ok(res) = client.post(url).header("x-api-key", &api_key).json(&FilesReq { file_ids: vec![file_id] }).send().await {
                     if let Ok(mut files_res) = res.json::<FilesRes>().await {
                         if !files_res.data.is_empty() {
                             let file = files_res.data.remove(0);

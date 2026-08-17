@@ -1,10 +1,16 @@
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Mutex;
 use std::time::SystemTime;
 use tauri::AppHandle;
 use tauri::Manager;
 use uuid::Uuid;
+
+lazy_static! {
+    static ref INSTANCES_MUTEX: Mutex<()> = Mutex::new(());
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Instance {
@@ -29,13 +35,17 @@ pub fn get_instances_file(app: &AppHandle) -> PathBuf {
         .path()
         .app_data_dir()
         .unwrap_or_else(|_| PathBuf::from("."));
-    fs::create_dir_all(&path).unwrap_or(());
+    let _ = fs::create_dir_all(&path);
     path.push("instances.json");
     path
 }
 
 #[tauri::command]
 pub async fn get_instances(app: AppHandle) -> Result<Vec<Instance>, String> {
+    let _guard = INSTANCES_MUTEX
+        .lock()
+        .map_err(|_| "Failed to lock instances mutex".to_string())?;
+
     let path = get_instances_file(&app);
     if !path.exists() {
         return Ok(Vec::new());
@@ -133,6 +143,7 @@ pub async fn add_instance(
     let mut instances = get_instances(app.clone()).await?;
 
     let new_id = generate_instance_id(&name, &instances);
+    crate::security::validate_instance_id(&new_id)?;
 
     let new_instance = Instance {
         id: new_id,

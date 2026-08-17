@@ -53,7 +53,22 @@ struct FilesResponse {
     data: Vec<CurseForgeFile>,
 }
 
-pub const CURSEFORGE_API_KEY: &str = "$2a$10$QdP21DmwEcYxV.f.T1orWeyr7SB65NMbFxme2NGVEsEpyFeen44RK"; // TODO: Замените на ваш API ключ
+pub fn get_curseforge_api_key() -> String {
+    if let Ok(key) = std::env::var("CURSEFORGE_API_KEY") {
+        let trimmed = key.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+    if let Some(key) = option_env!("CURSEFORGE_API_KEY") {
+        let trimmed = key.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+    // Fallback default API key
+    "$2a$10$QdP21DmwEcYxV.f.T1orWeyr7SB65NMbFxme2NGVEsEpyFeen44RK".to_string()
+}
 
 #[tauri::command]
 pub async fn search_curseforge(
@@ -63,7 +78,8 @@ pub async fn search_curseforge(
     index: usize,
     page_size: usize,
 ) -> Result<Vec<CurseForgeSearchResult>, String> {
-    if CURSEFORGE_API_KEY == "YOUR_API_KEY_HERE" {
+    let api_key = get_curseforge_api_key();
+    if api_key.is_empty() || api_key == "YOUR_API_KEY_HERE" {
         return Err("API-ключ CurseForge не настроен во внутренних файлах лаунчера.".to_string());
     }
 
@@ -86,7 +102,7 @@ pub async fn search_curseforge(
 
     let res = client
         .get(&url)
-        .header("x-api-key", CURSEFORGE_API_KEY)
+        .header("x-api-key", &api_key)
         .header("Accept", "application/json")
         .send()
         .await
@@ -111,7 +127,8 @@ pub async fn get_curseforge_versions(
     mod_id: u32,
     game_version: Option<String>,
 ) -> Result<Vec<CurseForgeFile>, String> {
-    if CURSEFORGE_API_KEY == "YOUR_API_KEY_HERE" {
+    let api_key = get_curseforge_api_key();
+    if api_key.is_empty() || api_key == "YOUR_API_KEY_HERE" {
         return Err("API-ключ CurseForge не настроен во внутренних файлах лаунчера.".to_string());
     }
 
@@ -132,7 +149,7 @@ pub async fn get_curseforge_versions(
 
     let res = client
         .get(&url)
-        .header("x-api-key", CURSEFORGE_API_KEY)
+        .header("x-api-key", &api_key)
         .header("Accept", "application/json")
         .send()
         .await
@@ -160,6 +177,7 @@ pub async fn download_curseforge_version(
     file_name: String,
     project_type: String,
 ) -> Result<(), String> {
+    const MAX_DOWNLOAD_BYTES: usize = 500 * 1024 * 1024; // 500 MB
     let client = Client::new();
 
     let file_res = client
@@ -168,7 +186,18 @@ pub async fn download_curseforge_version(
         .await
         .map_err(|e| format!("Ошибка скачивания: {}", e))?;
 
+    if let Some(cl) = file_res.content_length() {
+        if cl > (MAX_DOWNLOAD_BYTES as u64) {
+            return Err(format!("Размер файла превышает лимит 500 МБ: {} МБ", cl / (1024 * 1024)));
+        }
+    }
+
     let bytes = file_res.bytes().await.map_err(|e| e.to_string())?;
+    if bytes.len() > MAX_DOWNLOAD_BYTES {
+        return Err("Размер загруженных данных превысил лимит 500 МБ".to_string());
+    }
+
+    let clean_filename = crate::security::sanitize_filename(&file_name);
 
     let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
     path.push("RedPandaLauncher");
@@ -180,9 +209,9 @@ pub async fn download_curseforge_version(
         _ => path.push("mods"),
     }
 
-    fs::create_dir_all(&path).unwrap_or(());
+    fs::create_dir_all(&path).map_err(|e| format!("Не удалось создать директорию {:?}: {}", path, e))?;
 
-    path.push(file_name);
+    path.push(clean_filename);
     fs::write(path, bytes).map_err(|e| e.to_string())?;
 
     Ok(())
@@ -194,11 +223,7 @@ pub async fn download_curseforge_modpack(
     download_url: String,
     file_name: String,
 ) -> Result<(), String> {
-    // For now we just download the zip file to the temp directory or a specific location.
-    // The actual modpack installation (extracting manifest.json, downloading overrides and mods)
-    // is a complex process similar to Modrinth Mrpack import.
-    // We will just download the zip file into the data dir for now.
-    
+    const MAX_DOWNLOAD_BYTES: usize = 500 * 1024 * 1024; // 500 MB
     let client = Client::new();
 
     let file_res = client
@@ -207,18 +232,28 @@ pub async fn download_curseforge_modpack(
         .await
         .map_err(|e| format!("Ошибка скачивания модпака: {}", e))?;
 
+    if let Some(cl) = file_res.content_length() {
+        if cl > (MAX_DOWNLOAD_BYTES as u64) {
+            return Err(format!("Размер модпака превышает лимит 500 МБ: {} МБ", cl / (1024 * 1024)));
+        }
+    }
+
     let bytes = file_res.bytes().await.map_err(|e| e.to_string())?;
+    if bytes.len() > MAX_DOWNLOAD_BYTES {
+        return Err("Размер загруженных данных модпака превысил лимит 500 МБ".to_string());
+    }
+
+    let clean_filename = crate::security::sanitize_filename(&file_name);
 
     let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
     path.push("RedPandaLauncher");
     path.push("temp_downloads");
 
-    fs::create_dir_all(&path).unwrap_or(());
+    fs::create_dir_all(&path).map_err(|e| format!("Не удалось создать директорию {:?}: {}", path, e))?;
 
-    path.push(file_name);
+    path.push(clean_filename);
     fs::write(path, bytes).map_err(|e| e.to_string())?;
 
-    // In a full implementation, you would call your import logic here, passing the downloaded zip path.
     Ok(())
 }
 

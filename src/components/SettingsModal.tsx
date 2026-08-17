@@ -27,6 +27,10 @@ interface AppSettings {
   curseforge_api_key: string;
   discord_rpc: boolean;
   auto_backup_worlds: boolean;
+  telegram_url?: string;
+  github_url?: string;
+  website_url?: string;
+  tiktok_url?: string;
 }
 
 interface JavaInstallation {
@@ -741,6 +745,57 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
                           Авто-сохранение папки saves перед запуском игры.
                         </p>
                       </div>
+                    </div>
+                  </div>
+                </section>
+
+                <hr className="border-border" />
+
+                {/* Social & Community Links */}
+                <section>
+                  <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <Globe size={16} /> Ссылки сообщества и проекта
+                  </h3>
+
+                  <div className="bg-background brutalist-border p-4 flex flex-col gap-4">
+                    <div>
+                      <label className="text-xs font-semibold text-muted mb-1 block">Официальный сайт:</label>
+                      <input
+                        type="text"
+                        value={settings.website_url ?? "https://www.redlauncher.ru"}
+                        onChange={(e) => updateSetting("website_url", e.target.value)}
+                        className="w-full bg-card brutalist-border px-3 py-2 text-xs text-white focus:outline-none focus:border-primary font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-muted mb-1 block">Telegram канал:</label>
+                      <input
+                        type="text"
+                        value={settings.telegram_url ?? "https://t.me/redpanda_launcher"}
+                        onChange={(e) => updateSetting("telegram_url", e.target.value)}
+                        className="w-full bg-card brutalist-border px-3 py-2 text-xs text-white focus:outline-none focus:border-primary font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-muted mb-1 block">GitHub репозиторий:</label>
+                      <input
+                        type="text"
+                        value={settings.github_url ?? "https://github.com/t1m0nch1k/RedPanda-Launcher"}
+                        onChange={(e) => updateSetting("github_url", e.target.value)}
+                        className="w-full bg-card brutalist-border px-3 py-2 text-xs text-white focus:outline-none focus:border-primary font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-muted mb-1 block">TikTok аккаунт:</label>
+                      <input
+                        type="text"
+                        value={settings.tiktok_url ?? "https://www.tiktok.com/@redpanda_launcher"}
+                        onChange={(e) => updateSetting("tiktok_url", e.target.value)}
+                        className="w-full bg-card brutalist-border px-3 py-2 text-xs text-white focus:outline-none focus:border-primary font-mono"
+                      />
                     </div>
                   </div>
                 </section>

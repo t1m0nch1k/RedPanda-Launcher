@@ -124,10 +124,14 @@ pub async fn launch_game(
     });
 
     let accounts = crate::accounts::get_accounts(app.clone())?;
-    let account = accounts
+    let mut account = accounts
         .into_iter()
         .find(|a| a.username == username)
         .ok_or_else(|| format!("Account {} not found", username))?;
+
+    if let Ok(true) = crate::accounts::refresh_account_tokens(&app, &mut account).await {
+        log::info!("Refreshed auth tokens for user {}", username);
+    }
 
     let profile = if let (Some(token), Some(uuid)) = (account.access_token, account.uuid) {
         use lighty_launcher::auth::SecretString;

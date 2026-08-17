@@ -221,7 +221,7 @@ pub async fn import_mrpack(app: AppHandle, path: String) -> Result<(), String> {
 }
 
 
-use crate::curseforge::CURSEFORGE_API_KEY;
+use crate::curseforge::get_curseforge_api_key;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -400,8 +400,9 @@ pub async fn import_curseforge_pack(app: AppHandle, path: String) -> Result<(), 
 
                 // 1. Fetch file info to get download URL and filename
                 let api_url = format!("https://api.curseforge.com/v1/mods/{}/files/{}", file_meta.project_id, file_meta.file_id);
+                let api_key = get_curseforge_api_key();
                 
-                let file_info = match client.get(&api_url).header("x-api-key", CURSEFORGE_API_KEY).send().await {
+                let file_info = match client.get(&api_url).header("x-api-key", &api_key).send().await {
                     Ok(resp) => {
                         if let Ok(info) = resp.json::<CurseForgeFileResponse>().await {
                             Some(info.data)
