@@ -47,7 +47,10 @@ jobs:
             const fs = require('fs');
             const path = require('path');
 
-            const tag = context.ref_name;
+            const tag = process.env.GITHUB_REF_NAME;
+            if (!tag) {
+              throw new Error('GITHUB_REF_NAME is not available');
+            }
             const version = tag.replace(/^v/, '');
             const installerName = `RedPanda_Setup_${version}.exe`;
             const installerPath = path.join(process.env.GITHUB_WORKSPACE, 'release_output', installerName);
