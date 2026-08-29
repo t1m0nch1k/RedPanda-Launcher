@@ -17,7 +17,7 @@ export const metadata = {
 };
 
 export default function DownloadPage() {
-  const downloadUrl = "https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.2.2/RedPanda.Launcher_0.2.2_x64-setup.exe";
+  const downloadUrl = "https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.2.2/RedPanda_Setup_0.2.2.exe";
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
@@ -43,7 +43,7 @@ export default function DownloadPage() {
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3">
               <span className="font-display font-bold text-2xl sm:text-3xl text-foreground">
-                RedPanda.Launcher_0.2.2_x64-setup.exe
+                RedPanda_Setup_0.2.2.exe
               </span>
               <span className="bg-primary text-black font-bold font-mono text-[10px] uppercase px-2 py-0.5 tracking-wider">
                 Official Release
@@ -57,7 +57,7 @@ export default function DownloadPage() {
                 <IconShieldCheck size={16} className="text-emerald-400" />
                 <span>SHA-256 Verified</span>
               </span>
-              <span>Размер: 33.8 МБ</span>
+              <span>Размер: 38.8 МБ</span>
               <span>Лицензия: Open Source (MIT)</span>
             </div>
           </div>
