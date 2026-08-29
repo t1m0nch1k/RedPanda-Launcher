@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::Write;
 use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::AppHandle;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -164,10 +165,14 @@ pub async fn download_and_install_update(
     }
 
     let temp_dir = std::env::temp_dir();
+    let unique_suffix = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
     let file_name = if path.ends_with(".msi") {
-        "RedPanda_Setup_Update.msi"
+        format!("RedPanda_Setup_Update_{}.msi", unique_suffix)
     } else {
-        "RedPanda_Setup_Update.exe"
+        format!("RedPanda_Setup_Update_{}.exe", unique_suffix)
     };
     let installer_path = temp_dir.join(file_name);
 
@@ -186,12 +191,22 @@ pub async fn download_and_install_update(
         return Err("Downloaded update is not a valid Windows installer".to_string());
     }
 
+    // Windows keeps the file locked while the File handle is alive. Drop it
+    // before spawning the installer to avoid ERROR_SHARING_VIOLATION (32).
+    drop(file);
+
     log::info!("Installer saved to {:?}, launching...", installer_path);
 
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::process::CommandExt;
-        let mut cmd = Command::new(&installer_path);
+        let mut cmd = if path.ends_with(".msi") {
+            let mut command = Command::new("msiexec.exe");
+            command.arg("/i").arg(&installer_path);
+            command
+        } else {
+            Command::new(&installer_path)
+        };
         cmd.creation_flags(0x08000000);
         cmd.spawn()
             .map_err(|e| format!("Failed to launch installer: {}", e))?;
