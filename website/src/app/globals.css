@@ -1,7 +1,5 @@
 @import "tailwindcss";
 
-@import "tailwindcss";
-
 :root {
   --background: #0E0F12;
   --foreground: #F4F4F6;
@@ -47,8 +45,8 @@ body::before {
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display), sans-serif;
-  text-transform: uppercase;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
+  overflow-wrap: break-word;
 }
 
 ::selection {
@@ -56,15 +54,11 @@ h1, h2, h3, h4, h5, h6 {
   color: #fff;
 }
 
-/* Typography clamp settings */
-h1 {
-  font-size: clamp(3.2rem, 9.5vw, 8.5rem);
-  line-height: 0.85;
-}
-
-h2 {
-  font-size: clamp(2.2rem, 5vw, 4rem);
-  line-height: 0.9;
+/* Hero Typography clamp (used exclusively on main page) */
+.hero-title {
+  font-size: clamp(2.8rem, 8vw, 6.5rem);
+  line-height: 0.95;
+  text-transform: uppercase;
 }
 
 /* Hard offset brutalist styles */
@@ -114,5 +108,3 @@ h2 {
 .animate-marquee:hover {
   animation-play-state: paused;
 }
-
-

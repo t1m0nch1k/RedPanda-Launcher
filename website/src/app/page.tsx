@@ -96,7 +96,7 @@ export default function Home() {
              <Image src="/logo.png" width={90} height={90} alt="RedPanda Launcher Logo" className="object-contain" priority />
           </div>
           
-          <h1 className="text-white mb-4 uppercase font-bold tracking-tight">
+          <h1 className="hero-title text-white mb-4 uppercase font-bold tracking-tight">
             RedPanda<br/><span className="text-primary">Launcher</span>
           </h1>
 

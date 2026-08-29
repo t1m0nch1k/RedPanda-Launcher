@@ -19,7 +19,7 @@ export default function LegalPage() {
             <IconTrademark size={16} />
             <span>Trademark Notice</span>
           </div>
-          <h1 className="font-display font-bold text-3xl sm:text-4xl uppercase tracking-tight text-foreground">
+          <h1 className="font-display font-bold text-2xl sm:text-3xl md:text-4xl uppercase tracking-tight text-foreground leading-tight">
             Товарные знаки и дисклеймер
           </h1>
         </div>

@@ -28,7 +28,7 @@ export default function ChangelogPage() {
             <IconHistory size={16} />
             <span>Release Notes & Changelog</span>
           </div>
-          <h1 className="font-display font-bold text-4xl sm:text-5xl uppercase tracking-tight text-foreground mb-4">
+          <h1 className="font-display font-bold text-2xl sm:text-3xl md:text-4xl uppercase tracking-tight text-foreground leading-tight mb-4">
             Журнал обновлений лаунчера
           </h1>
           <p className="text-muted text-sm sm:text-base max-w-2xl leading-relaxed font-mono">

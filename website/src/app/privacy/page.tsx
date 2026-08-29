@@ -19,7 +19,7 @@ export default function PrivacyPage() {
             <IconShieldCheck size={16} />
             <span>Legal Documentation</span>
           </div>
-          <h1 className="font-display font-bold text-3xl sm:text-4xl uppercase tracking-tight text-foreground">
+          <h1 className="font-display font-bold text-2xl sm:text-3xl md:text-4xl uppercase tracking-tight text-foreground leading-tight">
             Конфиденциальность и файлы cookie
           </h1>
           <p className="text-muted text-xs sm:text-sm mt-2">

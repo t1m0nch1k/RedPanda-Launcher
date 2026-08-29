@@ -92,7 +92,7 @@ export default function StatusPage() {
               <IconActivity size={16} />
               <span>Live System Monitor</span>
             </div>
-            <h1 className="font-display font-bold text-3xl sm:text-5xl uppercase tracking-tight text-foreground">
+            <h1 className="font-display font-bold text-2xl sm:text-3xl md:text-4xl uppercase tracking-tight text-foreground leading-tight">
               Статус сервисов
             </h1>
             <p className="text-muted text-xs sm:text-sm mt-2">
