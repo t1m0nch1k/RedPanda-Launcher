@@ -10,6 +10,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             is_uninstall_mode,
             get_default_install_dir,
+            close_running_launcher,
             extract_payload,
             create_desktop_shortcut,
             create_start_menu_shortcut,

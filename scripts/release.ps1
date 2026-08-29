@@ -32,7 +32,6 @@ $VersionFiles = @(
     @{ Path = "src/App.tsx"; Pattern = 'v\d+\.\d+\.\d+ Stable'; Replacement = "v$Version Stable" },
     @{ Path = "src/components/SettingsModal.tsx"; Pattern = 'Версия v\d+\.\d+\.\d+ Stable'; Replacement = "Версия v$Version Stable" },
     @{ Path = "src/components/SettingsModal.tsx"; Pattern = 'current_version \|\| "\d+\.\d+\.\d+"'; Replacement = "current_version || `"$Version`"" },
-    @{ Path = "installer/src-tauri/src/installer.rs"; Pattern = 'DisplayVersion", &"[^"]+"'; Replacement = "DisplayVersion`", &`"$Version`"" },
     @{ Path = "scripts/build-custom-installer.ps1"; Pattern = '\[string\]\$Version = "\d+\.\d+\.\d+"'; Replacement = "[string]`$Version = `"$Version`"" }
 )
 

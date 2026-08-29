@@ -17,8 +17,11 @@ import {
   Sparkles,
   ArrowRight
 } from "lucide-react";
+import packageInfo from "../package.json";
 
 type InstallStep = "welcome" | "installing" | "completed" | "uninstall" | "uninstalling" | "uninstalled";
+
+const APP_VERSION = packageInfo.version;
 
 export default function App() {
   const [step, setStep] = useState<InstallStep>("welcome");
@@ -38,9 +41,16 @@ export default function App() {
   useEffect(() => {
     // Check if uninstaller mode is requested via args
     invoke<boolean>("is_uninstall_mode")
-      .then((isUninstall) => {
+      .then(async (isUninstall) => {
         if (isUninstall) {
           setStep("uninstall");
+          return;
+        }
+
+        try {
+          await invoke("close_running_launcher");
+        } catch (err) {
+          console.error("Failed to close running launcher", err);
         }
       })
       .catch(() => {});
@@ -86,6 +96,10 @@ export default function App() {
     setLogs(["[00:00:01] Проверка целевой директории...", `[00:00:01] Путь: ${installPath}`]);
 
     try {
+      addLog("[00:00:01] Проверка запущенного RedPanda Launcher...");
+      await invoke("close_running_launcher");
+      addLog("[00:00:01] ✓ Запущенный лаунчер закрыт или не найден");
+
       // Step 1: Prepare directory
       setProgress(15);
       setStatusMessage("Подготовка каталога установки...");
@@ -94,7 +108,7 @@ export default function App() {
       // Step 2: Extract embedded payload
       setProgress(30);
       setStatusMessage("Извлечение бинарных файлов и ресурсов RedPanda Launcher...");
-      addLog("[00:00:03] Распаковка redpanda-launcher.exe (v0.2.0)...");
+      addLog(`[00:00:03] Распаковка redpanda-launcher.exe (v${APP_VERSION})...`);
       addLog("[00:00:03] Распаковка иконок и ассетов интерфейса...");
 
       await invoke("extract_payload", { targetDir: installPath });
@@ -123,7 +137,7 @@ export default function App() {
 
       setProgress(100);
       setStatusMessage("Установка успешно завершена!");
-      addLog("[00:00:06] Готово! RedPanda Launcher v0.2.0 установлен.");
+      addLog(`[00:00:06] Готово! RedPanda Launcher v${APP_VERSION} установлен.`);
 
       setTimeout(async () => {
         if (launchAfterInstall) {
@@ -227,7 +241,7 @@ export default function App() {
             RedPanda Launcher {step === "uninstall" || step === "uninstalling" || step === "uninstalled" ? "Uninstaller" : "Setup"}
           </span>
           <span className="text-[10px] font-mono bg-primary/20 text-primary px-1.5 py-0.2 border border-primary/30">
-            v0.2.0
+            v{APP_VERSION}
           </span>
         </div>
 
@@ -293,7 +307,7 @@ export default function App() {
           </div>
 
           <div className="pt-4 border-t border-border/80 text-[11px] text-muted font-mono">
-            <div>Версия: <span className="text-white font-bold">0.2.0 Stable</span></div>
+            <div>Версия: <span className="text-white font-bold">{APP_VERSION} Stable</span></div>
             <div>Архитектура: <span className="text-white">x64 (Windows)</span></div>
           </div>
         </div>
@@ -464,7 +478,7 @@ export default function App() {
                   Установка завершена!
                 </h3>
                 <p className="text-sm text-muted max-w-md leading-relaxed mb-6 font-mono">
-                  RedPanda Launcher <span className="text-primary font-bold">v0.2.0</span> успешно установлен и готов к запуску.
+                  RedPanda Launcher <span className="text-primary font-bold">v{APP_VERSION}</span> успешно установлен и готов к запуску.
                 </p>
 
                 <div className="bg-card brutalist-border p-4 text-xs font-mono text-muted text-left w-full max-w-md space-y-1">

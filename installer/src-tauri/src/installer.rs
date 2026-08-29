@@ -2,6 +2,10 @@ use std::fs::{self, File};
 use std::io::{Cursor, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+#[cfg(windows)]
+use std::thread;
+#[cfg(windows)]
+use std::time::Duration;
 
 #[cfg(windows)]
 use winreg::enums::*;
@@ -10,6 +14,9 @@ use winreg::RegKey;
 
 // Embedded payload zip (packaged during release build)
 static PAYLOAD_BYTES: &[u8] = include_bytes!("../payload.zip");
+
+#[cfg(windows)]
+const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[tauri::command]
 pub fn is_uninstall_mode() -> bool {
@@ -21,6 +28,55 @@ pub fn get_default_install_dir() -> Result<String, String> {
     let local_data = dirs::data_local_dir().ok_or("Cannot determine local appdata directory")?;
     let path = local_data.join("Programs").join("RedPanda Launcher");
     Ok(path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub fn close_running_launcher() -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let _ = Command::new("taskkill")
+            .args(["/F", "/IM", "redpanda-launcher.exe"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .status()
+            .map_err(|e| format!("Не удалось завершить RedPanda Launcher: {e}"))?;
+
+        for _ in 0..20 {
+            let output = Command::new("tasklist")
+                .args([
+                    "/FI",
+                    "IMAGENAME eq redpanda-launcher.exe",
+                    "/FO",
+                    "CSV",
+                    "/NH",
+                ])
+                .creation_flags(CREATE_NO_WINDOW)
+                .output()
+                .map_err(|e| format!("Не удалось проверить процесс RedPanda Launcher: {e}"))?;
+
+            let is_running = String::from_utf8_lossy(&output.stdout)
+                .lines()
+                .any(|line| line.to_ascii_lowercase().contains("redpanda-launcher.exe"));
+
+            if !is_running {
+                return Ok(());
+            }
+
+            thread::sleep(Duration::from_millis(100));
+        }
+
+        Err(
+            "Не удалось полностью закрыть RedPanda Launcher. Закройте его вручную и повторите установку."
+                .to_string(),
+        )
+    }
+
+    #[cfg(not(windows))]
+    {
+        Ok(())
+    }
 }
 
 #[tauri::command]
@@ -147,7 +203,7 @@ pub async fn register_uninstaller(target_dir: String) -> Result<(), String> {
 
         key.set_value("DisplayName", &"RedPanda Launcher")
             .map_err(|e| e.to_string())?;
-        key.set_value("DisplayVersion", &"0.2.2")
+        key.set_value("DisplayVersion", &APP_VERSION)
             .map_err(|e| e.to_string())?;
         key.set_value("Publisher", &"RedPanda Team")
             .map_err(|e| e.to_string())?;
