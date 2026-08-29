@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { CookieBanner } from "../components/CookieBanner";
+import { ScrollToTop } from "../components/ScrollToTop";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.redlauncher.ru"),
@@ -24,6 +26,7 @@ export const metadata: Metadata = {
   authors: [{ name: "RedPanda Team" }],
   creator: "RedPanda Team",
   publisher: "RedPanda Team",
+  manifest: "/manifest.json",
   alternates: {
     canonical: "https://www.redlauncher.ru/",
   },
@@ -58,24 +61,40 @@ export const metadata: Metadata = {
 
 const jsonLd = {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "RedPanda Launcher",
-  "operatingSystem": "Windows 10, Windows 11, Windows 8, Windows 7 (x64)",
-  "applicationCategory": "GameApplication",
-  "softwareVersion": "0.2.1",
-  "description": "Высокопроизводительный лаунчер Minecraft на Rust и Tauri с поддержкой Modrinth, CurseForge, встроенным мультиплеером e4mc/Steam и 3D скинами.",
-  "offers": {
-    "@type": "Offer",
-    "price": "0",
-    "priceCurrency": "RUB"
-  },
-  "url": "https://www.redlauncher.ru/",
-  "downloadUrl": "https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.2.1/RedPanda_Setup_0.2.1.exe",
-  "fileSize": "39MB",
-  "author": {
-    "@type": "Organization",
-    "name": "RedPanda Team"
-  }
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "name": "RedPanda Launcher",
+      "url": "https://www.redlauncher.ru/",
+      "description": "Официальный сайт RedPanda Launcher — Open-Source лаунчера Minecraft нового поколения на Rust & Tauri.",
+      "publisher": {
+        "@type": "Organization",
+        "name": "RedPanda Team",
+        "url": "https://www.redlauncher.ru",
+        "logo": "https://www.redlauncher.ru/logo.png"
+      }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "RedPanda Launcher",
+      "operatingSystem": "Windows 10, Windows 11, Windows 8, Windows 7 (x64)",
+      "applicationCategory": "GameApplication",
+      "softwareVersion": "0.2.1",
+      "description": "Высокопроизводительный лаунчер Minecraft на Rust и Tauri с поддержкой Modrinth, CurseForge, встроенным мультиплеером e4mc/Steam и 3D скинами.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "RUB"
+      },
+      "url": "https://www.redlauncher.ru/",
+      "downloadUrl": "https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.2.1/RedPanda_Setup_0.2.1.exe",
+      "fileSize": "38.6MB",
+      "author": {
+        "@type": "Organization",
+        "name": "RedPanda Team"
+      }
+    }
+  ]
 };
 
 export default function RootLayout({
@@ -86,6 +105,7 @@ export default function RootLayout({
   return (
     <html lang="ru">
       <head>
+        <meta name="theme-color" content="#F55E1D" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet" />
@@ -97,7 +117,11 @@ export default function RootLayout({
         <script src="https://yandex.ru/ads/system/context.js" async></script>
         <script data-page-id="19834583" src="https://yandex.ru/ads/system/ap-loader.js" async></script>
       </head>
-      <body className="min-h-full flex flex-col antialiased bg-background text-text">{children}</body>
+      <body className="min-h-full flex flex-col antialiased bg-background text-text">
+        {children}
+        <CookieBanner />
+        <ScrollToTop />
+      </body>
     </html>
   );
 }

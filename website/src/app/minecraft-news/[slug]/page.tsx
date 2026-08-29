@@ -23,8 +23,32 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
 
   const related = MINECRAFT_NEWS.filter((a) => a.slug !== slug).slice(0, 2);
 
+  const articleSchema = {
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    "headline": article.title,
+    "description": article.excerpt,
+    "author": {
+      "@type": "Person",
+      "name": article.author
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "RedPanda Launcher",
+      "url": "https://www.redlauncher.ru",
+      "logo": "https://www.redlauncher.ru/logo.png"
+    },
+    "datePublished": "2026-08-20",
+    "articleSection": article.category,
+    "keywords": article.tags.join(", ")
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
+      />
       <Navbar />
 
       <main className="flex-1 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full">

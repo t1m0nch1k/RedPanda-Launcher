@@ -81,6 +81,16 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/status" className="hover:text-foreground transition-colors flex items-center gap-1">
+                  <span>Статус серверов</span>
+                </Link>
+              </li>
+              <li>
+                <Link href="/contacts" className="hover:text-foreground transition-colors flex items-center gap-1">
+                  <span>Контакты и поддержка</span>
+                </Link>
+              </li>
+              <li>
                 <Link href="/download" className="hover:text-foreground transition-colors flex items-center gap-1 text-primary font-bold">
                   <span>Скачать лаунчер</span>
                 </Link>

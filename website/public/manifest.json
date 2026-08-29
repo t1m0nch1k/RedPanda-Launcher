@@ -1,0 +1,21 @@
+{
+  "name": "RedPanda Launcher - Быстрый лаунчер Minecraft",
+  "short_name": "RedPanda",
+  "description": "Высокопроизводительный Open-Source лаунчер Minecraft на Rust & Tauri. 0 рекламы, поддержка Modrinth и CurseForge, игра по сети без портов.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d0e12",
+  "theme_color": "#F55E1D",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
