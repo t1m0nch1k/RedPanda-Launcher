@@ -93,6 +93,9 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
+        {/* Yandex Autoplacement 19834583 */}
+        <script src="https://yandex.ru/ads/system/context.js" async></script>
+        <script data-page-id="19834583" src="https://yandex.ru/ads/system/ap-loader.js" async></script>
       </head>
       <body className="min-h-full flex flex-col antialiased bg-background text-text">{children}</body>
     </html>
