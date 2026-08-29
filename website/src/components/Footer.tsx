@@ -145,7 +145,7 @@ export function Footer() {
             >
               Скачать v0.2.2 (.exe)
             </Link>
-            <p className="text-[10px] text-muted">Размер: 38.6 МБ · SHA-256 Verified</p>
+            <p className="text-[10px] text-muted">Размер: 33.8 МБ · SHA-256 Verified</p>
           </div>
         </div>
 

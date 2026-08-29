@@ -88,8 +88,8 @@ const jsonLd = {
         "priceCurrency": "RUB"
       },
       "url": "https://www.redlauncher.ru/",
-      "downloadUrl": "https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.2.2/RedPanda_Setup_0.2.2.exe",
-      "fileSize": "38.6MB",
+      "downloadUrl": "https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.2.2/RedPanda.Launcher_0.2.2_x64-setup.exe",
+      "fileSize": "33.8MB",
       "author": {
         "@type": "Organization",
         "name": "RedPanda Team"

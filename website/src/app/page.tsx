@@ -50,7 +50,7 @@ export default function Home() {
 
   const features = [
     { icon: <IconBolt size={24} />, title: "LIGHTNING_FAST", desc: "{ built_with: 'Rust & Tauri',\n  memory_footprint: 'minimal',\n  startup: '< 0.8s' }" },
-    { icon: <IconLayoutGrid size={24} />, title: "CUSTOM_GUI_INSTALLER", desc: "{ type: 'cyber_brutalist_gui',\n  setup: 'RedPanda_Setup_0.2.2.exe',\n  registry_integration: true }" },
+    { icon: <IconLayoutGrid size={24} />, title: "CUSTOM_GUI_INSTALLER", desc: "{ type: 'cyber_brutalist_gui',\n  setup: 'RedPanda.Launcher_0.2.2_x64-setup.exe',\n  registry_integration: true }" },
     { icon: <IconShieldLock size={24} />, title: "AES_256_VAULT_&_SECURITY", desc: "{ encryption: 'AES-256-GCM + OsRng',\n  path_traversal: 'safe_join_protection',\n  concurrency: 'mutex_synchronized' }" },
     { icon: <IconPuzzle size={24} />, title: "DUAL_MOD_ECOSYSTEM", desc: "{ sources: ['Modrinth', 'CurseForge'],\n  dependencies: 'recursive_auto_resolve',\n  scope: 'mods_shaders_resourcepacks' }" },
     { icon: <IconGlobe size={24} />, title: "E4MC_&_STEAM_P2P", desc: "{ modes: ['e4mc.link', 'e4steam'],\n  p2p_hosting: 'built-in',\n  ports_required: false }" },

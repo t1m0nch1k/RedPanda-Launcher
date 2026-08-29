@@ -55,7 +55,7 @@ Makes the launcher feel alive.
 
 ## 📥 Download
 
-- **[📥 Download Setup v0.2.2 (Windows)](https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.2.2/RedPanda_Setup_0.2.2.exe)**
+- **[📥 Download Setup v0.2.2 (Windows)](https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.2.2/RedPanda.Launcher_0.2.2_x64-setup.exe)**
 - **[🌐 Official Website: redlauncher.ru](https://www.redlauncher.ru/)**
 
 ## 🗺️ Roadmap
@@ -66,7 +66,7 @@ Makes the launcher feel alive.
 - [x] Automatic Dependency Resolution
 - [x] e4mc & Steam P2P Multiplayer Tunneling
 - [x] 3D Skin & Cape Engine
-- [x] Standalone GUI Installer (`RedPanda_Setup_0.2.2.exe`)
+- [x] Standalone GUI Installer (`RedPanda.Launcher_0.2.2_x64-setup.exe`)
 - [ ] Cloud Sync
 - [ ] Plugin System
 - [ ] Custom Themes Engine

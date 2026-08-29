@@ -23,7 +23,7 @@ export const LAUNCHER_RELEASES: LauncherRelease[] = [
     title: "Instance Diagnostics & Mod Control",
     tagline: "Проверка готовности сборки к запуску и безопасное управление установленными модами",
     downloadUrl: "https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.2.2/RedPanda_Setup_0.2.2.exe",
-    fileSize: "Windows x64",
+    fileSize: "33.8 MB",
     isLatest: true,
     highlights: [
       "Диагностика папки сборки, Java, памяти и загрузчика перед запуском",
