@@ -1,19 +1,26 @@
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { IconBrandTelegram, IconBrandGithub, IconArrowUpRight, IconShieldCheck, IconCpu, IconRocket } from "@tabler/icons-react";
 
 export function Footer() {
   return (
     <footer className="border-t border-border bg-card/60 pt-16 pb-12 font-mono text-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-border">
           {/* Бренд */}
           <div className="lg:col-span-2 space-y-4">
-            <Link href="/" className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-primary/20 border border-primary flex items-center justify-center font-display font-bold text-primary">
-                RP
+            <Link href="/" className="flex items-center gap-3.5 group">
+              <div className="w-10 h-10 p-1 bg-card border border-border group-hover:border-primary flex items-center justify-center transition-colors brutalist-shadow-orange">
+                <Image
+                  src="/logo.png"
+                  width={32}
+                  height={32}
+                  alt="RedPanda Launcher Logo"
+                  className="object-contain"
+                />
               </div>
-              <span className="font-display font-bold text-base tracking-wider text-foreground">
+              <span className="font-display font-bold text-base tracking-wider text-foreground group-hover:text-primary transition-colors">
                 REDPANDA LAUNCHER
               </span>
             </Link>
