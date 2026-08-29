@@ -23,6 +23,8 @@ $VersionFiles = @(
     @{ Path = "src-tauri/Cargo.toml"; Pattern = '(?m)^version\s*=\s*"[^"]+"'; Replacement = "version = `"$Version`"" },
     @{ Path = "installer/src-tauri/Cargo.toml"; Pattern = '(?m)^version\s*=\s*"[^"]+"'; Replacement = "version = `"$Version`"" },
     @{ Path = "installer/package.json"; Pattern = '"version"\s*:\s*"[^"]+"'; Replacement = "`"version`": `"$Version`"" },
+    @{ Path = "installer/package-lock.json"; Pattern = '"version"\s*:\s*"\d+\.\d+\.\d+"\s*,\s*\r?\n\s*"lockfileVersion"'; Replacement = "`"version`": `"$Version`",`n  `"lockfileVersion`"" },
+    @{ Path = "installer/package-lock.json"; Pattern = '"name"\s*:\s*"redpanda-installer"\s*,\s*\r?\n\s*"version"\s*:\s*"\d+\.\d+\.\d+"'; Replacement = "`"name`": `"redpanda-installer`",`n      `"version`": `"$Version`"" },
     @{ Path = "src-tauri/tauri.conf.json"; Pattern = '"version"\s*:\s*"[^"]+"'; Replacement = "`"version`": `"$Version`"" },
     @{ Path = "installer/src-tauri/tauri.conf.json"; Pattern = '"version"\s*:\s*"[^"]+"'; Replacement = "`"version`": `"$Version`"" },
     @{ Path = "src-tauri/src/updater.rs"; Pattern = 'CURRENT_VERSION: &str = "[^"]+"'; Replacement = "CURRENT_VERSION: &str = `"$Version`"" },
