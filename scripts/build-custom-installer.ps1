@@ -1,6 +1,6 @@
-# Build RedPanda Launcher v0.2.0 Custom GUI Installer
+# Build RedPanda Launcher v0.2.2 Custom GUI Installer
 param(
-    [string]$Version = "0.2.0"
+    [string]$Version = "0.2.2"
 )
 
 $ErrorActionPreference = "Stop"

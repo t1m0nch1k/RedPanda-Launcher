@@ -12,12 +12,12 @@ import {
 } from "@tabler/icons-react";
 
 export const metadata = {
-  title: "Скачать RedPanda Launcher v0.2.1 для Windows — Быстрый лаунчер Minecraft",
-  description: "Скачать официальный установщик RedPanda Launcher v0.2.1 для Windows 10/11 x64. Быстрый запуск, поддержка Modrinth и CurseForge, игра по сети без портов.",
+  title: "Скачать RedPanda Launcher v0.2.2 для Windows — Быстрый лаунчер Minecraft",
+  description: "Скачать официальный установщик RedPanda Launcher v0.2.2 для Windows 10/11 x64. Диагностика сборок, управление модами, Modrinth и CurseForge, игра по сети без портов.",
 };
 
 export default function DownloadPage() {
-  const downloadUrl = "https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.2.1/RedPanda_Setup_0.2.1.exe";
+  const downloadUrl = "https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.2.2/RedPanda_Setup_0.2.2.exe";
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
@@ -34,7 +34,7 @@ export default function DownloadPage() {
             Скачать RedPanda Launcher
           </h1>
           <p className="text-muted text-sm sm:text-base max-w-2xl mx-auto leading-relaxed font-mono">
-            Новейшая стабильная версия <span className="text-primary font-bold">v0.2.1</span> с кастомным автономным инсталлятором, защищенным хранилищем AES-256 и встроенным P2P мультиплеером.
+            Новейшая стабильная версия <span className="text-primary font-bold">v0.2.2</span> с диагностикой сборок, управлением модами, кастомным автономным инсталлятором и встроенным P2P мультиплеером.
           </p>
         </div>
 
@@ -43,7 +43,7 @@ export default function DownloadPage() {
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3">
               <span className="font-display font-bold text-2xl sm:text-3xl text-foreground">
-                RedPanda_Setup_0.2.1.exe
+                RedPanda_Setup_0.2.2.exe
               </span>
               <span className="bg-primary text-black font-bold font-mono text-[10px] uppercase px-2 py-0.5 tracking-wider">
                 Official Release

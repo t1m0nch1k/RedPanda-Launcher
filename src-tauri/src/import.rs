@@ -35,6 +35,7 @@ struct ImportProgress {
 
 #[tauri::command]
 pub async fn import_mrpack(app: AppHandle, path: String) -> Result<(), String> {
+    const MAX_DOWNLOAD_BYTES: u64 = 500 * 1024 * 1024;
     log::info!("Starting import of .mrpack from {}", path);
 
     // 1. Read ZIP
@@ -113,7 +114,7 @@ pub async fn import_mrpack(app: AppHandle, path: String) -> Result<(), String> {
 
     // We reopen the archive to extract since it requires a mutable reference
     for i in 0..archive.len() {
-        let mut file = archive.by_index(i).unwrap();
+        let mut file = archive.by_index(i).map_err(|e| e.to_string())?;
         let outpath = match file.enclosed_name() {
             Some(path) => path.to_owned(),
             None => continue,
@@ -128,13 +129,14 @@ pub async fn import_mrpack(app: AppHandle, path: String) -> Result<(), String> {
         }
 
         if let Some(rel_path) = extracted_path {
-            let target_path = instance_dir.join(rel_path);
+            let relative = rel_path.to_string_lossy();
+            let target_path = crate::security::safe_join(&instance_dir, &relative)?;
 
             if file.is_dir() {
-                fs::create_dir_all(&target_path).unwrap_or(());
+                fs::create_dir_all(&target_path).map_err(|e| e.to_string())?;
             } else {
                 if let Some(p) = target_path.parent() {
-                    fs::create_dir_all(p).unwrap_or(());
+                    fs::create_dir_all(p).map_err(|e| e.to_string())?;
                 }
                 let mut outfile = fs::File::create(&target_path).map_err(|e| e.to_string())?;
                 io::copy(&mut file, &mut outfile).map_err(|e| e.to_string())?;
@@ -186,8 +188,19 @@ pub async fn import_mrpack(app: AppHandle, path: String) -> Result<(), String> {
                 // Retry logic could be added here
                 match client.get(url).send().await {
                     Ok(resp) => {
-                        if let Ok(bytes) = resp.bytes().await {
-                            let _ = fs::write(&target_path, bytes);
+                        if !resp.status().is_success() {
+                            log::error!("Failed to download {}: HTTP {}", url, resp.status());
+                        } else if resp
+                            .content_length()
+                            .is_some_and(|size| size > MAX_DOWNLOAD_BYTES)
+                        {
+                            log::error!("Skipping oversized file {}", url);
+                        } else if let Ok(bytes) = resp.bytes().await {
+                            if bytes.len() as u64 <= MAX_DOWNLOAD_BYTES {
+                                let _ = fs::write(&target_path, bytes);
+                            } else {
+                                log::error!("Skipping oversized file {}", url);
+                            }
                         }
                     }
                     Err(e) => {
@@ -210,7 +223,7 @@ pub async fn import_mrpack(app: AppHandle, path: String) -> Result<(), String> {
         })
         .buffer_unordered(10); // Download 10 files at a time
 
-    while let Some(_) = stream.next().await {}
+    while stream.next().await.is_some() {}
 
     log::info!("Import of .mrpack completed successfully!");
 
@@ -225,7 +238,6 @@ pub async fn import_mrpack(app: AppHandle, path: String) -> Result<(), String> {
 
     Ok(())
 }
-
 
 use crate::curseforge::get_curseforge_api_key;
 
@@ -274,6 +286,7 @@ struct CurseForgeFileData {
 
 #[tauri::command]
 pub async fn import_curseforge_pack(app: AppHandle, path: String) -> Result<(), String> {
+    const MAX_DOWNLOAD_BYTES: u64 = 500 * 1024 * 1024;
     log::info!("Starting import of CurseForge pack from {}", path);
 
     // 1. Read ZIP
@@ -287,12 +300,13 @@ pub async fn import_curseforge_pack(app: AppHandle, path: String) -> Result<(), 
             .by_name("manifest.json")
             .map_err(|e| format!("Invalid pack (missing manifest.json): {}", e))?;
         let mut contents = String::new();
-        std::io::Read::read_to_string(&mut manifest_file, &mut contents).map_err(|e| e.to_string())?;
+        std::io::Read::read_to_string(&mut manifest_file, &mut contents)
+            .map_err(|e| e.to_string())?;
         contents
     };
 
-    let manifest: CurseForgeManifest = serde_json::from_str(&manifest_str)
-        .map_err(|e| format!("Invalid manifest.json: {}", e))?;
+    let manifest: CurseForgeManifest =
+        serde_json::from_str(&manifest_str).map_err(|e| format!("Invalid manifest.json: {}", e))?;
 
     let mc_version = manifest.minecraft.version;
 
@@ -343,7 +357,7 @@ pub async fn import_curseforge_pack(app: AppHandle, path: String) -> Result<(), 
     // 4. Extract overrides/
     let prefixes = ["overrides/"];
     for i in 0..archive.len() {
-        let mut file = archive.by_index(i).unwrap();
+        let mut file = archive.by_index(i).map_err(|e| e.to_string())?;
         let outpath = match file.enclosed_name() {
             Some(path) => path.to_owned(),
             None => continue,
@@ -358,13 +372,14 @@ pub async fn import_curseforge_pack(app: AppHandle, path: String) -> Result<(), 
         }
 
         if let Some(rel_path) = extracted_path {
-            let target_path = instance_dir.join(rel_path);
+            let relative = rel_path.to_string_lossy();
+            let target_path = crate::security::safe_join(&instance_dir, &relative)?;
 
             if file.is_dir() {
-                fs::create_dir_all(&target_path).unwrap_or(());
+                fs::create_dir_all(&target_path).map_err(|e| e.to_string())?;
             } else {
                 if let Some(p) = target_path.parent() {
-                    fs::create_dir_all(p).unwrap_or(());
+                    fs::create_dir_all(p).map_err(|e| e.to_string())?;
                 }
                 let mut outfile = fs::File::create(&target_path).map_err(|e| e.to_string())?;
                 io::copy(&mut file, &mut outfile).map_err(|e| e.to_string())?;
@@ -377,7 +392,7 @@ pub async fn import_curseforge_pack(app: AppHandle, path: String) -> Result<(), 
         .user_agent("RedPandaLauncher/1.0.0")
         .build()
         .map_err(|e| e.to_string())?;
-        
+
     let total_files = manifest.files.len();
     let downloaded = Arc::new(AtomicUsize::new(0));
 
@@ -400,15 +415,23 @@ pub async fn import_curseforge_pack(app: AppHandle, path: String) -> Result<(), 
 
             async move {
                 if !file_meta.required {
-                    let curr = downloaded.fetch_add(1, Ordering::SeqCst) + 1;
+                    downloaded.fetch_add(1, Ordering::SeqCst);
                     return Ok::<(), ()>(());
                 }
 
                 // 1. Fetch file info to get download URL and filename
-                let api_url = format!("https://api.curseforge.com/v1/mods/{}/files/{}", file_meta.project_id, file_meta.file_id);
-                let api_key = get_curseforge_api_key();
-                
-                let file_info = match client.get(&api_url).header("x-api-key", &api_key).send().await {
+                let api_url = format!(
+                    "https://api.curseforge.com/v1/mods/{}/files/{}",
+                    file_meta.project_id, file_meta.file_id
+                );
+                let api_key = get_curseforge_api_key(&app);
+
+                let file_info = match client
+                    .get(&api_url)
+                    .header("x-api-key", &api_key)
+                    .send()
+                    .await
+                {
                     Ok(resp) => {
                         if let Ok(info) = resp.json::<CurseForgeFileResponse>().await {
                             Some(info.data)
@@ -416,12 +439,12 @@ pub async fn import_curseforge_pack(app: AppHandle, path: String) -> Result<(), 
                             None
                         }
                     }
-                    Err(_) => None
+                    Err(_) => None,
                 };
 
                 if let Some(info) = file_info {
                     let url = info.download_url;
-                    
+
                     // Sometimes CurseForge API omits the downloadUrl, we have to construct it
                     if url.is_none() {
                         // For simplicity, just ignore if no url
@@ -430,15 +453,30 @@ pub async fn import_curseforge_pack(app: AppHandle, path: String) -> Result<(), 
                     if let Some(dl_url) = url {
                         let clean_filename = crate::security::sanitize_filename(&info.file_name);
                         let target_path = instance_dir.join("mods").join(clean_filename);
-                        
+
                         if let Some(p) = target_path.parent() {
                             let _ = fs::create_dir_all(p);
                         }
 
                         match client.get(&dl_url).send().await {
                             Ok(resp) => {
-                                if let Ok(bytes) = resp.bytes().await {
-                                    let _ = fs::write(&target_path, bytes);
+                                if !resp.status().is_success() {
+                                    log::error!(
+                                        "Failed to download {}: HTTP {}",
+                                        dl_url,
+                                        resp.status()
+                                    );
+                                } else if resp
+                                    .content_length()
+                                    .is_some_and(|size| size > MAX_DOWNLOAD_BYTES)
+                                {
+                                    log::error!("Skipping oversized file {}", dl_url);
+                                } else if let Ok(bytes) = resp.bytes().await {
+                                    if bytes.len() as u64 <= MAX_DOWNLOAD_BYTES {
+                                        let _ = fs::write(&target_path, bytes);
+                                    } else {
+                                        log::error!("Skipping oversized file {}", dl_url);
+                                    }
                                 }
                             }
                             Err(e) => {
@@ -463,7 +501,7 @@ pub async fn import_curseforge_pack(app: AppHandle, path: String) -> Result<(), 
         })
         .buffer_unordered(10);
 
-    while let Some(_) = stream.next().await {}
+    while stream.next().await.is_some() {}
 
     log::info!("Import of CurseForge pack completed successfully!");
 
@@ -479,8 +517,6 @@ pub async fn import_curseforge_pack(app: AppHandle, path: String) -> Result<(), 
     Ok(())
 }
 
-
-
 #[tauri::command]
 pub async fn is_curseforge_pack(path: String) -> Result<bool, String> {
     let file = fs::File::open(&path).map_err(|e| e.to_string())?;
@@ -491,4 +527,3 @@ pub async fn is_curseforge_pack(path: String) -> Result<bool, String> {
     let is_ok = archive.by_name("manifest.json").is_ok();
     Ok(is_ok)
 }
-

@@ -1,16 +1,17 @@
 import { Plus, Play, Anvil, Feather, TreePine, Hammer, Settings, Loader2, Folder, FileText, Trash2, Download, Globe, Copy } from "lucide-react";
-import { useState, useEffect, useMemo, memo, useRef } from "react";
+import { useState, useEffect, useMemo, memo, useRef, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import CreateInstanceModal from "../components/CreateInstanceModal";
-import InstanceManagerModal from "../components/InstanceManagerModal";
-import CrashModal from "../components/CrashModal";
-import ModrinthBrowser from "../components/ModrinthBrowser";
-import CurseForgeBrowser from "../components/CurseForgeBrowser";
 import { toast } from "../components/Toast";
-import SkinViewer from "../components/SkinViewer";
 import { open, save } from "@tauri-apps/plugin-dialog";
+
+const CreateInstanceModal = lazy(() => import("../components/CreateInstanceModal"));
+const InstanceManagerModal = lazy(() => import("../components/InstanceManagerModal"));
+const CrashModal = lazy(() => import("../components/CrashModal"));
+const ModrinthBrowser = lazy(() => import("../components/ModrinthBrowser"));
+const CurseForgeBrowser = lazy(() => import("../components/CurseForgeBrowser"));
+const SkinViewer = lazy(() => import("../components/SkinViewer"));
 
 interface Instance {
   id: string;
@@ -402,7 +403,9 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
         {/* Panda Personality & SkinViewer */}
         <div className="flex items-center transition-all duration-300">
           <div className="mr-6 pointer-events-none opacity-80 hover:opacity-100 transition-opacity">
-              <SkinViewer skinUrl={getSkinUrl()} width={90} height={120} />
+              <Suspense fallback={<div className="w-[90px] h-[120px] bg-card animate-pulse" />}>
+                <SkinViewer skinUrl={getSkinUrl()} width={90} height={120} />
+              </Suspense>
           </div>
           {/* Speech Bubble */}
           <div className="relative bg-card brutalist-border px-4 py-2.5 rounded-none  flex items-center justify-center mr-5 mb-3">
@@ -631,54 +634,64 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
       </div>
       
       {showCreateModal && (
-        <CreateInstanceModal 
-          onClose={() => setShowCreateModal(false)} 
-          onCreated={() => {
-            setShowCreateModal(false);
-            loadInstances();
-          }} 
-        />
+        <Suspense fallback={null}>
+          <CreateInstanceModal
+            onClose={() => setShowCreateModal(false)}
+            onCreated={() => {
+              setShowCreateModal(false);
+              loadInstances();
+            }}
+          />
+        </Suspense>
       )}
 
       {showModpackBrowser && (
-        <ModrinthBrowser 
-          onClose={() => {
-            setShowModpackBrowser(false);
-            loadInstances();
-          }}
-          projectType="modpack"
-        />
+        <Suspense fallback={null}>
+          <ModrinthBrowser
+            onClose={() => {
+              setShowModpackBrowser(false);
+              loadInstances();
+            }}
+            projectType="modpack"
+          />
+        </Suspense>
       )}
 
       {showCurseForgeModpackBrowser && (
-        <CurseForgeBrowser 
-          onClose={() => {
-            setShowCurseForgeModpackBrowser(false);
-            loadInstances();
-          }}
-          projectType="modpack"
-        />
+        <Suspense fallback={null}>
+          <CurseForgeBrowser
+            onClose={() => {
+              setShowCurseForgeModpackBrowser(false);
+              loadInstances();
+            }}
+            projectType="modpack"
+          />
+        </Suspense>
       )}
 
       {managingInstance && currentInstance && (
-        <InstanceManagerModal 
-          instance={currentInstance}
-          onClose={() => {
-            setManagingInstance(null);
-            loadInstances();
-          }}
-          onDelete={() => {
-            setManagingInstance(null);
-            loadInstances();
-          }}
-        />
+        <Suspense fallback={null}>
+          <InstanceManagerModal
+            instance={currentInstance}
+            onClose={() => {
+              setManagingInstance(null);
+              loadInstances();
+            }}
+            onDelete={() => {
+              setManagingInstance(null);
+              loadInstances();
+            }}
+          />
+        </Suspense>
       )}
       
       {showCrashModal && (
-        <CrashModal 
-          logs={crashLogs}
-          onClose={() => setShowCrashModal(false)}
-        />
+        <Suspense fallback={null}>
+          <CrashModal
+            logs={crashLogs}
+            onClose={() => setShowCrashModal(false)}
+          />
+        </Suspense>
       )}
 
       {contextMenu && (

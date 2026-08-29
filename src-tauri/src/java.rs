@@ -13,7 +13,10 @@ pub fn get_required_java_version(mc_version: &str) -> u8 {
                     return 21;
                 }
                 if minor == 20 {
-                    let patch = parts.get(2).and_then(|p| p.parse::<u32>().ok()).unwrap_or(0);
+                    let patch = parts
+                        .get(2)
+                        .and_then(|p| p.parse::<u32>().ok())
+                        .unwrap_or(0);
                     if patch >= 5 {
                         return 21;
                     }
@@ -31,7 +34,7 @@ pub fn get_required_java_version(mc_version: &str) -> u8 {
 
 pub async fn ensure_java_runtime(mc_version: &str) -> Result<PathBuf, String> {
     let java_version = get_required_java_version(mc_version);
-    
+
     let base_dir = dirs::data_dir()
         .ok_or_else(|| "Could not determine AppData directory".to_string())?
         .join("RedPandaLauncher")
@@ -56,13 +59,23 @@ pub async fn ensure_java_runtime(mc_version: &str) -> Result<PathBuf, String> {
         }
     }
 
-    log::info!("Downloading Java {} runtime for Minecraft {}...", java_version, mc_version);
+    log::info!(
+        "Downloading Java {} runtime for Minecraft {}...",
+        java_version,
+        mc_version
+    );
     fs::create_dir_all(&base_dir).map_err(|e| e.to_string())?;
 
     let download_url = match java_version {
-        8 => "https://api.adoptium.net/v3/binary/latest/8/ga/windows/x64/jre/hotspot/normal/eclipse",
-        21 => "https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jre/hotspot/normal/eclipse",
-        _ => "https://api.adoptium.net/v3/binary/latest/17/ga/windows/x64/jre/hotspot/normal/eclipse",
+        8 => {
+            "https://api.adoptium.net/v3/binary/latest/8/ga/windows/x64/jre/hotspot/normal/eclipse"
+        }
+        21 => {
+            "https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jre/hotspot/normal/eclipse"
+        }
+        _ => {
+            "https://api.adoptium.net/v3/binary/latest/17/ga/windows/x64/jre/hotspot/normal/eclipse"
+        }
     };
 
     let client = Client::builder()
@@ -77,7 +90,10 @@ pub async fn ensure_java_runtime(mc_version: &str) -> Result<PathBuf, String> {
         .map_err(|e| format!("Failed to download Java: {}", e))?;
 
     if !res.status().is_success() {
-        return Err(format!("Java download failed with status: {}", res.status()));
+        return Err(format!(
+            "Java download failed with status: {}",
+            res.status()
+        ));
     }
 
     let bytes = res
@@ -86,7 +102,8 @@ pub async fn ensure_java_runtime(mc_version: &str) -> Result<PathBuf, String> {
         .map_err(|e| format!("Failed to read Java download bytes: {}", e))?;
 
     let cursor = Cursor::new(bytes);
-    let mut archive = ZipArchive::new(cursor).map_err(|e| format!("Failed to open Zip archive: {}", e))?;
+    let mut archive =
+        ZipArchive::new(cursor).map_err(|e| format!("Failed to open Zip archive: {}", e))?;
 
     for i in 0..archive.len() {
         let mut file = archive.by_index(i).map_err(|e| e.to_string())?;
@@ -122,5 +139,8 @@ pub async fn ensure_java_runtime(mc_version: &str) -> Result<PathBuf, String> {
         }
     }
 
-    Err(format!("Java {} downloaded but java.exe was not found", java_version))
+    Err(format!(
+        "Java {} downloaded but java.exe was not found",
+        java_version
+    ))
 }

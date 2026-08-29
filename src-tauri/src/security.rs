@@ -11,8 +11,15 @@ pub fn validate_instance_id(id: &str) -> Result<String, String> {
         return Err("Instance ID cannot exceed 64 characters".to_string());
     }
 
-    if trimmed.contains("..") || trimmed.contains('/') || trimmed.contains('\\') || trimmed.contains(':') {
-        return Err(format!("Instance ID '{}' contains illegal characters or path traversal components", trimmed));
+    if trimmed.contains("..")
+        || trimmed.contains('/')
+        || trimmed.contains('\\')
+        || trimmed.contains(':')
+    {
+        return Err(format!(
+            "Instance ID '{}' contains illegal characters or path traversal components",
+            trimmed
+        ));
     }
 
     for c in trimmed.chars() {
@@ -49,45 +56,59 @@ pub fn sanitize_filename(name: &str) -> String {
     trimmed.to_string()
 }
 
+/// Validates a single file name supplied by the frontend.
+///
+/// Sanitizing is appropriate before saving a remote file, but destructive
+/// operations must reject path-like input instead of silently changing it.
+pub fn validate_filename(name: &str) -> Result<String, String> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() || trimmed == "." || trimmed == ".." {
+        return Err("File name cannot be empty or a traversal component".to_string());
+    }
+
+    let mut components = Path::new(trimmed).components();
+    match (components.next(), components.next()) {
+        (Some(Component::Normal(component)), None) if !component.is_empty() => {}
+        _ => return Err("File name must be a single path component".to_string()),
+    }
+
+    if trimmed.chars().any(|c| c.is_control()) {
+        return Err("File name contains control characters".to_string());
+    }
+
+    Ok(trimmed.to_string())
+}
+
+/// Returns the private directory containing all launcher instances.
+pub fn launcher_data_dir() -> Result<PathBuf, String> {
+    let mut path = dirs::data_dir().ok_or("Could not determine application data directory")?;
+    path.push("RedPandaLauncher");
+    Ok(path)
+}
+
+/// Builds a validated instance directory path.
+pub fn instance_dir(id: &str) -> Result<PathBuf, String> {
+    let valid_id = validate_instance_id(id)?;
+    let base = launcher_data_dir()?;
+    safe_join(&base, &valid_id)
+}
+
 /// Verifies that target_path is safely contained within base_dir (prevents directory traversal)
 pub fn is_safe_subpath(base_dir: &Path, target_path: &Path) -> bool {
-    let mut depth: isize = 0;
-    for component in target_path.components() {
-        match component {
-            Component::Prefix(_) | Component::RootDir => return false,
-            Component::CurDir => continue,
-            Component::ParentDir => {
-                depth -= 1;
-                if depth < 0 {
-                    return false;
-                }
-            }
-            Component::Normal(_) => {
-                depth += 1;
-            }
-        }
-    }
-
-    if target_path.is_absolute() {
-        if let (Ok(can_base), Ok(can_target)) = (base_dir.canonicalize(), target_path.canonicalize()) {
-            return can_target.starts_with(can_base);
-        }
-    }
-
-    true
+    safe_join(base_dir, &target_path.to_string_lossy()).is_ok()
 }
 
 /// Normalizes and safely joins path components
 pub fn safe_join(base: &Path, subpath: &str) -> Result<PathBuf, String> {
     let sub = Path::new(subpath);
-    if !is_safe_subpath(base, sub) {
-        return Err(format!("Unsafe path traversal detected in '{}'", subpath));
-    }
-
     let mut result = base.to_path_buf();
     for comp in sub.components() {
-        if let Component::Normal(n) = comp {
-            result.push(n);
+        match comp {
+            Component::Normal(n) => result.push(n),
+            Component::CurDir => {}
+            Component::Prefix(_) | Component::RootDir | Component::ParentDir => {
+                return Err(format!("Unsafe path traversal detected in '{}'", subpath));
+            }
         }
     }
 
@@ -130,5 +151,13 @@ mod tests {
         assert!(safe_join(base, "instance1/mods/mod.jar").is_ok());
         assert!(safe_join(base, "../evil").is_err());
         assert!(safe_join(base, "../../root").is_err());
+    }
+
+    #[test]
+    fn test_validate_filename() {
+        assert!(validate_filename("mod.jar").is_ok());
+        assert!(validate_filename("folder/mod.jar").is_err());
+        assert!(validate_filename("..\\secret.txt").is_err());
+        assert!(validate_filename("").is_err());
     }
 }

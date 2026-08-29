@@ -110,7 +110,17 @@
     "advanced_settings": "Расширенные настройки",
     "java_path": "Путь к Java (оставьте пустым для авто)",
     "jvm_args": "JVM Аргументы (через пробел)",
-    "window_size": "Размер окна (Ширина x Высота)"
+    "window_size": "Размер окна (Ширина x Высота)",
+    "disabled": "Отключён",
+    "disable_mod": "Отключить",
+    "enable_mod": "Включить",
+    "mod_disabled": "Мод отключён",
+    "mod_enabled": "Мод включён",
+    "diagnostics": "Диагностика",
+    "diagnostics_title": "Проверка сборки",
+    "diagnostics_desc": "Проверяет папку, Java, память, загрузчик и состояние модов перед запуском.",
+    "run_diagnostics": "Запустить проверку",
+    "diagnostics_loading": "Проверяю сборку..."
   },
   "modrinth": {
     "title": "Моды",

@@ -37,11 +37,11 @@ pub async fn start_oauth_flow(
         loop {
             let (mut socket, _) = listener.accept().await?;
             let mut buffer = [0; 2048];
-            
+
             if let Ok(bytes_read) = socket.read(&mut buffer).await {
                 if bytes_read > 0 {
                     let request_line = String::from_utf8_lossy(&buffer[..bytes_read]);
-                    
+
                     // Parse the GET request line e.g., "GET /auth/callback?code=abc... HTTP/1.1"
                     if let Some(line) = request_line.lines().next() {
                         if line.starts_with("GET /auth/callback") {
@@ -60,7 +60,7 @@ pub async fn start_oauth_flow(
                                     }
                                 }
                             }
-                            
+
                             // Send success response to browser
                             let response_body = r#"
                                 <!DOCTYPE html>
@@ -84,22 +84,22 @@ pub async fn start_oauth_flow(
                                 </body>
                                 </html>
                             "#;
-                            
+
                             let response = format!(
                                 "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\nContent-Length: {}\r\n\r\n{}",
                                 response_body.len(),
                                 response_body
                             );
-                            
+
                             let _ = socket.write_all(response.as_bytes()).await;
                             let _ = socket.flush().await;
-                            
+
                             if let Some(c) = code {
                                 return Ok(c);
                             }
                         }
                     }
-                    
+
                     // Send 404 for favicon and other requests
                     let not_found = "HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n";
                     let _ = socket.write_all(not_found.as_bytes()).await;

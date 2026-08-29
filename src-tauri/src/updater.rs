@@ -1,4 +1,5 @@
 use reqwest::Client;
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::Write;
@@ -29,14 +30,14 @@ struct GithubAsset {
     pub browser_download_url: String,
 }
 
-const CURRENT_VERSION: &str = "0.2.1";
+const CURRENT_VERSION: &str = "0.2.2";
 
 #[tauri::command]
 pub async fn check_for_updates() -> Result<UpdateInfo, String> {
     log::info!("Checking for RedPanda Launcher updates on GitHub...");
 
     let client = Client::builder()
-        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 RedPandaLauncher/0.2.1")
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 RedPandaLauncher/0.2.2")
         .build()
         .map_err(|e| e.to_string())?;
 
@@ -58,7 +59,10 @@ pub async fn check_for_updates() -> Result<UpdateInfo, String> {
     }
 
     if res.status() == reqwest::StatusCode::FORBIDDEN {
-        return Err("Превышен лимит анонимных запросов к GitHub API (403 Forbidden). Попробуйте позже.".to_string());
+        return Err(
+            "Превышен лимит анонимных запросов к GitHub API (403 Forbidden). Попробуйте позже."
+                .to_string(),
+        );
     }
 
     if !res.status().is_success() {
@@ -73,38 +77,52 @@ pub async fn check_for_updates() -> Result<UpdateInfo, String> {
     let latest_tag = release.tag_name.trim_start_matches('v').to_string();
     let current_tag = CURRENT_VERSION.trim_start_matches('v').to_string();
 
-    let has_update = is_version_newer(&latest_tag, &current_tag);
+    let has_newer_version = is_version_newer(&latest_tag, &current_tag);
 
     // Find setup exe or msi installer in assets
-    let mut download_url = release.html_url.clone();
+    let mut download_url = String::new();
     for asset in &release.assets {
-        if asset.name.to_lowercase().ends_with(".exe") || asset.name.to_lowercase().ends_with(".msi") {
+        if asset.name.to_lowercase().ends_with(".exe")
+            || asset.name.to_lowercase().ends_with(".msi")
+        {
             download_url = asset.browser_download_url.clone();
             break;
         }
     }
 
+    let has_update = has_newer_version && !download_url.is_empty();
+
     Ok(UpdateInfo {
         has_update,
         current_version: CURRENT_VERSION.to_string(),
         latest_version: latest_tag,
-        release_notes: release.body.unwrap_or_else(|| "Описание отсутствуют".to_string()),
+        release_notes: release
+            .body
+            .unwrap_or_else(|| "Описание отсутствуют".to_string()),
         download_url,
         html_url: release.html_url,
     })
 }
 
 #[tauri::command]
-pub async fn download_and_install_update(_app: AppHandle, download_url: String) -> Result<(), String> {
+pub async fn download_and_install_update(
+    _app: AppHandle,
+    download_url: String,
+) -> Result<(), String> {
     const MAX_UPDATE_BYTES: usize = 500 * 1024 * 1024; // 500 MB
 
     if download_url.is_empty() {
         return Err("Download URL is empty".to_string());
     }
 
-    let is_valid_source = download_url.starts_with("https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/")
-        || download_url.starts_with("https://objects.githubusercontent.com/")
-        || download_url.starts_with("https://github.com/t1m0nch1k/RedPanda-Launcher/releases/tag/");
+    let parsed_url = Url::parse(&download_url).map_err(|_| "Invalid update URL".to_string())?;
+    let path = parsed_url.path().to_lowercase();
+    let has_supported_extension = path.ends_with(".exe") || path.ends_with(".msi");
+    let is_valid_source = parsed_url.scheme() == "https"
+        && has_supported_extension
+        && ((parsed_url.host_str() == Some("github.com")
+            && path.starts_with("/t1m0nch1k/redpanda-launcher/releases/download/"))
+            || parsed_url.host_str() == Some("objects.githubusercontent.com"));
 
     if !is_valid_source {
         return Err("Untrusted update source URL. Updates are only permitted from official GitHub releases.".to_string());
@@ -113,7 +131,7 @@ pub async fn download_and_install_update(_app: AppHandle, download_url: String) 
     log::info!("Downloading update from: {}", download_url);
 
     let client = Client::builder()
-        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 RedPandaLauncher/0.2.0")
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 RedPandaLauncher/0.2.2")
         .build()
         .map_err(|e| e.to_string())?;
 
@@ -129,7 +147,10 @@ pub async fn download_and_install_update(_app: AppHandle, download_url: String) 
 
     if let Some(cl) = res.content_length() {
         if cl > (MAX_UPDATE_BYTES as u64) {
-            return Err(format!("Размер файла обновления превышает лимит: {} МБ", cl / (1024 * 1024)));
+            return Err(format!(
+                "Размер файла обновления превышает лимит: {} МБ",
+                cl / (1024 * 1024)
+            ));
         }
     }
 
@@ -143,15 +164,27 @@ pub async fn download_and_install_update(_app: AppHandle, download_url: String) 
     }
 
     let temp_dir = std::env::temp_dir();
-    let file_name = if download_url.ends_with(".msi") {
+    let file_name = if path.ends_with(".msi") {
         "RedPanda_Setup_Update.msi"
     } else {
         "RedPanda_Setup_Update.exe"
     };
     let installer_path = temp_dir.join(file_name);
 
-    let mut file = File::create(&installer_path).map_err(|e| format!("Failed to create temp installer file: {}", e))?;
-    file.write_all(&bytes).map_err(|e| format!("Failed to write installer file: {}", e))?;
+    let mut file = File::create(&installer_path)
+        .map_err(|e| format!("Failed to create temp installer file: {}", e))?;
+    file.write_all(&bytes)
+        .map_err(|e| format!("Failed to write installer file: {}", e))?;
+
+    let is_valid_installer = if path.ends_with(".msi") {
+        bytes.starts_with(&[0xD0, 0xCF, 0x11, 0xE0])
+    } else {
+        bytes.starts_with(b"MZ")
+    };
+    if !is_valid_installer {
+        let _ = std::fs::remove_file(&installer_path);
+        return Err("Downloaded update is not a valid Windows installer".to_string());
+    }
 
     log::info!("Installer saved to {:?}, launching...", installer_path);
 
@@ -160,23 +193,23 @@ pub async fn download_and_install_update(_app: AppHandle, download_url: String) 
         use std::os::windows::process::CommandExt;
         let mut cmd = Command::new(&installer_path);
         cmd.creation_flags(0x08000000);
-        cmd.spawn().map_err(|e| format!("Failed to launch installer: {}", e))?;
+        cmd.spawn()
+            .map_err(|e| format!("Failed to launch installer: {}", e))?;
     }
 
     #[cfg(not(target_os = "windows"))]
     {
-        Command::new(&installer_path).spawn().map_err(|e| format!("Failed to launch installer: {}", e))?;
+        Command::new(&installer_path)
+            .spawn()
+            .map_err(|e| format!("Failed to launch installer: {}", e))?;
     }
 
     Ok(())
 }
 
 fn is_version_newer(latest: &str, current: &str) -> bool {
-    let parse_ver = |v: &str| -> Vec<u32> {
-        v.split('.')
-            .filter_map(|p| p.parse::<u32>().ok())
-            .collect()
-    };
+    let parse_ver =
+        |v: &str| -> Vec<u32> { v.split('.').filter_map(|p| p.parse::<u32>().ok()).collect() };
 
     let l_parts = parse_ver(latest);
     let c_parts = parse_ver(current);

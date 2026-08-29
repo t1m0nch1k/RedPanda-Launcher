@@ -18,13 +18,46 @@ export interface LauncherRelease {
 
 export const LAUNCHER_RELEASES: LauncherRelease[] = [
   {
+    version: "v0.2.2",
+    date: "29 августа 2026",
+    title: "Instance Diagnostics & Mod Control",
+    tagline: "Проверка готовности сборки к запуску и безопасное управление установленными модами",
+    downloadUrl: "https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.2.2/RedPanda_Setup_0.2.2.exe",
+    fileSize: "Windows x64",
+    isLatest: true,
+    highlights: [
+      "Диагностика папки сборки, Java, памяти и загрузчика перед запуском",
+      "Включение и выключение модов без удаления файлов",
+      "Отключённые моды отображаются отдельно и восстанавливаются в один клик",
+      "Новые безопасные Tauri-команды для работы с состоянием модов",
+      "Обновлены сайт, SEO-метаданные и ссылки на установщик v0.2.2"
+    ],
+    changes: [
+      {
+        type: "feat",
+        title: "Диагностика сборок",
+        description: "Новая вкладка в управлении сборкой проверяет наличие папки, Java, корректность загрузчика, диапазон памяти и состояние модов, показывая понятные рекомендации по исправлению."
+      },
+      {
+        type: "feat",
+        title: "Управление состоянием модов",
+        description: "Любой установленный мод можно временно отключить без удаления: лаунчер переименовывает файл в .jar.disabled и возвращает его обратно по кнопке."
+      },
+      {
+        type: "fix",
+        title: "Безопасные операции с файлами модов",
+        description: "Переключение состояния использует валидацию имён и безопасное построение путей, поэтому операции ограничены папкой текущей сборки."
+      }
+    ]
+  },
+  {
     version: "v0.2.1",
     date: "17 августа 2026",
     title: "Security Hardening & Custom GUI Installer",
     tagline: "Глубокий аудит безопасности, крипто-хранилище AES-256-GCM и автономный установщик",
     downloadUrl: "https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.2.1/RedPanda_Setup_0.2.1.exe",
     fileSize: "38.6 MB",
-    isLatest: true,
+    isLatest: false,
     highlights: [
       "Автономный Cyber-Brutalist установщик с распаковкой и созданием ярлыков",
       "Криптографическое хранилище паролей и токенов AES-256-GCM с рандомизированным Nonce",

@@ -12,6 +12,7 @@ pub async fn launch_game(
     loader_version: String,
     server: Option<String>,
 ) -> Result<(), String> {
+    crate::security::validate_instance_id(&instance_id)?;
     // Initialize lighty-launcher global state (ignore error if already initialized)
     let _ = AppState::init("RedPandaLauncher");
 
@@ -72,19 +73,24 @@ pub async fn launch_game(
     let mut rx = event_bus.subscribe();
     let app_clone = app.clone();
     let instance_id_clone = instance_id.clone();
-    
+
     tauri::async_runtime::spawn(async move {
         let start_time = std::time::Instant::now();
-        
+
         let mut log_file = dirs::data_dir().and_then(|mut d| {
             d.push("RedPandaLauncher");
             d.push(&instance_id_clone);
             d.push("logs");
             let _ = std::fs::create_dir_all(&d);
             d.push("latest.log");
-            std::fs::OpenOptions::new().create(true).write(true).truncate(true).open(d).ok()
+            std::fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(d)
+                .ok()
         });
-        
+
         while let Ok(event) = rx.next().await {
             // Also log console output and exits for debugging
             if let lighty_event::Event::ConsoleOutput(out) = &event {
@@ -93,26 +99,36 @@ pub async fn launch_game(
                 } else {
                     log::info!("[GAME] {}", out.line);
                 }
-                
+
                 if let Some(f) = &mut log_file {
                     use std::io::Write;
-                    let _ = writeln!(f, "[{}] {}", chrono::Local::now().format("%H:%M:%S"), out.line);
+                    let _ = writeln!(
+                        f,
+                        "[{}] {}",
+                        chrono::Local::now().format("%H:%M:%S"),
+                        out.line
+                    );
                 }
             } else if let lighty_event::Event::InstanceExited(exit) = &event {
                 log::info!("[GAME] Instance exited with code: {:?}", exit.exit_code);
-                
+
                 let elapsed = start_time.elapsed().as_secs();
                 if elapsed > 0 {
-                    let _ = crate::instances::add_play_time(app_clone.clone(), instance_id_clone.clone(), elapsed).await;
+                    let _ = crate::instances::add_play_time(
+                        app_clone.clone(),
+                        instance_id_clone.clone(),
+                        elapsed,
+                    )
+                    .await;
                 }
-                
+
                 let _ = crate::discord::set_discord_activity(
                     app_clone.clone(),
                     "В главном меню".to_string(),
                     "".to_string(),
                     "redpanda_logo".to_string(),
                 );
-                
+
                 // Reshow the launcher window when the game closes
                 if let Some(window) = app_clone.get_webview_window("main") {
                     let _ = window.show();
@@ -146,14 +162,17 @@ pub async fn launch_game(
     };
 
     let _launch_behavior = settings.launch_behavior.clone();
-    
+
     // Ensure required Java version is installed
     if let Err(e) = crate::java::ensure_java_runtime(&version).await {
-        log::warn!("Java auto-downloader warning: {}, falling back to default distribution", e);
+        log::warn!(
+            "Java auto-downloader warning: {}, falling back to default distribution",
+            e
+        );
     }
 
     // Build launch configuration
-    let mut builder = instance
+    let builder = instance
         .launch(&profile, JavaDistribution::Temurin)
         .with_event_bus(&event_bus);
 
@@ -162,11 +181,12 @@ pub async fn launch_game(
         .set("Xmx", format!("{}M", max_mem))
         .set("Xms", format!("{}M", min_mem));
 
-    if let Some(mut inst_path) = dirs::data_dir() {
-        inst_path.push("RedPandaLauncher");
-        inst_path.push(&instance_id);
+    if let Ok(mut inst_path) = crate::security::instance_dir(&instance_id) {
         inst_path.push("natives");
-        jvm_builder = jvm_builder.set("Dorg.lwjgl.librarypath", inst_path.to_string_lossy().to_string());
+        jvm_builder = jvm_builder.set(
+            "Dorg.lwjgl.librarypath",
+            inst_path.to_string_lossy().to_string(),
+        );
     }
 
     // Parse custom JVM args
@@ -198,7 +218,7 @@ pub async fn launch_game(
             .set("XX:+UseStringDeduplication", "");
     }
 
-    let mut builder = jvm_builder.done();
+    let builder = jvm_builder.done();
 
     let mut arg_builder = builder
         .with_arguments()
@@ -227,9 +247,7 @@ pub async fn launch_game(
     let loader_clone = loader_type.clone();
 
     if settings.auto_backup_worlds {
-        if let Some(mut inst_path) = dirs::data_dir() {
-            inst_path.push("RedPandaLauncher");
-            inst_path.push(&instance_id);
+        if let Ok(inst_path) = crate::security::instance_dir(&instance_id) {
             log::info!("Backing up worlds for instance {}...", instance_id);
             if let Err(e) = crate::backup::backup_saves(&inst_path) {
                 log::error!("Failed to backup worlds: {}", e);
@@ -242,7 +260,7 @@ pub async fn launch_game(
     match builder.run().await {
         Ok(_) => {
             log::info!("Game launched successfully");
-            
+
             let _ = crate::discord::set_discord_activity(
                 app.clone(),
                 format!("Играет в {} ({})", version_clone, loader_clone),
@@ -258,7 +276,10 @@ pub async fn launch_game(
                     log::info!("Applying aggressive optimization (High Priority)...");
                     let cmd = "wmic process where \"(name='javaw.exe' or name='java.exe') and commandline like '%RedPandaLauncher%'\" CALL setpriority 128";
                     use std::os::windows::process::CommandExt;
-                    let _ = std::process::Command::new("cmd").creation_flags(0x08000000).args(["/C", cmd]).output();
+                    let _ = std::process::Command::new("cmd")
+                        .creation_flags(0x08000000)
+                        .args(["/C", cmd])
+                        .output();
                 });
             }
 

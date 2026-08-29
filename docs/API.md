@@ -113,7 +113,7 @@
 - **Возвращает**: `Promise<ModrinthSearchResult>`
 
 ### `search_curseforge({ query, gameVersion, classId, index, pageSize })`
-- **Описание**: Поиск в каталоге CurseForge API с динамическим API-ключом.
+- **Описание**: Поиск в каталоге CurseForge API. Ключ берётся из настроек приложения или переменной `CURSEFORGE_API_KEY`.
 - **Возвращает**: `Promise<CurseForgeSearchResult[]>`
 
 ### `resolve_dependencies({ instanceId, source, id, gameVersion, loader })`
@@ -125,7 +125,7 @@
 - **Возвращает**: `Promise<void>`
 
 ### `download_curseforge_version({ instanceId, downloadUrl, fileName, projectType })`
-- **Описание**: Скачивание файла из CurseForge с лимитом размера 500 МБ.
+- **Описание**: Скачивание файла из доверенных доменов CurseForge/ForgeCDN с лимитом размера 500 МБ.
 - **Возвращает**: `Promise<void>`
 
 ---

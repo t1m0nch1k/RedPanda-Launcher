@@ -1,4 +1,5 @@
 use reqwest::Client;
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -53,34 +54,48 @@ struct FilesResponse {
     data: Vec<CurseForgeFile>,
 }
 
-pub fn get_curseforge_api_key() -> String {
+pub fn get_curseforge_api_key(app: &AppHandle) -> String {
     if let Ok(key) = std::env::var("CURSEFORGE_API_KEY") {
         let trimmed = key.trim();
         if !trimmed.is_empty() {
             return trimmed.to_string();
         }
     }
-    if let Some(key) = option_env!("CURSEFORGE_API_KEY") {
-        let trimmed = key.trim();
+    if let Ok(settings) = crate::settings::get_settings(app.clone()) {
+        let trimmed = settings.curseforge_api_key.trim();
         if !trimmed.is_empty() {
             return trimmed.to_string();
         }
     }
-    // Fallback default API key
-    "$2a$10$QdP21DmwEcYxV.f.T1orWeyr7SB65NMbFxme2NGVEsEpyFeen44RK".to_string()
+    String::new()
+}
+
+fn is_trusted_download_url(value: &str) -> bool {
+    let Ok(url) = Url::parse(value) else {
+        return false;
+    };
+    let Some(host) = url.host_str() else {
+        return false;
+    };
+    url.scheme() == "https"
+        && (host == "curseforge.com"
+            || host.ends_with(".curseforge.com")
+            || host == "forgecdn.net"
+            || host.ends_with(".forgecdn.net"))
 }
 
 #[tauri::command]
 pub async fn search_curseforge(
+    app: AppHandle,
     query: String,
     game_version: String,
     class_id: u32, // 6 = Mods, 4471 = Modpacks, 12 = Resource Packs
     index: usize,
     page_size: usize,
 ) -> Result<Vec<CurseForgeSearchResult>, String> {
-    let api_key = get_curseforge_api_key();
-    if api_key.is_empty() || api_key == "YOUR_API_KEY_HERE" {
-        return Err("API-ключ CurseForge не настроен во внутренних файлах лаунчера.".to_string());
+    let api_key = get_curseforge_api_key(&app);
+    if api_key.is_empty() {
+        return Err("API-ключ CurseForge не настроен. Укажите его в Настройки → Интеграции или через CURSEFORGE_API_KEY.".to_string());
     }
 
     let client = Client::builder()
@@ -91,13 +106,19 @@ pub async fn search_curseforge(
     // CurseForge API documentation: https://docs.curseforge.com/
     // Endpoint: GET /v1/mods/search
     // gameId for Minecraft is 432
-    
+
     let mut url = format!(
         "https://api.curseforge.com/v1/mods/search?gameId=432&classId={}&searchFilter={}&index={}&pageSize={}",
-        class_id, query, index, page_size
+        class_id,
+        urlencoding::encode(&query),
+        index,
+        page_size
     );
     if !game_version.is_empty() {
-        url.push_str(&format!("&gameVersion={}", game_version));
+        url.push_str(&format!(
+            "&gameVersion={}",
+            urlencoding::encode(&game_version)
+        ));
     }
 
     let res = client
@@ -111,7 +132,10 @@ pub async fn search_curseforge(
     if !res.status().is_success() {
         let status = res.status();
         let error_text = res.text().await.unwrap_or_default();
-        return Err(format!("CurseForge API вернул ошибку {}: {}", status, error_text));
+        return Err(format!(
+            "CurseForge API вернул ошибку {}: {}",
+            status, error_text
+        ));
     }
 
     let search_res: SearchResponse = res
@@ -124,12 +148,13 @@ pub async fn search_curseforge(
 
 #[tauri::command]
 pub async fn get_curseforge_versions(
+    app: AppHandle,
     mod_id: u32,
     game_version: Option<String>,
 ) -> Result<Vec<CurseForgeFile>, String> {
-    let api_key = get_curseforge_api_key();
-    if api_key.is_empty() || api_key == "YOUR_API_KEY_HERE" {
-        return Err("API-ключ CurseForge не настроен во внутренних файлах лаунчера.".to_string());
+    let api_key = get_curseforge_api_key(&app);
+    if api_key.is_empty() {
+        return Err("API-ключ CurseForge не настроен. Укажите его в Настройки → Интеграции или через CURSEFORGE_API_KEY.".to_string());
     }
 
     let client = Client::builder()
@@ -143,7 +168,7 @@ pub async fn get_curseforge_versions(
     );
     if let Some(gv) = game_version {
         if !gv.is_empty() {
-            url.push_str(&format!("&gameVersion={}", gv));
+            url.push_str(&format!("&gameVersion={}", urlencoding::encode(&gv)));
         }
     }
 
@@ -158,7 +183,10 @@ pub async fn get_curseforge_versions(
     if !res.status().is_success() {
         let status = res.status();
         let error_text = res.text().await.unwrap_or_default();
-        return Err(format!("CurseForge API вернул ошибку {}: {}", status, error_text));
+        return Err(format!(
+            "CurseForge API вернул ошибку {}: {}",
+            status, error_text
+        ));
     }
 
     let files_res: FilesResponse = res
@@ -178,6 +206,10 @@ pub async fn download_curseforge_version(
     project_type: String,
 ) -> Result<(), String> {
     const MAX_DOWNLOAD_BYTES: usize = 500 * 1024 * 1024; // 500 MB
+    let instance_dir = crate::security::instance_dir(&instance_id)?;
+    if !is_trusted_download_url(&download_url) {
+        return Err("Untrusted CurseForge download URL".to_string());
+    }
     let client = Client::new();
 
     let file_res = client
@@ -186,9 +218,16 @@ pub async fn download_curseforge_version(
         .await
         .map_err(|e| format!("Ошибка скачивания: {}", e))?;
 
+    if !file_res.status().is_success() {
+        return Err(format!("Ошибка скачивания: HTTP {}", file_res.status()));
+    }
+
     if let Some(cl) = file_res.content_length() {
         if cl > (MAX_DOWNLOAD_BYTES as u64) {
-            return Err(format!("Размер файла превышает лимит 500 МБ: {} МБ", cl / (1024 * 1024)));
+            return Err(format!(
+                "Размер файла превышает лимит 500 МБ: {} МБ",
+                cl / (1024 * 1024)
+            ));
         }
     }
 
@@ -199,9 +238,7 @@ pub async fn download_curseforge_version(
 
     let clean_filename = crate::security::sanitize_filename(&file_name);
 
-    let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-    path.push("RedPandaLauncher");
-    path.push(&instance_id);
+    let mut path = instance_dir;
 
     match project_type.as_str() {
         "resourcepack" => path.push("resourcepacks"),
@@ -209,7 +246,8 @@ pub async fn download_curseforge_version(
         _ => path.push("mods"),
     }
 
-    fs::create_dir_all(&path).map_err(|e| format!("Не удалось создать директорию {:?}: {}", path, e))?;
+    fs::create_dir_all(&path)
+        .map_err(|e| format!("Не удалось создать директорию {:?}: {}", path, e))?;
 
     path.push(clean_filename);
     fs::write(path, bytes).map_err(|e| e.to_string())?;
@@ -224,6 +262,9 @@ pub async fn download_curseforge_modpack(
     file_name: String,
 ) -> Result<(), String> {
     const MAX_DOWNLOAD_BYTES: usize = 500 * 1024 * 1024; // 500 MB
+    if !is_trusted_download_url(&download_url) {
+        return Err("Untrusted CurseForge download URL".to_string());
+    }
     let client = Client::new();
 
     let file_res = client
@@ -232,9 +273,19 @@ pub async fn download_curseforge_modpack(
         .await
         .map_err(|e| format!("Ошибка скачивания модпака: {}", e))?;
 
+    if !file_res.status().is_success() {
+        return Err(format!(
+            "Ошибка скачивания модпака: HTTP {}",
+            file_res.status()
+        ));
+    }
+
     if let Some(cl) = file_res.content_length() {
         if cl > (MAX_DOWNLOAD_BYTES as u64) {
-            return Err(format!("Размер модпака превышает лимит 500 МБ: {} МБ", cl / (1024 * 1024)));
+            return Err(format!(
+                "Размер модпака превышает лимит 500 МБ: {} МБ",
+                cl / (1024 * 1024)
+            ));
         }
     }
 
@@ -249,11 +300,11 @@ pub async fn download_curseforge_modpack(
     path.push("RedPandaLauncher");
     path.push("temp_downloads");
 
-    fs::create_dir_all(&path).map_err(|e| format!("Не удалось создать директорию {:?}: {}", path, e))?;
+    fs::create_dir_all(&path)
+        .map_err(|e| format!("Не удалось создать директорию {:?}: {}", path, e))?;
 
     path.push(clean_filename);
     fs::write(path, bytes).map_err(|e| e.to_string())?;
 
     Ok(())
 }
-

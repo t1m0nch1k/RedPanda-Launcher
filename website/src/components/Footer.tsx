@@ -134,7 +134,7 @@ export function Footer() {
           {/* Быстрая загрузка */}
           <div className="space-y-3">
             <p className="font-display font-bold text-foreground text-xs uppercase tracking-wider text-primary">
-              // Релиз v0.2.1
+              // Релиз v0.2.2
             </p>
             <p className="text-muted text-[11px] leading-relaxed">
               Автономный инсталлятор для Windows 10/11 x64.
@@ -143,7 +143,7 @@ export function Footer() {
               href="/download"
               className="inline-block w-full text-center bg-primary hover:bg-primary-hover text-black py-2.5 px-3 font-display font-bold text-xs uppercase tracking-wider transition-colors brutalist-button"
             >
-              Скачать v0.2.1 (.exe)
+              Скачать v0.2.2 (.exe)
             </Link>
             <p className="text-[10px] text-muted">Размер: 38.6 МБ · SHA-256 Verified</p>
           </div>

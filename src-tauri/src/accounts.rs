@@ -1,5 +1,5 @@
 use aes_gcm::{
-    aead::{Aead, KeyInit, OsRng, rand_core::RngCore},
+    aead::{rand_core::RngCore, Aead, KeyInit, OsRng},
     Aes256Gcm, Nonce,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
@@ -94,7 +94,9 @@ fn decrypt_secret(enc: &str) -> String {
         if let Ok(decoded) = BASE64.decode(stripped) {
             let key = get_encryption_key();
             if let Ok(cipher) = Aes256Gcm::new_from_slice(&key) {
-                let nonce_bytes = [0x52, 0x65, 0x64, 0x50, 0x61, 0x6E, 0x64, 0x61, 0x53, 0x65, 0x63, 0x31];
+                let nonce_bytes = [
+                    0x52, 0x65, 0x64, 0x50, 0x61, 0x6E, 0x64, 0x61, 0x53, 0x65, 0x63, 0x31,
+                ];
                 let nonce = Nonce::from_slice(&nonce_bytes);
                 if let Ok(plaintext) = cipher.decrypt(nonce, decoded.as_ref()) {
                     if let Ok(s) = String::from_utf8(plaintext) {
@@ -364,7 +366,10 @@ pub async fn microsoft_device_code() -> Result<DeviceCodeInfo, String> {
 }
 
 // Xbox Live & Minecraft Services helpers
-async fn authenticate_xbox_live(client: &reqwest::Client, ms_access_token: &str) -> Result<(String, String), String> {
+async fn authenticate_xbox_live(
+    client: &reqwest::Client,
+    ms_access_token: &str,
+) -> Result<(String, String), String> {
     let xbl_req = serde_json::json!({
         "Properties": {
             "AuthMethod": "RPS",
@@ -392,7 +397,10 @@ async fn authenticate_xbox_live(client: &reqwest::Client, ms_access_token: &str)
         .json()
         .await
         .map_err(|_| "Invalid XBL response".to_string())?;
-    let xbl_token = xbl_data["Token"].as_str().ok_or("No XBL token")?.to_string();
+    let xbl_token = xbl_data["Token"]
+        .as_str()
+        .ok_or("No XBL token")?
+        .to_string();
     let uhs = xbl_data["DisplayClaims"]["xui"][0]["uhs"]
         .as_str()
         .ok_or("No user hash")?
@@ -428,7 +436,10 @@ async fn authenticate_xsts(client: &reqwest::Client, xbl_token: &str) -> Result<
         .json()
         .await
         .map_err(|_| "Invalid XSTS response".to_string())?;
-    let xsts_token = xsts_data["Token"].as_str().ok_or("No XSTS token")?.to_string();
+    let xsts_token = xsts_data["Token"]
+        .as_str()
+        .ok_or("No XSTS token")?
+        .to_string();
     Ok(xsts_token)
 }
 
@@ -486,8 +497,14 @@ async fn get_minecraft_profile(
         .json()
         .await
         .map_err(|_| "Invalid MC Profile response".to_string())?;
-    let profile_id = profile_data["id"].as_str().ok_or("No profile ID")?.to_string();
-    let profile_name = profile_data["name"].as_str().ok_or("No profile name")?.to_string();
+    let profile_id = profile_data["id"]
+        .as_str()
+        .ok_or("No profile ID")?
+        .to_string();
+    let profile_name = profile_data["name"]
+        .as_str()
+        .ok_or("No profile name")?
+        .to_string();
 
     Ok(ElyByProfile {
         id: profile_id,
@@ -496,7 +513,10 @@ async fn get_minecraft_profile(
 }
 
 #[tauri::command]
-pub async fn poll_microsoft_device_code(app: AppHandle, device_code: String) -> Result<Account, String> {
+pub async fn poll_microsoft_device_code(
+    app: AppHandle,
+    device_code: String,
+) -> Result<Account, String> {
     let client_id = "00000000402b5328";
     let client = reqwest::Client::new();
 
@@ -513,7 +533,9 @@ pub async fn poll_microsoft_device_code(app: AppHandle, device_code: String) -> 
 
     if !token_res.status().is_success() {
         let err_json: serde_json::Value = token_res.json().await.unwrap_or_default();
-        let err_code = err_json["error"].as_str().unwrap_or("authorization_pending");
+        let err_code = err_json["error"]
+            .as_str()
+            .unwrap_or("authorization_pending");
         if err_code == "authorization_pending" {
             return Err("authorization_pending".to_string());
         } else if err_code == "authorization_declined" {
@@ -721,7 +743,10 @@ pub async fn add_microsoft_account_oauth(app: AppHandle) -> Result<Account, Stri
     Ok(new_account)
 }
 
-pub async fn refresh_account_tokens(app: &AppHandle, account: &mut Account) -> Result<bool, String> {
+pub async fn refresh_account_tokens(
+    _app: &AppHandle,
+    account: &mut Account,
+) -> Result<bool, String> {
     let now = chrono::Utc::now().timestamp();
     // Only refresh if expired or about to expire in next 5 minutes
     if let Some(exp) = account.expires_at {
@@ -781,7 +806,8 @@ pub async fn refresh_account_tokens(app: &AppHandle, account: &mut Account) -> R
                     }
                     let (xbl_token, uhs) = authenticate_xbox_live(&client, ms_acc_tok).await?;
                     let xsts_token = authenticate_xsts(&client, &xbl_token).await?;
-                    let (mc_access_token, expires_in) = authenticate_minecraft(&client, &uhs, &xsts_token).await?;
+                    let (mc_access_token, expires_in) =
+                        authenticate_minecraft(&client, &uhs, &xsts_token).await?;
                     account.access_token = Some(mc_access_token);
                     account.expires_at = Some(now + expires_in);
                     return Ok(true);

@@ -1,8 +1,17 @@
-use reqwest::Client;
+use reqwest::{Client, Url};
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::PathBuf;
 use tauri::AppHandle;
+
+fn is_trusted_download_url(value: &str) -> bool {
+    let Ok(url) = Url::parse(value) else {
+        return false;
+    };
+    let Some(host) = url.host_str() else {
+        return false;
+    };
+    url.scheme() == "https" && (host == "modrinth.com" || host.ends_with(".modrinth.com"))
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ModrinthSearchResult {
@@ -185,7 +194,7 @@ pub async fn get_modrinth_versions(
 
 #[tauri::command]
 pub async fn download_modrinth_version(
-    app: AppHandle,
+    _app: AppHandle,
     instance_id: String,
     version_id: String,
     project_type: String,
@@ -206,6 +215,9 @@ pub async fn download_modrinth_version(
 
     if let Some(file) = file {
         let download_url = &file.url;
+        if !is_trusted_download_url(download_url) {
+            return Err("Untrusted Modrinth download URL".to_string());
+        }
         let filename = crate::security::sanitize_filename(&file.filename);
 
         // 2. Download the file bytes
@@ -215,9 +227,19 @@ pub async fn download_modrinth_version(
             .await
             .map_err(|e| e.to_string())?;
 
+        if !file_res.status().is_success() {
+            return Err(format!(
+                "Modrinth download failed with status: {}",
+                file_res.status()
+            ));
+        }
+
         if let Some(cl) = file_res.content_length() {
             if cl > (MAX_DOWNLOAD_BYTES as u64) {
-                return Err(format!("Размер файла превышает лимит 500 МБ: {} МБ", cl / (1024 * 1024)));
+                return Err(format!(
+                    "Размер файла превышает лимит 500 МБ: {} МБ",
+                    cl / (1024 * 1024)
+                ));
             }
         }
 
@@ -226,9 +248,7 @@ pub async fn download_modrinth_version(
             return Err("Размер загруженных данных превысил лимит 500 МБ".to_string());
         }
 
-        let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-        path.push("RedPandaLauncher");
-        path.push(&instance_id);
+        let mut path = crate::security::instance_dir(&instance_id)?;
 
         match project_type.as_str() {
             "resourcepack" => path.push("resourcepacks"),
@@ -236,7 +256,8 @@ pub async fn download_modrinth_version(
             _ => path.push("mods"),
         }
 
-        fs::create_dir_all(&path).map_err(|e| format!("Failed to create folder {:?}: {}", path, e))?;
+        fs::create_dir_all(&path)
+            .map_err(|e| format!("Failed to create folder {:?}: {}", path, e))?;
 
         path.push(filename);
         fs::write(path, bytes).map_err(|e| e.to_string())?;
@@ -248,10 +269,7 @@ pub async fn download_modrinth_version(
 }
 
 #[tauri::command]
-pub async fn download_modrinth_modpack(
-    app: AppHandle,
-    version_id: String,
-) -> Result<(), String> {
+pub async fn download_modrinth_modpack(app: AppHandle, version_id: String) -> Result<(), String> {
     const MAX_DOWNLOAD_BYTES: usize = 500 * 1024 * 1024; // 500 MB
 
     // 1. Get the version details to find the primary file URL
@@ -268,6 +286,9 @@ pub async fn download_modrinth_modpack(
 
     if let Some(file) = file {
         let download_url = &file.url;
+        if !is_trusted_download_url(download_url) {
+            return Err("Untrusted Modrinth modpack URL".to_string());
+        }
         let filename = crate::security::sanitize_filename(&file.filename);
 
         // 2. Download the file bytes
@@ -279,7 +300,10 @@ pub async fn download_modrinth_modpack(
 
         if let Some(cl) = file_res.content_length() {
             if cl > (MAX_DOWNLOAD_BYTES as u64) {
-                return Err(format!("Размер модпака превышает лимит 500 МБ: {} МБ", cl / (1024 * 1024)));
+                return Err(format!(
+                    "Размер модпака превышает лимит 500 МБ: {} МБ",
+                    cl / (1024 * 1024)
+                ));
             }
         }
 
@@ -293,7 +317,7 @@ pub async fn download_modrinth_modpack(
         temp_path.push("RedPandaLauncher");
         fs::create_dir_all(&temp_path).map_err(|e| format!("Failed to create temp dir: {}", e))?;
         temp_path.push(filename);
-        
+
         fs::write(&temp_path, bytes).map_err(|e| e.to_string())?;
 
         // 4. Import the .mrpack file
@@ -342,9 +366,7 @@ pub async fn check_mod_updates(
         .find(|i| i.id == instance_id)
         .ok_or("Instance not found")?;
 
-    let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-    path.push("RedPandaLauncher");
-    path.push(&instance_id);
+    let mut path = crate::security::instance_dir(&instance_id)?;
     path.push("mods");
 
     if !path.exists() {
@@ -357,26 +379,24 @@ pub async fn check_mod_updates(
     let mut hashes_vec = Vec::new();
 
     let entries = fs::read_dir(&path).map_err(|e| e.to_string())?;
-    for entry in entries {
-        if let Ok(entry) = entry {
-            let p = entry.path();
-            if p.is_file() && p.extension().map_or(false, |ext| ext == "jar") {
-                let filename = entry.file_name().to_string_lossy().to_string();
+    for entry in entries.flatten() {
+        let p = entry.path();
+        if p.is_file() && p.extension().is_some_and(|ext| ext == "jar") {
+            let filename = entry.file_name().to_string_lossy().to_string();
 
-                // Compute SHA1
-                if let Ok(mut file) = fs::File::open(&p) {
-                    let mut hasher = Sha1::new();
-                    let mut buffer = [0; 1024 * 64];
-                    while let Ok(n) = file.read(&mut buffer) {
-                        if n == 0 {
-                            break;
-                        }
-                        hasher.update(&buffer[..n]);
+            // Compute SHA1
+            if let Ok(mut file) = fs::File::open(&p) {
+                let mut hasher = Sha1::new();
+                let mut buffer = [0; 1024 * 64];
+                while let Ok(n) = file.read(&mut buffer) {
+                    if n == 0 {
+                        break;
                     }
-                    let hash = hex::encode(hasher.finalize());
-                    hashes_vec.push(hash.clone());
-                    file_hashes.insert(hash, filename);
+                    hasher.update(&buffer[..n]);
                 }
+                let hash = hex::encode(hasher.finalize());
+                hashes_vec.push(hash.clone());
+                file_hashes.insert(hash, filename);
             }
         }
     }
@@ -455,20 +475,21 @@ pub async fn check_mod_updates(
 }
 #[tauri::command]
 pub async fn update_mod(
-    app: AppHandle,
+    _app: AppHandle,
     instance_id: String,
     old_file_name: String,
     new_file_name: String,
     download_url: String,
 ) -> Result<(), String> {
-    let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-    path.push("RedPandaLauncher");
-    path.push(&instance_id);
+    const MAX_DOWNLOAD_BYTES: usize = 500 * 1024 * 1024;
+    let mut path = crate::security::instance_dir(&instance_id)?;
     path.push("mods");
+    let old_file_name = crate::security::validate_filename(&old_file_name)?;
+    let new_file_name = crate::security::sanitize_filename(&new_file_name);
 
     // Delete old file
     let mut old_path = path.clone();
-    old_path.push(&old_file_name);
+    old_path.push(old_file_name);
     if old_path.exists() {
         fs::remove_file(old_path).map_err(|e| e.to_string())?;
     }
@@ -480,10 +501,25 @@ pub async fn update_mod(
         .send()
         .await
         .map_err(|e| e.to_string())?;
+    if !res.status().is_success() {
+        return Err(format!(
+            "Modrinth download failed with status: {}",
+            res.status()
+        ));
+    }
+    if res
+        .content_length()
+        .is_some_and(|size| size > MAX_DOWNLOAD_BYTES as u64)
+    {
+        return Err("Downloaded mod exceeds the 500 MB limit".to_string());
+    }
     let bytes = res.bytes().await.map_err(|e| e.to_string())?;
+    if bytes.len() > MAX_DOWNLOAD_BYTES {
+        return Err("Downloaded mod exceeds the 500 MB limit".to_string());
+    }
 
     let mut new_path = path.clone();
-    new_path.push(&new_file_name);
+    new_path = crate::security::safe_join(&new_path, &new_file_name)?;
     fs::write(new_path, bytes).map_err(|e| e.to_string())?;
 
     Ok(())

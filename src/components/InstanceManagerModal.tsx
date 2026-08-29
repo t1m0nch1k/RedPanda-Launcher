@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Puzzle, Palette, Settings as SettingsIcon, Trash2, Plus, Loader2, RefreshCw, ArrowUpCircle, Globe, Gamepad2, Check } from "lucide-react";
+import { X, Puzzle, Palette, Settings as SettingsIcon, Trash2, Plus, Loader2, RefreshCw, ArrowUpCircle, Globe, Gamepad2, Check, Power, Stethoscope, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import ModrinthBrowser from "./ModrinthBrowser";
 import CurseForgeBrowser from "./CurseForgeBrowser";
@@ -21,6 +21,21 @@ interface Instance {
 interface Mod {
   filename: string;
   size: number;
+  enabled: boolean;
+}
+
+interface DiagnosticItem {
+  key: string;
+  label: string;
+  status: "ok" | "warning" | "error";
+  details: string;
+  fix?: string | null;
+}
+
+interface DiagnosticReport {
+  instance_id: string;
+  instance_name: string;
+  items: DiagnosticItem[];
 }
 
 interface ModUpdate {
@@ -41,7 +56,7 @@ import { useTranslation } from "react-i18next";
 
 export default function InstanceManagerModal({ instance, onClose, onDelete }: InstanceManagerModalProps) {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<"mods" | "resources" | "settings" | "multiplayer">("mods");
+  const [activeTab, setActiveTab] = useState<"mods" | "resources" | "diagnostics" | "settings" | "multiplayer">("mods");
   const [showModrinth, setShowModrinth] = useState(false);
   const [showCurseForge, setShowCurseForge] = useState(false);
   const [modrinthProjectType, setModrinthProjectType] = useState<"mod" | "resourcepack" | "shader">("mod");
@@ -60,6 +75,8 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
   const [installedShaders, setInstalledShaders] = useState<Mod[]>([]);
   const [loadingResources, setLoadingResources] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [diagnosticReport, setDiagnosticReport] = useState<DiagnosticReport | null>(null);
+  const [loadingDiagnostics, setLoadingDiagnostics] = useState(false);
 
   const handleCheckUpdates = async () => {
       setCheckingUpdates(true);
@@ -136,11 +153,26 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
     }
   };
 
+  const runDiagnostics = async () => {
+    setLoadingDiagnostics(true);
+    try {
+      const report: DiagnosticReport = await invoke("diagnose_instance", { instanceId: instance.id });
+      setDiagnosticReport(report);
+    } catch (e) {
+      console.error(e);
+      toast.error(t("common.error") + ": " + e);
+    } finally {
+      setLoadingDiagnostics(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === "mods" && !showModrinth && !showCurseForge) {
       loadMods();
     } else if (activeTab === "resources" && !showModrinth && !showCurseForge) {
         loadResources();
+    } else if (activeTab === "diagnostics" && !showModrinth && !showCurseForge) {
+        runDiagnostics();
     } else if (activeTab === "multiplayer") {
         loadMods();
     }
@@ -156,6 +188,17 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
         toast.error(t("common.error") + ": " + e);
     }
   }
+
+  const handleToggleMod = async (mod: Mod) => {
+    try {
+      await invoke("toggle_mod", { instanceId: instance.id, filename: mod.filename, enabled: !mod.enabled });
+      await loadMods();
+      toast.success(mod.enabled ? t("instance_manager.mod_disabled") : t("instance_manager.mod_enabled"));
+    } catch (e) {
+      console.error(e);
+      toast.error(t("common.error") + ": " + e);
+    }
+  };
 
   const handleDeleteResourcePack = async (filename: string) => {
     try {
@@ -376,6 +419,14 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
               <SettingsIcon size={16} /> {t("instance_manager.settings")}
             </button>
             <button
+              onClick={() => setActiveTab("diagnostics")}
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-none text-sm font-medium transition-colors ${
+                activeTab === "diagnostics" ? "bg-primary/10 text-primary" : "text-muted hover:text-white hover:bg-card"
+              }`}
+            >
+              <Stethoscope size={16} /> {t("instance_manager.diagnostics")}
+            </button>
+            <button
               onClick={() => setActiveTab("multiplayer")}
               className={`flex items-center gap-3 px-4 py-2.5 rounded-none text-sm font-medium transition-colors ${
                 activeTab === "multiplayer" ? "bg-primary/10 text-primary" : "text-muted hover:text-white hover:bg-card"
@@ -393,6 +444,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
               {activeTab === "mods" && t("instance_manager.manage_mods")}
               {activeTab === "resources" && t("instance_manager.resources_and_shaders")}
               {activeTab === "settings" && t("instance_manager.instance_settings")}
+              {activeTab === "diagnostics" && t("instance_manager.diagnostics")}
               {activeTab === "multiplayer" && "Игра по сети (e4mc / e4steam)"}
             </h3>
             <button onClick={onClose} className="p-2 text-muted hover:text-white hover:bg-background rounded-none transition-colors">
@@ -452,8 +504,13 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                                             )}
                                         </div>
                                         <div>
-                                            <div className="text-sm font-medium text-white flex items-center gap-2">
+                                            <div className={`text-sm font-medium flex items-center gap-2 ${mod.enabled ? "text-white" : "text-muted line-through"}`}>
                                                 {mod.filename}
+                                                {!mod.enabled && (
+                                                    <span className="text-[10px] bg-yellow-500/15 text-yellow-400 px-1.5 py-0.5 rounded-none uppercase font-bold no-underline">
+                                                        {t("instance_manager.disabled")}
+                                                    </span>
+                                                )}
                                                 {modUpdates[mod.filename] && (
                                                     <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-none uppercase font-bold">
                                                         Update
@@ -464,6 +521,14 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => handleToggleMod(mod)}
+                                            className={`p-2 rounded-none transition-all text-xs font-medium flex items-center gap-1.5 ${mod.enabled ? "text-yellow-400 hover:bg-yellow-500/10" : "text-green-400 hover:bg-green-500/10"}`}
+                                            title={mod.enabled ? t("instance_manager.disable_mod") : t("instance_manager.enable_mod")}
+                                        >
+                                            <Power size={15} />
+                                            <span className="hidden xl:inline">{mod.enabled ? t("instance_manager.disable_mod") : t("instance_manager.enable_mod")}</span>
+                                        </button>
                                         {modUpdates[mod.filename] && (
                                             <button 
                                                 onClick={() => handleApplyUpdate(mod.filename)}
@@ -609,6 +674,49 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                         )}
                     </div>
                 </div>
+              </div>
+            )}
+
+            {activeTab === "diagnostics" && (
+              <div className="flex flex-col gap-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-white">{t("instance_manager.diagnostics_title")}</h4>
+                    <p className="text-xs text-muted mt-1">{t("instance_manager.diagnostics_desc")}</p>
+                  </div>
+                  <button
+                    onClick={runDiagnostics}
+                    disabled={loadingDiagnostics}
+                    className="bg-card hover:bg-background brutalist-border text-white px-4 py-2 rounded-none text-xs font-semibold flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {loadingDiagnostics ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                    {t("instance_manager.run_diagnostics")}
+                  </button>
+                </div>
+
+                {loadingDiagnostics && !diagnosticReport ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-muted gap-3">
+                    <Loader2 className="animate-spin" size={26} />
+                    <span className="text-sm">{t("instance_manager.diagnostics_loading")}</span>
+                  </div>
+                ) : diagnosticReport ? (
+                  <div className="space-y-3">
+                    {diagnosticReport.items.map((item) => {
+                      const StatusIcon = item.status === "ok" ? CheckCircle2 : item.status === "warning" ? AlertTriangle : XCircle;
+                      const statusClass = item.status === "ok" ? "text-green-400 border-green-500/20 bg-green-500/5" : item.status === "warning" ? "text-yellow-400 border-yellow-500/20 bg-yellow-500/5" : "text-red-400 border-red-500/20 bg-red-500/5";
+                      return (
+                        <div key={item.key} className={`border p-4 flex items-start gap-3 ${statusClass}`}>
+                          <StatusIcon size={19} className="shrink-0 mt-0.5" />
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold">{item.label}</div>
+                            <div className="text-xs text-muted mt-1 break-words">{item.details}</div>
+                            {item.fix && <div className="text-xs text-yellow-300/90 mt-2">{item.fix}</div>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </div>
             )}
 

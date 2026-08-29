@@ -59,7 +59,7 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
       if (info && info.has_update) {
         alert(`Найдено обновление! Доступна версия v${info.latest_version}.`);
       } else {
-        alert(`У вас установлена самая свежая версия (v${info?.current_version || "0.2.0"})`);
+        alert(`У вас установлена самая свежая версия (v${info?.current_version || "0.2.2"})`);
       }
     } catch (e) {
       alert("Ошибка при проверке обновлений: " + e);
@@ -275,7 +275,7 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
 
                   <div className="bg-background brutalist-border p-4 flex items-center justify-between">
                     <div>
-                      <div className="font-bold text-xs text-text">Версия v0.2.0 Stable</div>
+                      <div className="font-bold text-xs text-text">Версия v0.2.2 Stable</div>
                       <div className="text-[10px] text-muted font-mono mt-0.5">Build 2026.08.16</div>
                       <div className="text-[10px] text-muted mt-0.5">Автоматическая проверка релизов с GitHub</div>
                     </div>
@@ -715,6 +715,33 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
                         </p>
                       </div>
                     </div>
+                  </div>
+                </section>
+
+                <hr className="border-border" />
+
+                {/* CurseForge API */}
+                <section>
+                  <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <Code size={16} /> CurseForge API
+                  </h3>
+
+                  <div className="bg-background brutalist-border p-4 flex flex-col gap-2">
+                    <label htmlFor="curseforge_api_key" className="text-xs font-semibold text-muted">
+                      API-ключ CurseForge
+                    </label>
+                    <input
+                      id="curseforge_api_key"
+                      type="password"
+                      autoComplete="off"
+                      value={settings.curseforge_api_key ?? ""}
+                      onChange={(e) => updateSetting("curseforge_api_key", e.target.value)}
+                      placeholder="Введите ключ CurseForge"
+                      className="w-full bg-card brutalist-border px-3 py-2 text-xs text-white focus:outline-none focus:border-primary font-mono"
+                    />
+                    <p className="text-[10px] text-muted">
+                      Ключ берётся также из переменной окружения CURSEFORGE_API_KEY.
+                    </p>
                   </div>
                 </section>
 

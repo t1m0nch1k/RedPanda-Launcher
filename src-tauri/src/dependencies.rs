@@ -3,9 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashSet, VecDeque};
 use tauri::AppHandle;
 
-use crate::curseforge::{CurseForgeFile, CurseForgeSearchResult, get_curseforge_api_key};
-use crate::modrinth::{ModrinthSearchResult, ModrinthVersion};
-use crate::instances::get_instances;
+use crate::curseforge::{get_curseforge_api_key, CurseForgeFile};
+use crate::modrinth::ModrinthVersion;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InstallTask {
@@ -44,9 +43,9 @@ async fn get_modrinth_project_name(project_id: &str, client: &Client) -> Option<
     None
 }
 
-async fn get_curseforge_mod_name(mod_id: u32, client: &Client) -> Option<String> {
+async fn get_curseforge_mod_name(app: &AppHandle, mod_id: u32, client: &Client) -> Option<String> {
     let url = format!("https://api.curseforge.com/v1/mods/{}", mod_id);
-    let api_key = get_curseforge_api_key();
+    let api_key = get_curseforge_api_key(app);
     if let Ok(res) = client.get(&url).header("x-api-key", &api_key).send().await {
         if let Ok(m) = res.json::<CurseForgeModResponse>().await {
             return Some(m.data.name);
@@ -68,12 +67,14 @@ async fn resolve_modrinth_latest(
         "Quilt" => "[\"quilt\"]",
         _ => "[]",
     };
-    
+
     let url = format!(
         "https://api.modrinth.com/v2/project/{}/version?game_versions=[\"{}\"]&loaders={}",
-        project_id, game_version, urlencoding::encode(loaders)
+        project_id,
+        game_version,
+        urlencoding::encode(loaders)
     );
-    
+
     if let Ok(res) = client.get(&url).send().await {
         if let Ok(mut versions) = res.json::<Vec<ModrinthVersion>>().await {
             if !versions.is_empty() {
@@ -85,6 +86,7 @@ async fn resolve_modrinth_latest(
 }
 
 async fn resolve_curseforge_latest(
+    app: &AppHandle,
     mod_id: u32,
     game_version: &str,
     loader: &str,
@@ -97,18 +99,18 @@ async fn resolve_curseforge_latest(
         "NeoForge" => 6,
         _ => 0,
     };
-    
+
     let url = format!(
         "https://api.curseforge.com/v1/mods/{}/files?gameVersion={}&modLoaderType={}",
         mod_id, game_version, modloader_type
     );
-    
+
     #[derive(Deserialize)]
     struct FilesResponse {
         data: Vec<CurseForgeFile>,
     }
-    
-    let api_key = get_curseforge_api_key();
+
+    let api_key = get_curseforge_api_key(app);
     if let Ok(res) = client.get(&url).header("x-api-key", &api_key).send().await {
         if let Ok(mut files) = res.json::<FilesResponse>().await {
             if !files.data.is_empty() {
@@ -129,10 +131,16 @@ pub async fn resolve_dependencies(
     app: AppHandle,
     instance_id: String,
     source: String,
-    id: String, 
+    id: String,
     game_version: String,
     loader: String,
 ) -> Result<Vec<InstallTask>, String> {
+    crate::security::validate_instance_id(&instance_id)?;
+    let instances = crate::instances::get_instances(app.clone()).await?;
+    if !instances.iter().any(|instance| instance.id == instance_id) {
+        return Err("Instance not found".to_string());
+    }
+
     let client = Client::builder()
         .user_agent("RedPandaLauncher/1.0.0")
         .build()
@@ -141,7 +149,7 @@ pub async fn resolve_dependencies(
     let mut tasks = Vec::new();
     let mut visited_projects = HashSet::new();
     let mut queue = VecDeque::new();
-    
+
     if source == "modrinth" {
         queue.push_back(DepItem::Modrinth(id));
     } else {
@@ -157,10 +165,16 @@ pub async fn resolve_dependencies(
                 if let Ok(res) = client.get(&url).send().await {
                     if let Ok(version) = res.json::<ModrinthVersion>().await {
                         let proj_key = format!("modrinth:{}", version.name);
-                        if visited_projects.contains(&proj_key) { continue; }
+                        if visited_projects.contains(&proj_key) {
+                            continue;
+                        }
                         visited_projects.insert(proj_key);
 
-                        let file = version.files.iter().find(|f| f.primary).or_else(|| version.files.first());
+                        let file = version
+                            .files
+                            .iter()
+                            .find(|f| f.primary)
+                            .or_else(|| version.files.first());
                         if let Some(f) = file {
                             tasks.push(InstallTask {
                                 id: version_id.clone(),
@@ -179,18 +193,51 @@ pub async fn resolve_dependencies(
                                     if let Some(vid) = dep.version_id {
                                         queue.push_back(DepItem::Modrinth(vid));
                                     } else if let Some(pid) = dep.project_id {
-                                        if let Some(name) = get_modrinth_project_name(&pid, &client).await {
-                                            if let Ok(mut cf_res) = crate::curseforge::search_curseforge(name.clone(), game_version.clone(), 6, 0, 5).await {
-                                                if !cf_res.is_empty() && cf_res[0].name.to_lowercase() == name.to_lowercase() {
-                                                    if let Some(cf_file) = resolve_curseforge_latest(cf_res[0].id, &game_version, &loader, &client).await {
-                                                        queue.push_back(DepItem::CurseForge(cf_file.id));
+                                        if let Some(name) =
+                                            get_modrinth_project_name(&pid, &client).await
+                                        {
+                                            if let Ok(cf_res) =
+                                                crate::curseforge::search_curseforge(
+                                                    app.clone(),
+                                                    name.clone(),
+                                                    game_version.clone(),
+                                                    6,
+                                                    0,
+                                                    5,
+                                                )
+                                                .await
+                                            {
+                                                if !cf_res.is_empty()
+                                                    && cf_res[0].name.to_lowercase()
+                                                        == name.to_lowercase()
+                                                {
+                                                    if let Some(cf_file) =
+                                                        resolve_curseforge_latest(
+                                                            &app,
+                                                            cf_res[0].id,
+                                                            &game_version,
+                                                            &loader,
+                                                            &client,
+                                                        )
+                                                        .await
+                                                    {
+                                                        queue.push_back(DepItem::CurseForge(
+                                                            cf_file.id,
+                                                        ));
                                                         continue;
                                                     }
                                                 }
                                             }
                                         }
-                                        
-                                        if let Some(mv) = resolve_modrinth_latest(&pid, &game_version, &loader, &client).await {
+
+                                        if let Some(mv) = resolve_modrinth_latest(
+                                            &pid,
+                                            &game_version,
+                                            &loader,
+                                            &client,
+                                        )
+                                        .await
+                                        {
                                             queue.push_back(DepItem::Modrinth(mv.id));
                                         }
                                     }
@@ -203,17 +250,31 @@ pub async fn resolve_dependencies(
             DepItem::CurseForge(file_id) => {
                 let url = "https://api.curseforge.com/v1/mods/files";
                 #[derive(Serialize)]
-                struct FilesReq { file_ids: Vec<u32> }
+                struct FilesReq {
+                    file_ids: Vec<u32>,
+                }
                 #[derive(Deserialize)]
-                struct FilesRes { data: Vec<CurseForgeFile> }
-                
-                let api_key = get_curseforge_api_key();
-                if let Ok(res) = client.post(url).header("x-api-key", &api_key).json(&FilesReq { file_ids: vec![file_id] }).send().await {
+                struct FilesRes {
+                    data: Vec<CurseForgeFile>,
+                }
+
+                let api_key = get_curseforge_api_key(&app);
+                if let Ok(res) = client
+                    .post(url)
+                    .header("x-api-key", &api_key)
+                    .json(&FilesReq {
+                        file_ids: vec![file_id],
+                    })
+                    .send()
+                    .await
+                {
                     if let Ok(mut files_res) = res.json::<FilesRes>().await {
                         if !files_res.data.is_empty() {
                             let file = files_res.data.remove(0);
                             let proj_key = format!("curseforge:{}", file.mod_id);
-                            if visited_projects.contains(&proj_key) { continue; }
+                            if visited_projects.contains(&proj_key) {
+                                continue;
+                            }
                             visited_projects.insert(proj_key);
 
                             tasks.push(InstallTask {
@@ -225,23 +286,54 @@ pub async fn resolve_dependencies(
                                 source: "curseforge".to_string(),
                                 warning: None,
                             });
-                            
+
                             if let Some(deps) = file.dependencies {
                                 for dep in deps {
                                     if dep.relation_type == 3 {
                                         // Required dependency (mod_id)
                                         let mut cf_resolved = false;
-                                        if let Some(cf_file) = resolve_curseforge_latest(dep.mod_id, &game_version, &loader, &client).await {
+                                        if let Some(cf_file) = resolve_curseforge_latest(
+                                            &app,
+                                            dep.mod_id,
+                                            &game_version,
+                                            &loader,
+                                            &client,
+                                        )
+                                        .await
+                                        {
                                             queue.push_back(DepItem::CurseForge(cf_file.id));
                                             cf_resolved = true;
                                         }
-                                        
+
                                         if !cf_resolved {
-                                            if let Some(name) = get_curseforge_mod_name(dep.mod_id, &client).await {
-                                                if let Ok(mut mr_res) = crate::modrinth::search_modrinth(name.clone(), game_version.clone(), loader.clone(), 0, "relevance".to_string(), "mod".to_string(), None).await {
+                                            if let Some(name) =
+                                                get_curseforge_mod_name(&app, dep.mod_id, &client)
+                                                    .await
+                                            {
+                                                if let Ok(mr_res) =
+                                                    crate::modrinth::search_modrinth(
+                                                        name.clone(),
+                                                        game_version.clone(),
+                                                        loader.clone(),
+                                                        0,
+                                                        "relevance".to_string(),
+                                                        "mod".to_string(),
+                                                        None,
+                                                    )
+                                                    .await
+                                                {
                                                     if !mr_res.is_empty() {
-                                                        if let Some(mv) = resolve_modrinth_latest(&mr_res[0].slug, &game_version, &loader, &client).await {
-                                                            queue.push_back(DepItem::Modrinth(mv.id));
+                                                        if let Some(mv) = resolve_modrinth_latest(
+                                                            &mr_res[0].slug,
+                                                            &game_version,
+                                                            &loader,
+                                                            &client,
+                                                        )
+                                                        .await
+                                                        {
+                                                            queue.push_back(DepItem::Modrinth(
+                                                                mv.id,
+                                                            ));
                                                         }
                                                     }
                                                 }
@@ -256,7 +348,7 @@ pub async fn resolve_dependencies(
             }
         }
     }
-    
+
     // Reverse tasks so dependencies are installed first (or leaves first)
     tasks.reverse();
 

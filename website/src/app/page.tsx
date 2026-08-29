@@ -50,7 +50,7 @@ export default function Home() {
 
   const features = [
     { icon: <IconBolt size={24} />, title: "LIGHTNING_FAST", desc: "{ built_with: 'Rust & Tauri',\n  memory_footprint: 'minimal',\n  startup: '< 0.8s' }" },
-    { icon: <IconLayoutGrid size={24} />, title: "CUSTOM_GUI_INSTALLER", desc: "{ type: 'cyber_brutalist_gui',\n  setup: 'RedPanda_Setup_0.2.1.exe',\n  registry_integration: true }" },
+    { icon: <IconLayoutGrid size={24} />, title: "CUSTOM_GUI_INSTALLER", desc: "{ type: 'cyber_brutalist_gui',\n  setup: 'RedPanda_Setup_0.2.2.exe',\n  registry_integration: true }" },
     { icon: <IconShieldLock size={24} />, title: "AES_256_VAULT_&_SECURITY", desc: "{ encryption: 'AES-256-GCM + OsRng',\n  path_traversal: 'safe_join_protection',\n  concurrency: 'mutex_synchronized' }" },
     { icon: <IconPuzzle size={24} />, title: "DUAL_MOD_ECOSYSTEM", desc: "{ sources: ['Modrinth', 'CurseForge'],\n  dependencies: 'recursive_auto_resolve',\n  scope: 'mods_shaders_resourcepacks' }" },
     { icon: <IconGlobe size={24} />, title: "E4MC_&_STEAM_P2P", desc: "{ modes: ['e4mc.link', 'e4steam'],\n  p2p_hosting: 'built-in',\n  ports_required: false }" },
@@ -82,7 +82,7 @@ export default function Home() {
           </div>
           <div className="space-y-1">
             <div>STATUS: <span className="text-white">ONLINE</span></div>
-            <div>VERSION: <span className="text-white">v0.2.1_RELEASE</span></div>
+            <div>VERSION: <span className="text-white">v0.2.2_RELEASE</span></div>
             <div>SECURITY: <span className="text-white">AES_256_GCM_VAULT</span></div>
             <div>INSTALLER: <span className="text-white">STANDALONE_GUI</span></div>
             <div>MULTIPLAYER: <span className="text-white">E4MC_&_STEAM</span></div>
@@ -117,7 +117,7 @@ export default function Home() {
               href="/download" 
               className="w-full sm:w-auto flex items-center justify-center gap-3 bg-primary hover:bg-primary-hover text-black px-8 py-4 font-bold text-base transition-all cursor-pointer uppercase brutalist-button"
             >
-              <IconDownload size={22} /> СКАЧАТЬ_SETUP_v0.2.1.EXE
+              <IconDownload size={22} /> СКАЧАТЬ_SETUP_v0.2.2.EXE
             </Link>
             <Link 
               href="/minecraft-news" 
@@ -172,7 +172,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Section: Последний релиз лаунчера v0.2.1 */}
+      {/* Section: Последний релиз лаунчера v0.2.2 */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 border-b border-border bg-card/40">
         <div className="max-w-[1400px] mx-auto">
           <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 mb-12 border-l-4 border-primary pl-6">
@@ -206,7 +206,7 @@ export default function Home() {
                 className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-black px-4 py-2 font-display font-bold text-xs uppercase brutalist-button"
               >
                 <IconDownload size={16} />
-                <span>Установить v0.2.1</span>
+                <span>Установить v0.2.2</span>
               </Link>
             </div>
 

@@ -110,7 +110,17 @@
     "advanced_settings": "Advanced Settings",
     "java_path": "Java Path (leave empty for auto)",
     "jvm_args": "JVM Arguments (space separated)",
-    "window_size": "Window Size (Width x Height)"
+    "window_size": "Window Size (Width x Height)",
+    "disabled": "Disabled",
+    "disable_mod": "Disable",
+    "enable_mod": "Enable",
+    "mod_disabled": "Mod disabled",
+    "mod_enabled": "Mod enabled",
+    "diagnostics": "Diagnostics",
+    "diagnostics_title": "Instance check",
+    "diagnostics_desc": "Checks the folder, Java, memory, loader, and mod state before launch.",
+    "run_diagnostics": "Run check",
+    "diagnostics_loading": "Checking instance..."
   },
   "modrinth": {
     "title": "Mods",

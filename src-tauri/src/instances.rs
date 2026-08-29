@@ -1,7 +1,7 @@
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::SystemTime;
 use tauri::AppHandle;
@@ -98,10 +98,10 @@ pub async fn get_instances(app: AppHandle) -> Result<Vec<Instance>, String> {
     // Sort instances
     if let Ok(settings) = crate::settings::get_settings(app.clone()) {
         if settings.instances_sort_mode == "name" {
-            instances.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+            instances.sort_by_key(|a| a.name.to_lowercase());
         } else {
             // last_played (default)
-            instances.sort_by(|a, b| b.last_played.unwrap_or(0).cmp(&a.last_played.unwrap_or(0)));
+            instances.sort_by_key(|b| std::cmp::Reverse(b.last_played.unwrap_or(0)));
         }
     }
 
@@ -173,6 +173,7 @@ pub async fn add_instance(
 
 #[tauri::command]
 pub async fn remove_instance(app: AppHandle, id: String) -> Result<(), String> {
+    crate::security::validate_instance_id(&id)?;
     let mut instances = get_instances(app.clone()).await?;
     instances.retain(|i| i.id != id);
 
@@ -181,15 +182,17 @@ pub async fn remove_instance(app: AppHandle, id: String) -> Result<(), String> {
     fs::write(path, data).map_err(|e| e.to_string())?;
 
     // Remove the instance directory
-    let mut dir_path = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-    dir_path.push("RedPandaLauncher");
-    dir_path.push(&id);
-    let _ = std::fs::remove_dir_all(&dir_path);
+    if let Ok(dir_path) = crate::security::instance_dir(&id) {
+        let _ = std::fs::remove_dir_all(dir_path);
+    }
 
     Ok(())
 }
 
-fn copy_dir_all(src: impl AsRef<std::path::Path>, dst: impl AsRef<std::path::Path>) -> std::io::Result<()> {
+fn copy_dir_all(
+    src: impl AsRef<std::path::Path>,
+    dst: impl AsRef<std::path::Path>,
+) -> std::io::Result<()> {
     std::fs::create_dir_all(&dst)?;
     for entry in std::fs::read_dir(src)? {
         let entry = entry?;
@@ -205,26 +208,28 @@ fn copy_dir_all(src: impl AsRef<std::path::Path>, dst: impl AsRef<std::path::Pat
 
 #[tauri::command]
 pub async fn clone_instance(app: AppHandle, id: String) -> Result<Instance, String> {
+    crate::security::validate_instance_id(&id)?;
     let mut instances = get_instances(app.clone()).await?;
-    
-    let original = instances.iter().find(|i| i.id == id).ok_or("Инстанс не найден")?.clone();
-    
+
+    let original = instances
+        .iter()
+        .find(|i| i.id == id)
+        .ok_or("Инстанс не найден")?
+        .clone();
+
     let new_name = format!("{} (Копия)", original.name);
     let new_id = generate_instance_id(&new_name, &instances);
-    
+
     // Copy folders
-    let mut old_dir = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-    old_dir.push("RedPandaLauncher");
-    old_dir.push(&id);
-    
-    let mut new_dir = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-    new_dir.push("RedPandaLauncher");
-    new_dir.push(&new_id);
-    
+    let old_dir = crate::security::instance_dir(&id)?;
+
+    let new_dir = crate::security::instance_dir(&new_id)?;
+
     if old_dir.exists() {
-        copy_dir_all(&old_dir, &new_dir).map_err(|e| format!("Не удалось скопировать файлы: {}", e))?;
+        copy_dir_all(&old_dir, &new_dir)
+            .map_err(|e| format!("Не удалось скопировать файлы: {}", e))?;
     }
-    
+
     let new_instance = Instance {
         id: new_id,
         name: new_name,
@@ -232,27 +237,26 @@ pub async fn clone_instance(app: AppHandle, id: String) -> Result<Instance, Stri
         total_play_time_seconds: Some(0),
         ..original
     };
-    
+
     instances.push(new_instance.clone());
-    
+
     let path = get_instances_file(&app);
     let data = serde_json::to_string_pretty(&instances).map_err(|e| e.to_string())?;
     std::fs::write(path, data).map_err(|e| e.to_string())?;
-    
+
     Ok(new_instance)
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct ModInfo {
-    filename: String,
-    size: u64,
+    pub filename: String,
+    pub size: u64,
+    pub enabled: bool,
 }
 
 #[tauri::command]
 pub async fn get_installed_mods(instance_id: String) -> Result<Vec<ModInfo>, String> {
-    let mut path = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-    path.push("RedPandaLauncher");
-    path.push(&instance_id);
+    let mut path = crate::security::instance_dir(&instance_id)?;
     path.push("mods");
 
     let mut mods = Vec::new();
@@ -261,35 +265,283 @@ pub async fn get_installed_mods(instance_id: String) -> Result<Vec<ModInfo>, Str
             if let Ok(metadata) = entry.metadata() {
                 if metadata.is_file() {
                     let filename = entry.file_name().to_string_lossy().to_string();
-                    if filename.ends_with(".jar") {
+                    let lower_name = filename.to_ascii_lowercase();
+                    let enabled = lower_name.ends_with(".jar");
+                    if enabled || lower_name.ends_with(".jar.disabled") {
                         mods.push(ModInfo {
                             filename,
                             size: metadata.len(),
+                            enabled,
                         });
                     }
                 }
             }
         }
     }
+    mods.sort_by_key(|mod_info| mod_info.filename.to_lowercase());
     Ok(mods)
 }
 
 #[tauri::command]
+pub async fn toggle_mod(
+    instance_id: String,
+    filename: String,
+    enabled: bool,
+) -> Result<(), String> {
+    let mut mods_dir = crate::security::instance_dir(&instance_id)?;
+    mods_dir.push("mods");
+
+    let filename = crate::security::validate_filename(&filename)?;
+    let lower_name = filename.to_ascii_lowercase();
+    if !lower_name.ends_with(".jar") && !lower_name.ends_with(".jar.disabled") {
+        return Err("Only .jar mods can be enabled or disabled".to_string());
+    }
+
+    let current_enabled = lower_name.ends_with(".jar");
+    if current_enabled == enabled {
+        return Ok(());
+    }
+
+    let target_filename = if enabled {
+        filename[..filename.len() - ".disabled".len()].to_string()
+    } else {
+        format!("{}.disabled", filename)
+    };
+    let source_path = crate::security::safe_join(&mods_dir, &filename)?;
+    let target_path = crate::security::safe_join(&mods_dir, &target_filename)?;
+
+    if !source_path.is_file() {
+        return Err("Mod file not found".to_string());
+    }
+    if target_path.exists() {
+        return Err(format!("A mod named '{}' already exists", target_filename));
+    }
+
+    std::fs::rename(source_path, target_path).map_err(|e| format!("Failed to toggle mod: {}", e))
+}
+
+#[derive(serde::Serialize)]
+pub struct DiagnosticItem {
+    pub key: String,
+    pub label: String,
+    pub status: String,
+    pub details: String,
+    pub fix: Option<String>,
+}
+
+#[derive(serde::Serialize)]
+pub struct DiagnosticReport {
+    pub instance_id: String,
+    pub instance_name: String,
+    pub items: Vec<DiagnosticItem>,
+}
+
+fn diagnostic(
+    key: &str,
+    label: &str,
+    status: &str,
+    details: String,
+    fix: Option<&str>,
+) -> DiagnosticItem {
+    DiagnosticItem {
+        key: key.to_string(),
+        label: label.to_string(),
+        status: status.to_string(),
+        details,
+        fix: fix.map(str::to_string),
+    }
+}
+
+fn java_is_available(path: &str) -> bool {
+    if !path.trim().is_empty() {
+        let java_path = Path::new(path);
+        return java_path.exists()
+            || java_path.join("bin").join("java.exe").exists()
+            || java_path.join("bin").join("java").exists();
+    }
+
+    std::process::Command::new(if cfg!(windows) { "java.exe" } else { "java" })
+        .arg("-version")
+        .output()
+        .is_ok()
+}
+
+#[tauri::command]
+pub async fn diagnose_instance(
+    app: AppHandle,
+    instance_id: String,
+) -> Result<DiagnosticReport, String> {
+    crate::security::validate_instance_id(&instance_id)?;
+    let instances = get_instances(app.clone()).await?;
+    let instance = instances
+        .into_iter()
+        .find(|instance| instance.id == instance_id)
+        .ok_or_else(|| "Instance not found".to_string())?;
+    let settings = crate::settings::get_settings(app)?;
+    let instance_path = crate::security::instance_dir(&instance_id)?;
+    let mut items = Vec::new();
+
+    items.push(if instance_path.is_dir() {
+        diagnostic(
+            "instance_dir",
+            "Папка сборки",
+            "ok",
+            instance_path.display().to_string(),
+            None,
+        )
+    } else {
+        diagnostic(
+            "instance_dir",
+            "Папка сборки",
+            "error",
+            "Папка сборки не найдена".to_string(),
+            Some("Откройте папку сборки или переустановите сборку"),
+        )
+    });
+
+    items.push(if !instance.game_version.trim().is_empty() {
+        diagnostic(
+            "game_version",
+            "Версия Minecraft",
+            "ok",
+            instance.game_version.clone(),
+            None,
+        )
+    } else {
+        diagnostic(
+            "game_version",
+            "Версия Minecraft",
+            "error",
+            "Версия не указана".to_string(),
+            Some("Укажите версию в настройках сборки"),
+        )
+    });
+
+    let supported_loader = matches!(
+        instance.loader_type.as_str(),
+        "Vanilla" | "Fabric" | "Forge" | "Quilt" | "NeoForge"
+    );
+    items.push(if supported_loader {
+        diagnostic(
+            "loader",
+            "Загрузчик",
+            "ok",
+            if instance.loader_type == "Vanilla" {
+                "Vanilla".to_string()
+            } else {
+                format!("{} {}", instance.loader_type, instance.loader_version)
+            },
+            None,
+        )
+    } else {
+        diagnostic(
+            "loader",
+            "Загрузчик",
+            "error",
+            format!("Неизвестный загрузчик: {}", instance.loader_type),
+            Some("Выберите поддерживаемый загрузчик в настройках сборки"),
+        )
+    });
+
+    let java_path = instance
+        .java_path
+        .as_deref()
+        .filter(|path| !path.trim().is_empty())
+        .unwrap_or(&settings.java_path);
+    items.push(if java_is_available(java_path) {
+        diagnostic(
+            "java",
+            "Java",
+            "ok",
+            if java_path.trim().is_empty() {
+                "Найдена в PATH".to_string()
+            } else {
+                java_path.to_string()
+            },
+            None,
+        )
+    } else {
+        diagnostic(
+            "java",
+            "Java",
+            "error",
+            if java_path.trim().is_empty() {
+                "Java не найдена в PATH".to_string()
+            } else {
+                format!("Путь не существует: {}", java_path)
+            },
+            Some("Установите Java или выберите корректный путь в настройках"),
+        )
+    });
+
+    let min_memory = instance.min_memory.unwrap_or(settings.min_memory);
+    let max_memory = instance.max_memory.unwrap_or(settings.max_memory);
+    items.push(if min_memory <= max_memory && max_memory >= 1024 {
+        diagnostic(
+            "memory",
+            "Память",
+            "ok",
+            format!("{}–{} МБ", min_memory, max_memory),
+            None,
+        )
+    } else {
+        diagnostic(
+            "memory",
+            "Память",
+            "warning",
+            format!("Некорректный диапазон: {}–{} МБ", min_memory, max_memory),
+            Some("Проверьте минимальный и максимальный объём RAM"),
+        )
+    });
+
+    let mods_path = instance_path.join("mods");
+    let (active_mods, disabled_mods) = if mods_path.is_dir() {
+        fs::read_dir(&mods_path)
+            .ok()
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter_map(|entry| entry.file_name().into_string().ok())
+            .fold((0, 0), |(active, disabled), filename| {
+                if filename.to_ascii_lowercase().ends_with(".jar.disabled") {
+                    (active, disabled + 1)
+                } else if filename.to_ascii_lowercase().ends_with(".jar") {
+                    (active + 1, disabled)
+                } else {
+                    (active, disabled)
+                }
+            })
+    } else {
+        (0, 0)
+    };
+    items.push(diagnostic(
+        "mods",
+        "Моды",
+        "ok",
+        format!("Активных: {}, отключённых: {}", active_mods, disabled_mods),
+        None,
+    ));
+
+    Ok(DiagnosticReport {
+        instance_id,
+        instance_name: instance.name,
+        items,
+    })
+}
+
+#[tauri::command]
 pub async fn delete_mod(instance_id: String, filename: String) -> Result<(), String> {
-    let mut path = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-    path.push("RedPandaLauncher");
-    path.push(&instance_id);
+    let mut path = crate::security::instance_dir(&instance_id)?;
     path.push("mods");
-    path.push(filename);
+    let filename = crate::security::validate_filename(&filename)?;
+    path = crate::security::safe_join(&path, &filename)?;
 
     std::fs::remove_file(path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn get_installed_resourcepacks(instance_id: String) -> Result<Vec<ModInfo>, String> {
-    let mut path = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-    path.push("RedPandaLauncher");
-    path.push(&instance_id);
+    let mut path = crate::security::instance_dir(&instance_id)?;
     path.push("resourcepacks");
 
     let mut packs = Vec::new();
@@ -302,6 +554,7 @@ pub async fn get_installed_resourcepacks(instance_id: String) -> Result<Vec<ModI
                         packs.push(ModInfo {
                             filename,
                             size: metadata.len(),
+                            enabled: true,
                         });
                     }
                 }
@@ -313,20 +566,17 @@ pub async fn get_installed_resourcepacks(instance_id: String) -> Result<Vec<ModI
 
 #[tauri::command]
 pub async fn delete_resourcepack(instance_id: String, filename: String) -> Result<(), String> {
-    let mut path = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-    path.push("RedPandaLauncher");
-    path.push(&instance_id);
+    let mut path = crate::security::instance_dir(&instance_id)?;
     path.push("resourcepacks");
-    path.push(filename);
+    let filename = crate::security::validate_filename(&filename)?;
+    path = crate::security::safe_join(&path, &filename)?;
 
     std::fs::remove_file(path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn get_installed_shaders(instance_id: String) -> Result<Vec<ModInfo>, String> {
-    let mut path = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-    path.push("RedPandaLauncher");
-    path.push(&instance_id);
+    let mut path = crate::security::instance_dir(&instance_id)?;
     path.push("shaderpacks");
 
     let mut shaders = Vec::new();
@@ -339,6 +589,7 @@ pub async fn get_installed_shaders(instance_id: String) -> Result<Vec<ModInfo>, 
                         shaders.push(ModInfo {
                             filename,
                             size: metadata.len(),
+                            enabled: true,
                         });
                     }
                 }
@@ -350,17 +601,17 @@ pub async fn get_installed_shaders(instance_id: String) -> Result<Vec<ModInfo>, 
 
 #[tauri::command]
 pub async fn delete_shader(instance_id: String, filename: String) -> Result<(), String> {
-    let mut path = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-    path.push("RedPandaLauncher");
-    path.push(&instance_id);
+    let mut path = crate::security::instance_dir(&instance_id)?;
     path.push("shaderpacks");
-    path.push(filename);
+    let filename = crate::security::validate_filename(&filename)?;
+    path = crate::security::safe_join(&path, &filename)?;
 
     std::fs::remove_file(path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn update_instance_played(app: AppHandle, id: String) -> Result<(), String> {
+    crate::security::validate_instance_id(&id)?;
     let mut instances = get_instances(app.clone()).await?;
 
     for instance in instances.iter_mut() {
@@ -391,6 +642,7 @@ pub async fn edit_instance(
     loader_type: String,
     loader_version: String,
 ) -> Result<(), String> {
+    crate::security::validate_instance_id(&id)?;
     let mut instances = get_instances(app.clone()).await?;
 
     for instance in instances.iter_mut() {
@@ -411,6 +663,7 @@ pub async fn edit_instance(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn save_instance_settings(
     app: AppHandle,
     id: String,
@@ -421,6 +674,7 @@ pub async fn save_instance_settings(
     window_width: Option<u32>,
     window_height: Option<u32>,
 ) -> Result<(), String> {
+    crate::security::validate_instance_id(&id)?;
     let mut instances = get_instances(app.clone()).await?;
 
     for instance in instances.iter_mut() {
@@ -443,10 +697,7 @@ pub async fn save_instance_settings(
 }
 #[tauri::command]
 pub async fn install_mod_jar(_app: AppHandle, id: String, jar_path: String) -> Result<(), String> {
-    crate::security::validate_instance_id(&id)?;
-    let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-    path.push("RedPandaLauncher");
-    path.push(&id);
+    let mut path = crate::security::instance_dir(&id)?;
     path.push("mods");
 
     fs::create_dir_all(&path).map_err(|e| e.to_string())?;
@@ -465,10 +716,7 @@ pub async fn install_mod_jar(_app: AppHandle, id: String, jar_path: String) -> R
 }
 #[tauri::command]
 pub async fn open_instance_folder(id: String) -> Result<(), String> {
-    crate::security::validate_instance_id(&id)?;
-    let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-    path.push("RedPandaLauncher");
-    path.push(&id);
+    let path = crate::security::instance_dir(&id)?;
 
     // Attempt to open the directory
     #[cfg(target_os = "windows")]
@@ -500,12 +748,9 @@ pub async fn open_instance_folder(id: String) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn open_instance_logs(id: String) -> Result<(), String> {
-    crate::security::validate_instance_id(&id)?;
-    let mut path = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-    path.push("RedPandaLauncher");
-    path.push(&id);
+    let mut path = crate::security::instance_dir(&id)?;
     path.push("logs");
-    
+
     let _ = std::fs::create_dir_all(&path);
 
     #[cfg(target_os = "windows")]
@@ -609,10 +854,7 @@ pub async fn install_resourcepack_zip(
     id: String,
     zip_path: String,
 ) -> Result<(), String> {
-    crate::security::validate_instance_id(&id)?;
-    let mut path = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-    path.push("RedPandaLauncher");
-    path.push(&id);
+    let mut path = crate::security::instance_dir(&id)?;
     path.push("resourcepacks");
 
     fs::create_dir_all(&path).map_err(|e| e.to_string())?;
@@ -636,10 +878,7 @@ pub async fn install_shader_zip(
     id: String,
     zip_path: String,
 ) -> Result<(), String> {
-    crate::security::validate_instance_id(&id)?;
-    let mut path = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-    path.push("RedPandaLauncher");
-    path.push(&id);
+    let mut path = crate::security::instance_dir(&id)?;
     path.push("shaderpacks");
 
     fs::create_dir_all(&path).map_err(|e| e.to_string())?;
@@ -659,6 +898,7 @@ pub async fn install_shader_zip(
 
 #[tauri::command]
 pub async fn rename_instance(app: AppHandle, id: String, new_name: String) -> Result<(), String> {
+    crate::security::validate_instance_id(&id)?;
     let path = get_instances_file(&app);
     if !path.exists() {
         return Err("Instances file not found".into());
@@ -675,23 +915,28 @@ pub async fn rename_instance(app: AppHandle, id: String, new_name: String) -> Re
 
     let updated_data = serde_json::to_string_pretty(&instances).map_err(|e| e.to_string())?;
     fs::write(path, updated_data).map_err(|e| e.to_string())?;
-    
+
     Ok(())
 }
 
 #[tauri::command]
-pub async fn set_instance_icon(app: AppHandle, id: String, icon_path: String) -> Result<(), String> {
-    let mut inst_dir = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-    inst_dir.push("RedPandaLauncher");
-    inst_dir.push(&id);
-    
+pub async fn set_instance_icon(
+    app: AppHandle,
+    id: String,
+    icon_path: String,
+) -> Result<(), String> {
+    let inst_dir = crate::security::instance_dir(&id)?;
+
     fs::create_dir_all(&inst_dir).map_err(|e| e.to_string())?;
-    
+
     // Copy icon to instance directory
-    let ext = std::path::Path::new(&icon_path).extension().and_then(|e| e.to_str()).unwrap_or("png");
+    let ext = std::path::Path::new(&icon_path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("png");
     let dest_filename = format!("icon.{}", ext);
     let dest_path = inst_dir.join(&dest_filename);
-    
+
     fs::copy(&icon_path, &dest_path).map_err(|e| e.to_string())?;
 
     let path = get_instances_file(&app);
@@ -704,20 +949,18 @@ pub async fn set_instance_icon(app: AppHandle, id: String, icon_path: String) ->
 
     let updated_data = serde_json::to_string_pretty(&instances).map_err(|e| e.to_string())?;
     fs::write(path, updated_data).map_err(|e| e.to_string())?;
-    
+
     Ok(())
 }
 
 #[tauri::command]
 pub async fn export_instance(app: AppHandle, id: String, dest_path: String) -> Result<(), String> {
-    let mut inst_dir = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-    inst_dir.push("RedPandaLauncher");
-    inst_dir.push(&id);
-    
+    let inst_dir = crate::security::instance_dir(&id)?;
+
     if !inst_dir.exists() {
         return Err("Instance folder not found".into());
     }
-    
+
     let is_mrpack = dest_path.to_lowercase().ends_with(".mrpack");
     let mut instance_name = "Exported Pack".to_string();
     let mut game_version = "1.20.1".to_string();
@@ -743,13 +986,16 @@ pub async fn export_instance(app: AppHandle, id: String, dest_path: String) -> R
     let mut zip = zip::ZipWriter::new(file);
     let options = zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated);
-        
+
     if is_mrpack {
         use std::io::Write;
-        
+
         let mut deps = serde_json::Map::new();
-        deps.insert("minecraft".to_string(), serde_json::Value::String(game_version));
-        
+        deps.insert(
+            "minecraft".to_string(),
+            serde_json::Value::String(game_version),
+        );
+
         if loader_type != "Vanilla" {
             let loader_key = format!("{}-loader", loader_type.to_lowercase());
             deps.insert(loader_key, serde_json::Value::String(loader_version));
@@ -764,11 +1010,13 @@ pub async fn export_instance(app: AppHandle, id: String, dest_path: String) -> R
             "files": []
         });
 
-        zip.start_file("modrinth.index.json", options).map_err(|e| e.to_string())?;
+        zip.start_file("modrinth.index.json", options)
+            .map_err(|e| e.to_string())?;
         let json_str = serde_json::to_string_pretty(&index).unwrap_or_else(|_| "{}".to_string());
-        zip.write_all(json_str.as_bytes()).map_err(|e| e.to_string())?;
+        zip.write_all(json_str.as_bytes())
+            .map_err(|e| e.to_string())?;
     }
-        
+
     let walkdir = walkdir::WalkDir::new(&inst_dir);
     let it = walkdir.into_iter().filter_map(|e| e.ok());
 
@@ -776,40 +1024,41 @@ pub async fn export_instance(app: AppHandle, id: String, dest_path: String) -> R
         let path = entry.path();
         let name = path.strip_prefix(&inst_dir).unwrap();
         let mut name_str = name.to_string_lossy().replace("\\", "/");
-        
+
         if is_mrpack && !name_str.is_empty() {
             name_str = format!("overrides/{}", name_str);
         }
-        
+
         if path.is_file() {
-            zip.start_file(name_str, options).map_err(|e| e.to_string())?;
+            zip.start_file(name_str, options)
+                .map_err(|e| e.to_string())?;
             let mut f = std::fs::File::open(path).map_err(|e| e.to_string())?;
             std::io::copy(&mut f, &mut zip).map_err(|e| e.to_string())?;
         } else if !name.as_os_str().is_empty() {
-            zip.add_directory(name_str, options).map_err(|e| e.to_string())?;
+            zip.add_directory(name_str, options)
+                .map_err(|e| e.to_string())?;
         }
     }
-    
+
     if is_mrpack {
         // Make sure overrides directory exists explicitly if it was empty
         let _ = zip.add_directory("overrides/", options);
     }
-    
+
     zip.finish().map_err(|e| e.to_string())?;
     Ok(())
 }
 
 pub async fn add_play_time(app: AppHandle, id: String, elapsed_seconds: u64) -> Result<(), String> {
+    crate::security::validate_instance_id(&id)?;
     let mut instances = get_instances(app.clone()).await?;
     if let Some(instance) = instances.iter_mut().find(|i| i.id == id) {
         let current = instance.total_play_time_seconds.unwrap_or(0);
         instance.total_play_time_seconds = Some(current + elapsed_seconds);
-        
+
         let path = get_instances_file(&app);
         let data = serde_json::to_string_pretty(&instances).map_err(|e| e.to_string())?;
         std::fs::write(path, data).map_err(|e| e.to_string())?;
     }
     Ok(())
 }
-
-

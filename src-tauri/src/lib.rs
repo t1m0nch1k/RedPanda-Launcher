@@ -1,6 +1,7 @@
 mod accounts;
 pub mod backup;
 pub mod curseforge;
+pub mod dependencies;
 pub mod discord;
 pub mod import;
 pub mod instances;
@@ -8,11 +9,10 @@ pub mod java;
 mod launcher;
 mod modrinth;
 mod oauth;
+pub mod security;
 pub mod settings;
 pub mod updater;
 mod versions;
-pub mod dependencies;
-pub mod security;
 
 use crate::discord::DiscordState;
 use std::sync::Mutex;
@@ -61,11 +61,12 @@ pub fn run() {
             instances::rename_instance,
             instances::set_instance_icon,
             instances::export_instance,
-
             instances::update_instance_played,
             instances::edit_instance,
             instances::save_instance_settings,
             instances::get_installed_mods,
+            instances::toggle_mod,
+            instances::diagnose_instance,
             instances::delete_mod,
             instances::install_mod_jar,
             instances::open_instance_folder,

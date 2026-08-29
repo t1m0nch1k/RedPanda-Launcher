@@ -11,6 +11,8 @@ export default defineConfig(async () => ({
     target: "esnext",
     minify: "esbuild",
     cssMinify: true,
+    // skinview3d is intentionally loaded on demand and is the only large vendor chunk.
+    chunkSizeWarningLimit: 600,
   },
   optimizeDeps: {
     entries: ["index.html"],

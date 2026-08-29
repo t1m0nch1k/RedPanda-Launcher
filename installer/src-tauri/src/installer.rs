@@ -147,7 +147,7 @@ pub async fn register_uninstaller(target_dir: String) -> Result<(), String> {
 
         key.set_value("DisplayName", &"RedPanda Launcher")
             .map_err(|e| e.to_string())?;
-        key.set_value("DisplayVersion", &"0.2.0")
+        key.set_value("DisplayVersion", &"0.2.2")
             .map_err(|e| e.to_string())?;
         key.set_value("Publisher", &"RedPanda Team")
             .map_err(|e| e.to_string())?;

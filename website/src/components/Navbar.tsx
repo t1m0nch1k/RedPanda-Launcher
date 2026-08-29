@@ -50,7 +50,7 @@ export function Navbar() {
                 REDPANDA
               </span>
               <span className="text-[10px] bg-primary text-black font-bold px-1.5 py-0.5 rounded-none tracking-widest">
-                v0.2.1
+                v0.2.2
               </span>
             </div>
             <p className="text-[10px] text-muted tracking-widest uppercase font-mono">MINECRAFT LAUNCHER</p>
