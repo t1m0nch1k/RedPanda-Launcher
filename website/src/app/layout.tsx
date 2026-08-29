@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { CookieBanner } from "../components/CookieBanner";
 import { ScrollToTop } from "../components/ScrollToTop";
@@ -113,14 +114,22 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
-        {/* Yandex Autoplacement 19834583 */}
-        <script src="https://yandex.ru/ads/system/context.js" async></script>
-        <script data-page-id="19834583" src="https://yandex.ru/ads/system/ap-loader.js" async></script>
       </head>
       <body className="min-h-full flex flex-col antialiased bg-background text-text">
         {children}
         <CookieBanner />
         <ScrollToTop />
+
+        {/* Yandex Autoplacement 19834583 */}
+        <Script
+          src="https://yandex.ru/ads/system/context.js"
+          strategy="afterInteractive"
+        />
+        <Script
+          src="https://yandex.ru/ads/system/ap-loader.js"
+          strategy="afterInteractive"
+          data-page-id="19834583"
+        />
       </body>
     </html>
   );
