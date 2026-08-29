@@ -38,9 +38,9 @@ export default function ContactsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
           {/* Быстрая поддержка */}
           <div className="brutalist-card p-6 sm:p-8 space-y-6">
-            <h2 className="font-display font-bold text-lg text-primary uppercase flex items-center gap-2">
+            <h2 className="font-display font-bold text-base sm:text-lg text-primary uppercase flex items-center gap-2 leading-snug">
               <IconBrandTelegram size={20} />
-              Сообщество & Поддержка
+              <span>Сообщество & Поддержка</span>
             </h2>
             <p className="text-muted text-xs leading-relaxed">
               Оперативное решение вопросов по установке, модам, запуску игры и совместному мультиплееру:
@@ -83,9 +83,9 @@ export default function ContactsPage() {
 
           {/* Безопасность и правообладатели */}
           <div className="brutalist-card p-6 sm:p-8 space-y-6">
-            <h2 className="font-display font-bold text-lg text-primary uppercase flex items-center gap-2">
+            <h2 className="font-display font-bold text-base sm:text-lg text-primary uppercase flex items-center gap-2 leading-snug">
               <IconShieldCheck size={20} />
-              Правообладателям & Security
+              <span>Правообладателям & Security</span>
             </h2>
             <p className="text-muted text-xs leading-relaxed">
               По вопросам авторских прав, товарных знаков и сообщений о критических уязвимостях (Security Vulnerability Reports):
