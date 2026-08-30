@@ -31,4 +31,6 @@ installer/dist/
 installer/src-tauri/target/
 installer/src-tauri/payload.zip
 installer/src-tauri/gen/
+graphify-out/cache/
+
 
