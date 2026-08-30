@@ -6,9 +6,19 @@ import { ScrollToTop } from "../components/ScrollToTop";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.redlauncher.ru"),
-  title: "RedPanda Launcher — Быстрый лаунчер Майнкрафт с модами без рекламы",
-  description: "Скачать RedPanda Launcher v0.2.2 для Windows. Быстрый и лёгкий Minecraft лаунчер на Rust & Tauri с диагностикой сборок и управлением модами. Поддержка Modrinth и CurseForge, e4mc, Steam P2P, 3D скины и 0 рекламы.",
+  title: "RedPanda Launcher (Ред Лаунчер) — Скачать быстрый лаунчер Майнкрафт без рекламы",
+  description: "Скачать RedPanda Launcher (Ред Лаунчер / RedLauncher) v0.2.2 для Windows. Быстрый и лёгкий Minecraft лаунчер на Rust & Tauri с диагностикой сборок и управлением модами. Поддержка Modrinth и CurseForge, e4mc, Steam P2P, 3D скины и 0 рекламы.",
   keywords: [
+    "редлаунчер",
+    "ред лаунчер",
+    "redlauncher",
+    "redlauncher что это",
+    "редлаунчер это",
+    "скачать ред лаунчер",
+    "скачать redlauncher",
+    "скачать ред лаунчер майнкрафт",
+    "redlauncher майнкрафт",
+    "ред панда лаунчер",
     "майнкрафт лаунчер",
     "скачать лаунчер майнкрафт",
     "redpanda launcher",

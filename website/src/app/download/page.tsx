@@ -12,8 +12,8 @@ import {
 } from "@tabler/icons-react";
 
 export const metadata = {
-  title: "Скачать RedPanda Launcher v0.2.2 для Windows — Быстрый лаунчер Minecraft",
-  description: "Скачать официальный установщик RedPanda Launcher v0.2.2 для Windows 10/11 x64. Диагностика сборок, управление модами, Modrinth и CurseForge, игра по сети без портов.",
+  title: "Скачать Ред Лаунчер (RedLauncher / RedPanda Launcher) v0.2.2 для Windows — Бесплатно",
+  description: "Скачать официальный установщик Ред Лаунчера (RedLauncher / RedPanda Launcher) v0.2.2 для Windows 10/11 x64. Быстрый запуск на Rust, моды Modrinth/CurseForge, P2P игра по сети без портов и 0 рекламы.",
 };
 
 export default function DownloadPage() {
