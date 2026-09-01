@@ -30,7 +30,7 @@ export default function DownloadPage() {
             <IconBrandWindows size={16} />
             <span>Windows 10 / 11 (x64) Verified</span>
           </div>
-          <h1 className="font-display font-bold text-4xl sm:text-6xl uppercase tracking-tight text-foreground mb-4">
+          <h1 className="font-display font-bold text-3xl sm:text-6xl uppercase tracking-tight text-foreground mb-4 break-words">
             Скачать RedPanda Launcher
           </h1>
           <p className="text-muted text-sm sm:text-base max-w-2xl mx-auto leading-relaxed font-mono">
@@ -42,7 +42,7 @@ export default function DownloadPage() {
         <div className="brutalist-card p-8 sm:p-12 mb-12 border-primary/60 brutalist-shadow-orange text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-8">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3">
-              <span className="font-display font-bold text-2xl sm:text-3xl text-foreground">
+              <span className="font-display font-bold text-xl sm:text-3xl text-foreground break-all">
                 RedPanda_Setup_0.2.2.exe
               </span>
               <span className="bg-primary text-black font-bold font-mono text-[10px] uppercase px-2 py-0.5 tracking-wider">
@@ -64,7 +64,7 @@ export default function DownloadPage() {
 
           <a
             href={downloadUrl}
-            className="flex items-center gap-3 bg-primary hover:bg-primary-hover text-black px-8 py-4 font-display font-bold text-sm uppercase tracking-wider transition-all brutalist-button shrink-0"
+            className="w-full sm:w-auto flex items-center justify-center gap-3 bg-primary hover:bg-primary-hover text-black px-6 sm:px-8 py-4 font-display font-bold text-sm uppercase tracking-wider transition-all brutalist-button shrink-0"
           >
             <IconDownload size={22} />
             <span>Скачать (.exe)</span>
@@ -80,23 +80,23 @@ export default function DownloadPage() {
               <span>Системные требования</span>
             </h2>
             <div className="space-y-3 font-mono text-xs">
-              <div className="flex justify-between py-2 border-b border-border">
+              <div className="flex flex-col sm:flex-row sm:justify-between gap-1 py-2 border-b border-border">
                 <span className="text-muted">ОС:</span>
                 <span className="text-foreground font-bold">Windows 10 / 11 (64-bit)</span>
               </div>
-              <div className="flex justify-between py-2 border-b border-border">
+              <div className="flex flex-col sm:flex-row sm:justify-between gap-1 py-2 border-b border-border">
                 <span className="text-muted">Процессор:</span>
                 <span className="text-foreground">Intel Core i3 / AMD Ryzen 3+</span>
               </div>
-              <div className="flex justify-between py-2 border-b border-border">
+              <div className="flex flex-col sm:flex-row sm:justify-between gap-1 py-2 border-b border-border">
                 <span className="text-muted">Оперативная память:</span>
                 <span className="text-foreground font-bold">4 ГБ (Рекомендуется 8 ГБ+)</span>
               </div>
-              <div className="flex justify-between py-2 border-b border-border">
+              <div className="flex flex-col sm:flex-row sm:justify-between gap-1 py-2 border-b border-border">
                 <span className="text-muted">Дисковое пространство:</span>
                 <span className="text-foreground">150 МБ для лаунчера + игра</span>
               </div>
-              <div className="flex justify-between py-2">
+              <div className="flex flex-col sm:flex-row sm:justify-between gap-1 py-2">
                 <span className="text-muted">Java Runtime:</span>
                 <span className="text-emerald-400 font-bold">Авто-загрузка (JDK 8/17/21)</span>
               </div>

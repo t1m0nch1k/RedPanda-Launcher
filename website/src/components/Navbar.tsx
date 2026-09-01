@@ -31,10 +31,10 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-2 sm:gap-4">
         {/* Логотип и бренд */}
         <Link href="/" className="flex items-center gap-3 group shrink-0">
-          <div className="w-10 h-10 p-1 bg-card border border-border group-hover:border-primary flex items-center justify-center transition-colors brutalist-shadow-orange">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 p-1 bg-card border border-border group-hover:border-primary flex items-center justify-center transition-colors brutalist-shadow-orange">
             <Image
               src="/logo.png"
               width={32}
@@ -46,14 +46,14 @@ export function Navbar() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-display font-bold text-base sm:text-lg tracking-wider text-foreground group-hover:text-primary transition-colors">
+              <span className="font-display font-bold text-sm sm:text-lg tracking-wider text-foreground group-hover:text-primary transition-colors">
                 REDPANDA
               </span>
-              <span className="text-[10px] bg-primary text-black font-bold px-1.5 py-0.5 rounded-none tracking-widest">
+              <span className="hidden sm:inline text-[10px] bg-primary text-black font-bold px-1.5 py-0.5 rounded-none tracking-widest">
                 v0.2.2
               </span>
             </div>
-            <p className="text-[10px] text-muted tracking-widest uppercase font-mono">MINECRAFT LAUNCHER</p>
+            <p className="hidden sm:block text-[10px] text-muted tracking-widest uppercase font-mono">MINECRAFT LAUNCHER</p>
           </div>
         </Link>
 
@@ -111,7 +111,7 @@ export function Navbar() {
         <div className="lg:hidden flex items-center gap-2">
           <Link
             href="/download"
-            className="flex items-center gap-1 bg-primary text-black px-3 py-1.5 font-display font-bold text-xs uppercase"
+            className="flex items-center gap-1 bg-primary text-black px-2.5 py-2 font-display font-bold text-[10px] uppercase min-h-10"
           >
             <IconDownload size={14} />
             <span>Скачать</span>
@@ -128,7 +128,7 @@ export function Navbar() {
 
       {/* Мобильное выпадающее меню */}
       {mobileMenuOpen && (
-        <div className="lg:hidden border-b border-border bg-card/98 px-4 py-4 space-y-2 backdrop-blur-xl">
+        <div className="lg:hidden border-b border-border bg-card/98 px-3 sm:px-4 py-3 sm:py-4 space-y-2 backdrop-blur-xl">
           <nav className="flex flex-col space-y-1 font-mono text-xs uppercase">
             {navLinks.map((link) => {
               const isActive = pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href));
@@ -137,7 +137,7 @@ export function Navbar() {
                   key={link.href}
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`px-3 py-2.5 flex items-center justify-between border ${
+                  className={`px-3 py-3 flex items-center justify-between border min-h-11 ${
                     isActive
                       ? "border-primary bg-primary/10 text-primary font-bold"
                       : "border-transparent text-muted hover:text-foreground hover:bg-background/50"

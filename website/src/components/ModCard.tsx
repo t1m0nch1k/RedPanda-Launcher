@@ -20,7 +20,7 @@ export function ModCard({ mod }: { mod: ModItem }) {
           <div className="w-6 h-6 bg-primary/10 border border-primary/40 flex items-center justify-center text-primary font-bold text-xs shrink-0">
             {mod.name[0]}
           </div>
-          <h3 className="font-display font-bold text-base text-foreground group-hover:text-primary transition-colors">
+          <h3 className="font-display font-bold text-base text-foreground group-hover:text-primary transition-colors break-words">
             {mod.name}
           </h3>
         </div>
@@ -34,7 +34,7 @@ export function ModCard({ mod }: { mod: ModItem }) {
         </p>
       </div>
 
-      <div className="pt-3 border-t border-border flex items-center justify-between gap-2">
+      <div className="pt-3 border-t border-border flex flex-wrap items-start justify-between gap-2">
         <div className="flex flex-wrap gap-1">
           {mod.loaders.map((l) => (
             <span
@@ -46,7 +46,7 @@ export function ModCard({ mod }: { mod: ModItem }) {
           ))}
         </div>
 
-        <span className="text-[10px] font-mono text-primary font-bold uppercase tracking-wider">
+        <span className="text-[10px] font-mono text-primary font-bold uppercase tracking-wider whitespace-nowrap">
           В каталоге ✔
         </span>
       </div>

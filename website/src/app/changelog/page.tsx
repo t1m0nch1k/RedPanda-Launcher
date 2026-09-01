@@ -60,7 +60,7 @@ export default function ChangelogPage() {
                   href={rel.downloadUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-black px-4 py-2 font-display font-bold text-xs uppercase tracking-wider transition-all brutalist-button"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-black px-4 py-2 font-display font-bold text-xs uppercase tracking-wider transition-all brutalist-button"
                 >
                   <IconDownload size={16} />
                   <span>Скачать setup ({rel.fileSize})</span>

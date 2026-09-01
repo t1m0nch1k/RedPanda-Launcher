@@ -5,7 +5,7 @@ import { IconBrandTelegram, IconBrandGithub, IconArrowUpRight, IconShieldCheck, 
 
 export function Footer() {
   return (
-    <footer className="border-t border-border bg-card/60 pt-16 pb-10 font-mono text-xs">
+    <footer className="border-t border-border bg-card/60 pt-10 sm:pt-16 pb-8 sm:pb-10 font-mono text-xs">
       <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-border">
           {/* Бренд */}
@@ -27,12 +27,12 @@ export function Footer() {
             <p className="text-muted leading-relaxed text-xs max-w-sm">
               Высокопроизводительный Open-Source лаунчер Minecraft нового поколения на стеке Rust & Tauri. Поддержка Modrinth, CurseForge, P2P игра по сети без открытия портов и нулевая реклама.
             </p>
-            <div className="flex items-center gap-3 pt-2">
+            <div className="flex flex-wrap items-center gap-2.5 pt-2">
               <a
                 href="https://t.me/redpanda_launcher"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-background border border-border text-muted hover:text-foreground hover:border-primary transition-colors text-[11px]"
+                className="flex items-center gap-1.5 px-3 py-2 min-h-10 bg-background border border-border text-muted hover:text-foreground hover:border-primary transition-colors text-[11px]"
               >
                 <IconBrandTelegram size={14} className="text-sky-400" />
                 <span>@redpanda_launcher</span>
@@ -41,7 +41,7 @@ export function Footer() {
                 href="https://github.com/t1m0nch1k/RedPanda-Launcher"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-background border border-border text-muted hover:text-foreground hover:border-primary transition-colors text-[11px]"
+                className="flex items-center gap-1.5 px-3 py-2 min-h-10 bg-background border border-border text-muted hover:text-foreground hover:border-primary transition-colors text-[11px]"
               >
                 <IconBrandGithub size={14} className="text-primary" />
                 <span>GitHub</span>
@@ -155,7 +155,7 @@ export function Footer() {
         </div>
 
         {/* Нижняя панель правовой информации (Legal Strip) */}
-        <div className="pt-5 flex flex-wrap items-center justify-between gap-y-3 gap-x-6 text-[11px] text-muted">
+        <div className="pt-5 flex flex-col items-start gap-4 text-[11px] text-muted sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
             <Link href="/privacy" className="hover:text-foreground transition-colors">
               Конфиденциальность и файлы cookie
@@ -174,7 +174,7 @@ export function Footer() {
             </Link>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <span>© 2026 RedPanda Launcher</span>
             <Link
               href="/privacy"

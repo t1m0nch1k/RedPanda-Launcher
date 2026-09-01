@@ -19,7 +19,7 @@ export function NewsCard({ article }: { article: MinecraftArticle }) {
           )}
         </div>
 
-        <h3 className="font-display font-bold text-lg text-foreground group-hover:text-primary transition-colors leading-snug mb-2.5">
+        <h3 className="font-display font-bold text-lg text-foreground group-hover:text-primary transition-colors leading-snug mb-2.5 break-words">
           <Link href={`/minecraft-news/${article.slug}`}>
             {article.title}
           </Link>
@@ -30,8 +30,8 @@ export function NewsCard({ article }: { article: MinecraftArticle }) {
         </p>
       </div>
 
-      <div className="pt-4 border-t border-border flex items-center justify-between text-muted text-[11px] font-mono">
-        <div className="flex items-center gap-3">
+      <div className="pt-4 border-t border-border flex flex-wrap items-center justify-between gap-3 text-muted text-[11px] font-mono">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="flex items-center gap-1">
             <IconCalendar size={13} />
             <span>{article.date}</span>

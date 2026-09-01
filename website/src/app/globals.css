@@ -32,6 +32,21 @@ body {
   position: relative;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
+button,
+a,
+input {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a {
+  touch-action: manipulation;
+}
+
 /* Noise overlay (2026 Grain pattern) */
 body::before {
   content: "";
@@ -86,7 +101,11 @@ h1, h2, h3, h4, h5, h6 {
 .brutalist-card {
   background-color: var(--card);
   border: 1px solid var(--border);
-  padding: 2rem;
+  padding: clamp(1rem, 3vw, 2rem);
+}
+
+.brutalist-card.p-0 {
+  padding: 0;
 }
 
 .brutalist-grid {
@@ -107,4 +126,18 @@ h1, h2, h3, h4, h5, h6 {
 
 .animate-marquee:hover {
   animation-play-state: paused;
+}
+
+@media (max-width: 639px) {
+  .brutalist-button {
+    box-shadow: 3px 3px 0px #000;
+  }
+
+  .brutalist-shadow-orange {
+    box-shadow: 4px 4px 0px var(--primary);
+  }
+
+  .brutalist-shadow-orange:hover {
+    box-shadow: 5px 5px 0px var(--primary);
+  }
 }

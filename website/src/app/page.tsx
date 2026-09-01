@@ -73,7 +73,7 @@ export default function Home() {
       <Navbar />
 
       {/* Hero Section */}
-      <main className="pt-16 pb-20 px-4 sm:px-6 lg:px-8 max-w-[1400px] mx-auto flex flex-col items-start justify-center min-h-[80vh] relative w-full">
+      <main className="pt-10 sm:pt-16 pb-14 sm:pb-20 px-4 sm:px-6 lg:px-8 max-w-[1400px] mx-auto flex flex-col items-start justify-center sm:min-h-[80vh] relative w-full">
         {/* Floating System Status Badge */}
         <div className="hidden lg:block absolute top-16 right-8 p-4 bg-card border border-border font-mono text-xs text-muted w-72">
           <div className="text-primary font-bold mb-2 flex items-center gap-2">
@@ -93,7 +93,7 @@ export default function Home() {
           <div className="mb-8 p-4 bg-card border border-border inline-block relative brutalist-shadow-orange">
              <div className="absolute -top-3 -left-3 w-6 h-6 border-t-2 border-l-2 border-primary"></div>
              <div className="absolute -bottom-3 -right-3 w-6 h-6 border-b-2 border-r-2 border-primary"></div>
-             <Image src="/logo.png" width={90} height={90} alt="RedPanda Launcher Logo" className="object-contain" priority />
+             <Image src="/logo.png" width={90} height={90} alt="RedPanda Launcher Logo" className="w-[72px] h-[72px] sm:w-[90px] sm:h-[90px] object-contain" priority />
           </div>
           
           <h1 className="hero-title text-white mb-4 uppercase font-bold tracking-tight">
@@ -102,7 +102,7 @@ export default function Home() {
 
           {/* Dynamic Typed-Effect Badge */}
           <div className="h-10 mb-6 flex items-center">
-            <span className="text-xl md:text-2xl text-primary font-bold font-mono transition-all duration-300">
+            <span className="text-sm sm:text-xl md:text-2xl text-primary font-bold font-mono transition-all duration-300 break-all">
               {typedPhrases[typedIndex]}
             </span>
           </div>
@@ -115,13 +115,13 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
             <Link 
               href="/download" 
-              className="w-full sm:w-auto flex items-center justify-center gap-3 bg-primary hover:bg-primary-hover text-black px-8 py-4 font-bold text-base transition-all cursor-pointer uppercase brutalist-button"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 sm:gap-3 bg-primary hover:bg-primary-hover text-black px-4 sm:px-8 py-4 font-bold text-sm sm:text-base leading-tight transition-all cursor-pointer uppercase brutalist-button"
             >
               <IconDownload size={22} /> СКАЧАТЬ_SETUP_v0.2.2.EXE
             </Link>
             <Link 
               href="/minecraft-news" 
-              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-card hover:bg-background border border-border text-white px-6 py-4 font-bold text-base transition-colors cursor-pointer uppercase"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-card hover:bg-background border border-border text-white px-4 sm:px-6 py-4 font-bold text-sm sm:text-base leading-tight transition-colors cursor-pointer uppercase"
             >
               <IconNews size={18} className="text-primary" /> НОВОСТИ_И_ГАЙДЫ
             </Link>
@@ -132,10 +132,10 @@ export default function Home() {
       {/* Metrics Section */}
       <section id="metrics" className="py-14 border-t border-b border-border bg-card/60">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-8">
             {metrics.map((m, idx) => (
-              <div key={idx} className="p-5 sm:p-6 bg-background border border-border brutalist-shadow-orange">
-                <div className="text-3xl md:text-5xl font-bold font-display text-primary mb-1 sm:mb-2">{m.value}</div>
+              <div key={idx} className="p-4 sm:p-6 bg-background border border-border brutalist-shadow-orange">
+                <div className="text-2xl sm:text-3xl md:text-5xl font-bold font-display text-primary mb-1 sm:mb-2">{m.value}</div>
                 <div className="text-xs sm:text-sm font-bold text-white uppercase mb-1">{m.label}</div>
                 <div className="text-[11px] sm:text-xs text-muted font-mono">{`// ${m.sub}`}</div>
               </div>
@@ -147,7 +147,7 @@ export default function Home() {
       {/* Section: Свежие новости Minecraft */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 border-b border-border">
         <div className="max-w-[1400px] mx-auto">
-          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 mb-12 border-l-4 border-primary pl-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 mb-10 sm:mb-12 border-l-4 border-primary pl-4 sm:pl-6">
             <div>
               <div className="flex items-center gap-2 text-primary font-mono text-xs uppercase tracking-widest mb-1">
                 <IconNews size={16} />
@@ -175,7 +175,7 @@ export default function Home() {
       {/* Section: Последний релиз лаунчера v0.2.2 */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 border-b border-border bg-card/40">
         <div className="max-w-[1400px] mx-auto">
-          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 mb-12 border-l-4 border-primary pl-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 mb-10 sm:mb-12 border-l-4 border-primary pl-4 sm:pl-6">
             <div>
               <div className="flex items-center gap-2 text-primary font-mono text-xs uppercase tracking-widest mb-1">
                 <IconHistory size={16} />
@@ -194,7 +194,7 @@ export default function Home() {
 
           <div className="brutalist-card p-6 sm:p-10 border-primary/50">
             <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-border mb-6">
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <span className="font-display font-bold text-3xl text-primary">{latestRelease.version}</span>
                 <span className="bg-primary text-black font-bold font-mono text-[10px] uppercase px-2 py-0.5 tracking-wider">
                   STABLE RELEASE
@@ -203,7 +203,7 @@ export default function Home() {
               </div>
               <Link
                 href="/download"
-                className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-black px-4 py-2 font-display font-bold text-xs uppercase brutalist-button"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-black px-4 py-2 font-display font-bold text-xs uppercase brutalist-button"
               >
                 <IconDownload size={16} />
                 <span>Установить v0.2.2</span>
@@ -230,9 +230,9 @@ export default function Home() {
       </section>
 
       {/* Gallery Section */}
-      <section id="gallery" className="py-20 border-b border-border bg-card">
+      <section id="gallery" className="py-20 border-b border-border bg-card overflow-hidden">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-12 border-l-4 border-primary pl-6">
+          <div className="mb-10 sm:mb-12 border-l-4 border-primary pl-4 sm:pl-6">
             <h2 className="text-white mb-2 font-bold">ИНТЕРФЕЙС ЛАУНЧЕРА</h2>
             <p className="text-muted font-mono">{"// Чистый кибер-брутализм без рекламы"}</p>
           </div>
@@ -254,7 +254,13 @@ export default function Home() {
                   className="h-[240px] sm:h-[350px] md:h-[450px] lg:h-[500px] flex-shrink-0 border border-border bg-background p-2 relative group hover:border-primary transition-all duration-300"
                   style={{ aspectRatio: `${item.w} / ${item.h}` }}
                 >
-                  <Image src={`/screenshots/screenshot_${item.num}.png`} fill alt={`Launcher Screenshot ${item.num}`} className="object-cover" />
+                  <Image
+                    src={`/screenshots/screenshot_${item.num}.png`}
+                    fill
+                    sizes="(max-width: 640px) 70vw, 500px"
+                    alt={`Launcher Screenshot ${item.num}`}
+                    className="object-cover"
+                  />
                 </div>
               ))}
             </div>
@@ -265,7 +271,7 @@ export default function Home() {
       {/* Features */}
       <section id="features" className="py-24 px-4 sm:px-6 lg:px-8 border-b border-border">
         <div className="max-w-[1400px] mx-auto">
-          <div className="mb-16 border-l-4 border-primary pl-6">
+          <div className="mb-12 sm:mb-16 border-l-4 border-primary pl-4 sm:pl-6">
             <h2 className="text-white mb-2 font-bold">ОСНОВНЫЕ ВОЗМОЖНОСТИ</h2>
             <p className="text-muted font-mono">{"// Всё, что нужно для комфортной игры в Майнкрафт"}</p>
           </div>
@@ -290,7 +296,7 @@ export default function Home() {
       {/* Section: Каталог модов превью */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 border-b border-border bg-card/30">
         <div className="max-w-[1400px] mx-auto">
-          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 mb-12 border-l-4 border-primary pl-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 mb-10 sm:mb-12 border-l-4 border-primary pl-4 sm:pl-6">
             <div>
               <div className="flex items-center gap-2 text-primary font-mono text-xs uppercase tracking-widest mb-1">
                 <IconPuzzle size={16} />
@@ -318,7 +324,7 @@ export default function Home() {
       {/* SEO FAQ Section */}
       <section id="faq" className="py-24 px-4 sm:px-6 lg:px-8 border-b border-border bg-card/40">
         <div className="max-w-[1000px] mx-auto">
-          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 mb-14 border-l-4 border-primary pl-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 mb-10 sm:mb-14 border-l-4 border-primary pl-4 sm:pl-6">
             <div>
               <h2 className="text-white font-bold uppercase font-display flex items-center gap-3">
                 <IconHelp className="text-primary" size={30} />
@@ -345,7 +351,7 @@ export default function Home() {
                 >
                   <button
                     onClick={() => setOpenFaq(isOpen ? null : idx)}
-                    className="w-full p-5 text-left flex items-center justify-between gap-4 cursor-pointer hover:bg-card-hover transition-colors"
+                    className="w-full p-4 sm:p-5 text-left flex items-center justify-between gap-3 sm:gap-4 min-h-14 cursor-pointer hover:bg-card-hover transition-colors"
                   >
                     <span className="font-bold text-white text-sm sm:text-base font-display flex items-center gap-3">
                       <span className="text-primary font-mono text-xs">0{idx + 1}.</span>
