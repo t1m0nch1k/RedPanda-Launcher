@@ -62,32 +62,37 @@ fn read_instances_unlocked(app: &AppHandle) -> Result<Vec<Instance>, String> {
     let mut migrated_instances = Vec::new();
 
     for mut instance in instances_raw {
-        // If the ID is a valid UUID, we migrate it to a readable folder name
-        if Uuid::parse_str(&instance.id).is_ok() {
+        // If the ID is a valid UUID or contains non-ASCII characters, migrate it to a clean ASCII folder name
+        if Uuid::parse_str(&instance.id).is_ok() || !instance.id.is_ascii() {
             let new_id = generate_instance_id(&instance.name, &migrated_instances);
+            if new_id != instance.id {
+                let mut old_dir = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
+                old_dir.push("RedPandaLauncher");
+                old_dir.push(&instance.id);
 
-            let mut old_dir = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-            old_dir.push("RedPandaLauncher");
-            old_dir.push(&instance.id);
+                let mut new_dir = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
+                new_dir.push("RedPandaLauncher");
+                new_dir.push(&new_id);
 
-            let mut new_dir = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-            new_dir.push("RedPandaLauncher");
-            new_dir.push(&new_id);
-
-            if old_dir.exists() && new_dir.exists() {
-                return Err(format!(
-                    "Cannot migrate instance {}: target already exists",
-                    instance.id
-                ));
-            }
-            if old_dir.exists() {
-                if let Err(e) = fs::rename(&old_dir, &new_dir) {
-                    return Err(format!("Failed to migrate instance {}: {e}", instance.id));
+                if old_dir.exists() && !new_dir.exists() {
+                    if let Err(e) = fs::rename(&old_dir, &new_dir) {
+                        log::warn!(
+                            "Failed to rename instance directory from {} to {}: {e}",
+                            old_dir.display(),
+                            new_dir.display()
+                        );
+                    }
                 }
-            }
 
-            instance.id = new_id;
-            needs_save = true;
+                if let Some(ref icon) = instance.icon_path {
+                    if icon.contains(&instance.id) {
+                        instance.icon_path = Some(icon.replace(&instance.id, &new_id));
+                    }
+                }
+
+                instance.id = new_id;
+                needs_save = true;
+            }
         }
 
         // Auto-heal missing or blank loader_version

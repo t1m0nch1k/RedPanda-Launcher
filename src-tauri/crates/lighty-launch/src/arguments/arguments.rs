@@ -314,7 +314,38 @@ fn create_variable_map<T: VersionInfo>(
         // pipeline so mods land where the game actually scans for them.
         let game_dir = to_short_path(version.runtime_dir());
         let assets_root = to_short_path(&version.game_dirs().join("assets"));
-        let natives_dir = to_short_path(&version.game_dirs().join("natives"));
+        let natives_dir = {
+            let direct = version.game_dirs().join("natives");
+            #[cfg(windows)]
+            {
+                if !direct.to_string_lossy().is_ascii() {
+                    if let Ok(pd) = std::env::var("PROGRAMDATA") {
+                        let pd_path = std::path::PathBuf::from(pd)
+                            .join("RedPandaLauncher")
+                            .join("natives")
+                            .join(version.name());
+                        let _ = std::fs::create_dir_all(&pd_path);
+                        if let Ok(entries) = std::fs::read_dir(&direct) {
+                            for entry in entries.flatten() {
+                                let p = entry.path();
+                                if p.is_file() {
+                                    if let Some(name) = p.file_name() {
+                                        let _ = std::fs::copy(&p, pd_path.join(name));
+                                    }
+                                }
+                            }
+                        }
+                        pd_path
+                    } else {
+                        to_short_path(&direct)
+                    }
+                } else {
+                    direct
+                }
+            }
+            #[cfg(not(windows))]
+            direct
+        };
         let lib_dir = to_short_path(&version.game_dirs().join("libraries"));
 
         map.insert(KEY_GAME_DIRECTORY.into(), game_dir.display().to_string());

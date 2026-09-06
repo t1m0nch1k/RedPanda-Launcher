@@ -89,6 +89,29 @@ pub async fn download_and_extract_natives(
         lighty_core::trace_info!("[Installer] Natives extracted");
     }
 
+    #[cfg(windows)]
+    if !natives_extract_path.to_string_lossy().is_ascii() {
+        if let Ok(pd) = std::env::var("PROGRAMDATA") {
+            let pd_path = std::path::PathBuf::from(pd)
+                .join("RedPandaLauncher")
+                .join("natives")
+                .join(version.name());
+            let _ = tokio::fs::create_dir_all(&pd_path).await;
+            if let Ok(mut entries) = tokio::fs::read_dir(&natives_extract_path).await {
+                while let Ok(Some(entry)) = entries.next_entry().await {
+                    let path = entry.path();
+                    if let Ok(meta) = entry.metadata().await {
+                        if meta.is_file() {
+                            if let Some(file_name) = path.file_name() {
+                                let _ = tokio::fs::copy(&path, pd_path.join(file_name)).await;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     Ok(())
 }
 

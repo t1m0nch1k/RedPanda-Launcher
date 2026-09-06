@@ -248,10 +248,40 @@ async fn launch_game_internal(
 
     if let Ok(mut inst_path) = crate::security::instance_dir(&instance_id) {
         inst_path.push("natives");
-        let inst_path = crate::security::to_short_path(&inst_path);
+        let _ = std::fs::create_dir_all(&inst_path);
+
+        let effective_natives = if !inst_path.to_string_lossy().is_ascii() {
+            if let Ok(pd) = std::env::var("PROGRAMDATA") {
+                let pd_path = std::path::PathBuf::from(pd)
+                    .join("RedPandaLauncher")
+                    .join("natives")
+                    .join(&instance_id);
+                let _ = std::fs::create_dir_all(&pd_path);
+                if let Ok(entries) = std::fs::read_dir(&inst_path) {
+                    for entry in entries.flatten() {
+                        let p = entry.path();
+                        if p.is_file() {
+                            if let Some(name) = p.file_name() {
+                                let _ = std::fs::copy(&p, pd_path.join(name));
+                            }
+                        }
+                    }
+                }
+                pd_path
+            } else {
+                crate::security::to_short_path(&inst_path)
+            }
+        } else {
+            inst_path
+        };
+
         jvm_builder = jvm_builder.set(
             "Dorg.lwjgl.librarypath",
-            inst_path.to_string_lossy().to_string(),
+            effective_natives.to_string_lossy().to_string(),
+        );
+        jvm_builder = jvm_builder.set(
+            "Djava.library.path",
+            effective_natives.to_string_lossy().to_string(),
         );
     }
 
