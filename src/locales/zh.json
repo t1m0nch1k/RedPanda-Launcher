@@ -43,8 +43,11 @@
       "settings": "设置 (编辑...)",
       "play": "开始游戏",
       "folder": "文件夹",
+      "logs": "打开日志",
       "rename": "重命名",
+      "duplicate": "复制实例",
       "icon": "更改图标",
+      "desktop_shortcut": "创建桌面快捷方式",
       "export": "导出...",
       "delete": "删除"
     }

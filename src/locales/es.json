@@ -43,8 +43,11 @@
       "settings": "Ajustes (Editar...)",
       "play": "Jugar",
       "folder": "Carpeta",
+      "logs": "Abrir registros",
       "rename": "Renombrar",
+      "duplicate": "Duplicar",
       "icon": "Cambiar Icono",
+      "desktop_shortcut": "Crear acceso directo en el escritorio",
       "export": "Exportar...",
       "delete": "Eliminar"
     }

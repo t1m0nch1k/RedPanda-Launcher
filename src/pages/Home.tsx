@@ -195,10 +195,36 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
 
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, instanceId: string } | null>(null);
 
+  const handleOpenContextMenu = (e: React.MouseEvent, instanceId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const menuWidth = 240;
+    const menuHeight = 440;
+    const padding = 12;
+
+    let x = e.clientX;
+    let y = e.clientY;
+
+    if (x + menuWidth > window.innerWidth - padding) {
+      x = Math.max(padding, window.innerWidth - menuWidth - padding);
+    }
+    if (y + menuHeight > window.innerHeight - padding) {
+      y = Math.max(padding, window.innerHeight - menuHeight - padding);
+    }
+
+    setContextMenu({ x, y, instanceId });
+  };
+
   useEffect(() => {
-    const handleGlobalClick = () => setContextMenu(null);
-    window.addEventListener("click", handleGlobalClick);
-    return () => window.removeEventListener("click", handleGlobalClick);
+    const handleClose = () => setContextMenu(null);
+    window.addEventListener("click", handleClose);
+    window.addEventListener("contextmenu", handleClose);
+    window.addEventListener("resize", handleClose);
+    return () => {
+      window.removeEventListener("click", handleClose);
+      window.removeEventListener("contextmenu", handleClose);
+      window.removeEventListener("resize", handleClose);
+    };
   }, []);
 
   useEffect(() => {
@@ -506,10 +532,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
         {currentInstance ? (
         <div 
           className="relative group rounded-none bg-card brutalist-border transition-colors hover:border-border/80 flex "
-          onContextMenu={(e) => { 
-            e.preventDefault(); 
-            setContextMenu({ x: e.clientX, y: e.clientY, instanceId: currentInstance.id }); 
-          }}
+          onContextMenu={(e) => handleOpenContextMenu(e, currentInstance.id)}
         >
           <div className="relative z-10 flex w-full p-6 items-center justify-between">
             <div className="flex items-center gap-6">
@@ -723,10 +746,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
               <button
                 key={inst.id}
                 onClick={() => onSelectInstance(inst.id)}
-                onContextMenu={(e) => { 
-                  e.preventDefault(); 
-                  setContextMenu({ x: e.clientX, y: e.clientY, instanceId: inst.id }); 
-                }}
+                onContextMenu={(e) => handleOpenContextMenu(e, inst.id)}
                 className={`flex flex-col bg-card rounded-none p-5 text-left transition-colors border group ${
                   isSelected 
                     ? "border-primary  " 
@@ -828,8 +848,10 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
 
       {contextMenu && (
         <div 
-          className="fixed z-50 bg-card brutalist-border rounded-none  py-1 min-w-[220px] animate-in fade-in zoom-in-95 duration-100"
+          className="fixed z-50 bg-card brutalist-border rounded-none py-1 min-w-[240px] max-h-[calc(100vh-24px)] overflow-y-auto custom-scrollbar shadow-2xl animate-in fade-in zoom-in-95 duration-100"
           style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
         >
           <div className="px-3 py-2 border-b border-border mb-1">
             <span className="text-xs font-semibold text-muted">{t("home.context_menu.options")}</span>
@@ -869,7 +891,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                   setContextMenu(null); 
               }}
             >
-              <FileText size={14} /> {t("home.context_menu.logs") || "Logs"}
+              <FileText size={14} /> {t("home.context_menu.logs")}
             </button>
           
           <div className="my-1 border-t border-border" />
@@ -903,7 +925,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                 }
             }}
           >
-             <Copy size={14} /> Дублировать
+             <Copy size={14} /> {t("home.context_menu.duplicate")}
           </button>
           
           <button 
