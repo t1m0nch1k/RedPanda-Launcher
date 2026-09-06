@@ -54,15 +54,57 @@ function SceneBadge({ children, color = "#F55E1D" }: { children: React.ReactNode
   );
 }
 
+interface SceneTimeline {
+  hook: { from: number; duration: number };
+  themes: { from: number; duration: number };
+  dependencies: { from: number; duration: number };
+  engine: { from: number; duration: number };
+  cta: { from: number; duration: number };
+}
+
+function getTimeline(totalFrames: number): SceneTimeline {
+  if (totalFrames >= 700) {
+    // 27 seconds (810 frames at 30 fps)
+    const hook = 140; // 4.67s
+    const themes = 190; // 6.33s
+    const dep = 200; // 6.67s
+    const engine = 150; // 5.00s
+    const cta = totalFrames - (hook + themes + dep + engine); // 130 frames / 4.33s
+    return {
+      hook: { from: 0, duration: hook },
+      themes: { from: hook, duration: themes },
+      dependencies: { from: hook + themes, duration: dep },
+      engine: { from: hook + themes + dep, duration: engine },
+      cta: { from: hook + themes + dep + engine, duration: cta },
+    };
+  } else {
+    // 17 seconds (510 frames at 30 fps)
+    const hook = 90; // 3.00s
+    const themes = 120; // 4.00s
+    const dep = 120; // 4.00s
+    const engine = 95; // 3.17s
+    const cta = totalFrames - (hook + themes + dep + engine); // 85 frames / 2.83s
+    return {
+      hook: { from: 0, duration: hook },
+      themes: { from: hook, duration: themes },
+      dependencies: { from: hook + themes, duration: dep },
+      engine: { from: hook + themes + dep, duration: engine },
+      cta: { from: hook + themes + dep + engine, duration: cta },
+    };
+  }
+}
+
 // ==========================================
-// SCENE 1: THE HOOK (Frames 0 - 85 / ~2.8s)
+// SCENE 1: THE HOOK
 // ==========================================
-function HookScene({ version }: { version: string }) {
+function HookScene({ version, durationInFrames }: { version: string; durationInFrames: number }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
+  const isLong = durationInFrames > 100;
   const titleSpring = spring({ frame, fps, config: { damping: 12, stiffness: 120 } });
-  const cardSpring = spring({ frame: frame - 20, fps, config: { damping: 14, stiffness: 100 } });
+  const cardDelay = isLong ? 26 : 18;
+  const cardSpring = spring({ frame: frame - cardDelay, fps, config: { damping: 14, stiffness: 100 } });
   const pulse = Math.sin(frame / 6) * 6;
 
   return (
@@ -165,13 +207,15 @@ function HookScene({ version }: { version: string }) {
 }
 
 // ====================================================
-// SCENE 2: THE BUILDER THEMES (Frames 85 - 195 / ~3.6s)
+// SCENE 2: THE BUILDER THEMES
 // ====================================================
-function BuilderThemesScene() {
+function BuilderThemesScene({ durationInFrames }: { durationInFrames: number }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
+  const isLong = durationInFrames > 150;
   const titleSpring = spring({ frame, fps, config: { damping: 12, stiffness: 120 } });
+  const stagger = isLong ? 15 : 8;
 
   const categories = [
     {
@@ -234,7 +278,7 @@ function BuilderThemesScene() {
       {/* Grid of Theme Cards */}
       <div style={{ width: "100%", maxWidth: 940, display: "flex", flexDirection: "column", gap: 16 }}>
         {categories.map((cat, index) => {
-          const itemSpring = spring({ frame: frame - index * 8, fps, config: { damping: 14, stiffness: 120 } });
+          const itemSpring = spring({ frame: frame - index * stagger, fps, config: { damping: 14, stiffness: 120 } });
           const pulseBorder = Math.sin((frame - index * 6) / 5) * 4;
 
           return (
@@ -304,20 +348,24 @@ function BuilderThemesScene() {
 }
 
 // ==========================================================
-// SCENE 3: AUTO-DEPENDENCY ENGINE (Frames 195 - 310 / ~3.8s)
+// SCENE 3: AUTO-DEPENDENCY ENGINE
 // ==========================================================
-function AutoDependencyScene() {
+function AutoDependencyScene({ durationInFrames }: { durationInFrames: number }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
+  const isLong = durationInFrames > 150;
   const titleSpring = spring({ frame, fps, config: { damping: 12, stiffness: 120 } });
-  const progress = interpolate(frame, [15, 85], [12, 100], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const progressStart = isLong ? 20 : 15;
+  const progressEnd = durationInFrames - 32;
+  const progress = interpolate(frame, [progressStart, progressEnd], [12, 100], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const logStep = isLong ? 24 : 14;
 
   const depLogs = [
     { name: "Create 0.5.1", type: "MOD", status: "СКАЧАНО", color: "#3B82F6" },
     { name: "Fabric API", type: "DEPENDENCY", status: "АВТО-ПОДТЯНУТО", color: "#22C55E" },
+    { name: "Resourceful Lib", type: "DEPENDENCY", status: "АВТО-ПОДТЯНУТО", color: "#22C55E" },
     { name: "Curios API", type: "DEPENDENCY", status: "АВТО-ПОДТЯНУТО", color: "#22C55E" },
-    { name: "Architectury", type: "DEPENDENCY", status: "АВТО-ПОДТЯНУТО", color: "#22C55E" },
     { name: "Cloth Config", type: "DEPENDENCY", status: "АВТО-ПОДТЯНУТО", color: "#22C55E" },
   ];
 
@@ -368,7 +416,7 @@ function AutoDependencyScene() {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {depLogs.map((log, index) => {
-            const rowVisible = frame >= index * 12 + 8;
+            const rowVisible = frame >= index * logStep + 8;
             return (
               <div
                 key={log.name}
@@ -418,13 +466,15 @@ function AutoDependencyScene() {
 }
 
 // ====================================================
-// SCENE 4: NEW ENGINE IN v0.3.0 (Frames 310 - 400 / ~3.0s)
+// SCENE 4: NEW ENGINE IN v0.3.0
 // ====================================================
-function ModernEngineScene({ version }: { version: string }) {
+function ModernEngineScene({ version, durationInFrames }: { version: string; durationInFrames: number }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
+  const isLong = durationInFrames > 120;
   const titleSpring = spring({ frame, fps, config: { damping: 12, stiffness: 120 } });
+  const stagger = isLong ? 16 : 9;
 
   const features = [
     {
@@ -476,7 +526,7 @@ function ModernEngineScene({ version }: { version: string }) {
 
       <div style={{ width: "100%", maxWidth: 920, display: "flex", flexDirection: "column", gap: 20 }}>
         {features.map((feat, index) => {
-          const itemSpring = spring({ frame: frame - index * 9, fps, config: { damping: 14, stiffness: 120 } });
+          const itemSpring = spring({ frame: frame - index * stagger, fps, config: { damping: 14, stiffness: 120 } });
           return (
             <div
               key={feat.title}
@@ -512,9 +562,9 @@ function ModernEngineScene({ version }: { version: string }) {
 }
 
 // ==============================================
-// SCENE 5: CALL TO ACTION (Frames 400 - 480 / ~2.7s)
+// SCENE 5: CALL TO ACTION
 // ==============================================
-function CallToActionScene({ version, siteUrl }: { version: string; siteUrl: string }) {
+function CallToActionScene({ version, siteUrl, durationInFrames }: { version: string; siteUrl: string; durationInFrames: number }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -631,34 +681,37 @@ export const ModpackBuilderPromo: React.FC<ModpackBuilderPromoProps> = ({
   version = "v0.3.0",
   siteUrl = "redlauncher.ru",
 }) => {
+  const { durationInFrames } = useVideoConfig();
+  const timeline = getTimeline(durationInFrames);
+
   return (
     <AbsoluteFill style={{ backgroundColor: "#0A0B0E" }}>
       {/* Background with glowing cyber grid */}
       <CyberBackground version={version} />
 
-      {/* Scene 1: The Hook (0 - 85 frames / 0.0s - 2.8s) */}
-      <Sequence from={0} durationInFrames={85}>
-        <HookScene version={version} />
+      {/* Scene 1: The Hook */}
+      <Sequence from={timeline.hook.from} durationInFrames={timeline.hook.duration}>
+        <HookScene version={version} durationInFrames={timeline.hook.duration} />
       </Sequence>
 
-      {/* Scene 2: Interactive Theme Selection (85 - 195 frames / 2.8s - 6.5s) */}
-      <Sequence from={85} durationInFrames={110}>
-        <BuilderThemesScene />
+      {/* Scene 2: Interactive Theme Selection */}
+      <Sequence from={timeline.themes.from} durationInFrames={timeline.themes.duration}>
+        <BuilderThemesScene durationInFrames={timeline.themes.duration} />
       </Sequence>
 
-      {/* Scene 3: Auto-Dependency Engine & Progress (195 - 310 frames / 6.5s - 10.3s) */}
-      <Sequence from={195} durationInFrames={115}>
-        <AutoDependencyScene />
+      {/* Scene 3: Auto-Dependency Engine & Progress */}
+      <Sequence from={timeline.dependencies.from} durationInFrames={timeline.dependencies.duration}>
+        <AutoDependencyScene durationInFrames={timeline.dependencies.duration} />
       </Sequence>
 
-      {/* Scene 4: Modern Minecraft Engine & Features (310 - 400 frames / 10.3s - 13.3s) */}
-      <Sequence from={310} durationInFrames={90}>
-        <ModernEngineScene version={version} />
+      {/* Scene 4: Modern Minecraft Engine & Features */}
+      <Sequence from={timeline.engine.from} durationInFrames={timeline.engine.duration}>
+        <ModernEngineScene version={version} durationInFrames={timeline.engine.duration} />
       </Sequence>
 
-      {/* Scene 5: Call to Action & Download (400 - 480 frames / 13.3s - 16.0s) */}
-      <Sequence from={400} durationInFrames={80}>
-        <CallToActionScene version={version} siteUrl={siteUrl} />
+      {/* Scene 5: Call to Action & Download */}
+      <Sequence from={timeline.cta.from} durationInFrames={timeline.cta.duration}>
+        <CallToActionScene version={version} siteUrl={siteUrl} durationInFrames={timeline.cta.duration} />
       </Sequence>
     </AbsoluteFill>
   );
