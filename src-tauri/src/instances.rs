@@ -89,6 +89,43 @@ fn read_instances_unlocked(app: &AppHandle) -> Result<Vec<Instance>, String> {
             instance.id = new_id;
             needs_save = true;
         }
+
+        // Auto-heal missing or blank loader_version
+        if instance.loader_type != "Vanilla" && instance.loader_version.trim().is_empty() {
+            instance.loader_version = match instance.loader_type.as_str() {
+                "Fabric" => "0.16.10".to_string(),
+                "Quilt" => "0.27.1".to_string(),
+                "NeoForge" => {
+                    if instance.game_version.starts_with("1.21") {
+                        "21.1.72".to_string()
+                    } else if instance.game_version.starts_with("1.20.6") {
+                        "20.6.119".to_string()
+                    } else {
+                        "20.4.80".to_string()
+                    }
+                }
+                "Forge" => {
+                    if instance.game_version == "1.16.5" {
+                        "36.2.39".to_string()
+                    } else if instance.game_version == "1.12.2" {
+                        "14.23.5.2860".to_string()
+                    } else if instance.game_version == "1.18.2" {
+                        "40.2.14".to_string()
+                    } else if instance.game_version == "1.19.2" {
+                        "43.3.0".to_string()
+                    } else if instance.game_version == "1.20.1" {
+                        "47.3.0".to_string()
+                    } else {
+                        "".to_string()
+                    }
+                }
+                _ => "".to_string(),
+            };
+            if !instance.loader_version.is_empty() {
+                needs_save = true;
+            }
+        }
+
         migrated_instances.push(instance);
     }
 
@@ -751,6 +788,36 @@ pub async fn edit_instance(
     }
 
     let path = get_instances_file(&app)?;
+    let data = serde_json::to_string_pretty(&instances).map_err(|e| e.to_string())?;
+    crate::storage::atomic_write(&path, data.as_bytes())?;
+
+    Ok(())
+}
+
+pub async fn update_loader_version(
+    app: &AppHandle,
+    id: &str,
+    loader_version: &str,
+) -> Result<(), String> {
+    let _guard = INSTANCES_MUTEX
+        .lock()
+        .map_err(|_| "Failed to lock instances mutex".to_string())?;
+    let mut instances = read_instances_unlocked(app)?;
+
+    let mut found = false;
+    for instance in instances.iter_mut() {
+        if instance.id == id {
+            instance.loader_version = loader_version.to_string();
+            found = true;
+            break;
+        }
+    }
+
+    if !found {
+        return Err("Инстанс не найден".to_string());
+    }
+
+    let path = get_instances_file(app)?;
     let data = serde_json::to_string_pretty(&instances).map_err(|e| e.to_string())?;
     crate::storage::atomic_write(&path, data.as_bytes())?;
 

@@ -212,13 +212,50 @@ pub async fn build_custom_modpack(
     let actual_loader_version = match loader_version {
         Some(lv) if !lv.trim().is_empty() => lv,
         _ => {
-            let versions = crate::versions::get_loader_versions(
+            let mut resolved = String::new();
+            if let Ok(versions) = crate::versions::get_loader_versions(
                 loader_type.clone(),
                 game_version.clone(),
             )
             .await
-            .unwrap_or_default();
-            versions.first().cloned().unwrap_or_default()
+            {
+                if let Some(first) = versions.first() {
+                    resolved = first.clone();
+                }
+            }
+
+            if resolved.trim().is_empty() {
+                resolved = match loader_type.as_str() {
+                    "Fabric" => "0.16.10".to_string(),
+                    "Quilt" => "0.27.1".to_string(),
+                    "NeoForge" => {
+                        if game_version.starts_with("1.21") {
+                            "21.1.72".to_string()
+                        } else if game_version.starts_with("1.20.6") {
+                            "20.6.119".to_string()
+                        } else {
+                            "20.4.80".to_string()
+                        }
+                    }
+                    "Forge" => {
+                        if game_version == "1.16.5" {
+                            "36.2.39".to_string()
+                        } else if game_version == "1.12.2" {
+                            "14.23.5.2860".to_string()
+                        } else if game_version == "1.18.2" {
+                            "40.2.14".to_string()
+                        } else if game_version == "1.19.2" {
+                            "43.3.0".to_string()
+                        } else if game_version == "1.20.1" {
+                            "47.3.0".to_string()
+                        } else {
+                            "".to_string()
+                        }
+                    }
+                    _ => "".to_string(),
+                };
+            }
+            resolved
         }
     };
 

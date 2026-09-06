@@ -31,6 +31,8 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
   const [packName, setPackName] = useState("");
   const [gameVersion, setGameVersion] = useState("1.20.1");
   const [loaderType, setLoaderType] = useState<"Fabric" | "Forge" | "NeoForge">("Fabric");
+  const [loaderVersion, setLoaderVersion] = useState<string>("");
+  const [loadingLoaderVersions, setLoadingLoaderVersions] = useState(false);
   const [showSnapshots, setShowSnapshots] = useState(false);
   const [mcVersions, setMcVersions] = useState<string[]>([]);
   const [loadingVersions, setLoadingVersions] = useState(false);
@@ -78,6 +80,34 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
     }
     loadVersions();
   }, [showSnapshots]);
+
+  // Load Modloader versions for current gameVersion and loaderType
+  useEffect(() => {
+    async function fetchLoaderVersions() {
+      if (!gameVersion) {
+        setLoaderVersion("");
+        return;
+      }
+      setLoadingLoaderVersions(true);
+      try {
+        const vers = await command<string[]>("get_loader_versions", {
+          loaderType,
+          gameVersion,
+        });
+        if (vers && vers.length > 0) {
+          setLoaderVersion(vers[0]);
+        } else {
+          setLoaderVersion("");
+        }
+      } catch (e) {
+        console.error("Failed to fetch loader versions:", e);
+        setLoaderVersion("");
+      } finally {
+        setLoadingLoaderVersions(false);
+      }
+    }
+    fetchLoaderVersions();
+  }, [loaderType, gameVersion]);
 
   // Auto-generate name based on categories
   useEffect(() => {
@@ -195,7 +225,7 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
         name: packName.trim(),
         gameVersion,
         loaderType,
-        loaderVersion: null,
+        loaderVersion: loaderVersion.trim() ? loaderVersion : null,
         modSlugs: Array.from(finalSlugs),
       });
 
@@ -355,9 +385,14 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-muted uppercase tracking-wider block mb-2">
-                    Загрузчик модов
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-semibold text-muted uppercase tracking-wider block">
+                      Загрузчик модов
+                    </label>
+                    <span className="text-[10px] text-muted font-mono">
+                      {loadingLoaderVersions ? "Поиск..." : loaderVersion ? `v${loaderVersion}` : ""}
+                    </span>
+                  </div>
                   <select
                     value={loaderType}
                     onChange={(e) => setLoaderType(e.target.value as "Fabric" | "Forge" | "NeoForge")}
