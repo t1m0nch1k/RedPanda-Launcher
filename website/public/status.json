@@ -1,11 +1,23 @@
 {
-  "checkedAt": null,
   "services": {
-    "minecraft-auth": { "status": "unknown" },
-    "elyby": { "status": "unknown" },
-    "modrinth": { "status": "unknown" },
-    "curseforge": { "status": "unknown" },
-    "e4mc": { "status": "unknown" },
-    "redpanda-cdn": { "status": "unknown" }
-  }
+    "elyby": {
+      "status": "outage"
+    },
+    "minecraft-auth": {
+      "status": "operational"
+    },
+    "modrinth": {
+      "status": "outage"
+    },
+    "curseforge": {
+      "status": "unknown"
+    },
+    "e4mc": {
+      "status": "unknown"
+    },
+    "redpanda-cdn": {
+      "status": "unknown"
+    }
+  },
+  "checkedAt": "2026-09-06T08:57:41.2580144Z"
 }
