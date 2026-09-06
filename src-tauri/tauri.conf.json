@@ -24,7 +24,7 @@
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data: https://minotar.net https://skinsystem.ely.by; connect-src 'self' ipc: http://ipc.localhost; font-src 'self' data:; object-src 'none'; base-uri 'none';",
       "assetProtocol": {
         "enable": true,
-        "scope": ["$APPDATA/**", "$RESOURCE/**"]
+        "scope": ["$APPDATA/**", "$DATA/**", "$APPLOCALDATA/**", "$RESOURCE/**", "**"]
       }
     }
   },

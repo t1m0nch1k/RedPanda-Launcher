@@ -1,3 +1,4 @@
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -435,10 +436,13 @@ fn java_is_available(path: &str) -> bool {
             || java_path.join("bin").join("java").exists();
     }
 
-    std::process::Command::new(if cfg!(windows) { "java.exe" } else { "java" })
-        .arg("-version")
-        .output()
-        .is_ok()
+    let mut cmd = std::process::Command::new(if cfg!(windows) { "java.exe" } else { "java" });
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+    cmd.arg("-version").output().is_ok()
 }
 
 #[tauri::command]
@@ -1180,4 +1184,93 @@ pub async fn add_play_time(app: AppHandle, id: String, elapsed_seconds: u64) -> 
         return Err("Инстанс не найден".to_string());
     }
     Ok(())
+}
+
+#[tauri::command]
+pub async fn get_instance_icon(id: String) -> Result<Option<String>, String> {
+    crate::security::validate_instance_id(&id)?;
+    let inst_dir = crate::security::instance_dir(&id)?;
+    for ext in ["png", "jpg", "jpeg", "webp"] {
+        let icon_file = inst_dir.join(format!("icon.{}", ext));
+        if icon_file.exists() {
+            if let Ok(bytes) = fs::read(&icon_file) {
+                let mime = match ext {
+                    "jpg" | "jpeg" => "image/jpeg",
+                    "webp" => "image/webp",
+                    _ => "image/png",
+                };
+                let b64 = BASE64.encode(&bytes);
+                return Ok(Some(format!("data:{};base64,{}", mime, b64)));
+            }
+        }
+    }
+    Ok(None)
+}
+
+#[tauri::command]
+pub async fn create_instance_shortcut(app: AppHandle, id: String) -> Result<String, String> {
+    crate::security::validate_instance_id(&id)?;
+    let _guard = INSTANCES_MUTEX
+        .lock()
+        .map_err(|_| "Failed to lock instances mutex".to_string())?;
+
+    let instances = read_instances_unlocked(&app)?;
+    let instance = instances
+        .into_iter()
+        .find(|i| i.id == id)
+        .ok_or_else(|| format!("Инстанс '{}' не найден", id))?;
+
+    let desktop = dirs::desktop_dir().ok_or("Не удалось определить путь к рабочему столу")?;
+    let current_exe = std::env::current_exe()
+        .map_err(|e| format!("Не удалось определить путь к исполняемому файлу: {e}"))?;
+
+    let safe_name = crate::security::sanitize_filename(&instance.name);
+    let shortcut_path = desktop.join(format!("{}.lnk", safe_name));
+
+    let work_dir = current_exe.parent().unwrap_or(&desktop);
+    let icon_location = format!("{},0", current_exe.to_string_lossy());
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        let script = format!(
+            "$ws = New-Object -ComObject WScript.Shell; \
+             $s = $ws.CreateShortcut('{}'); \
+             $s.TargetPath = '{}'; \
+             $s.Arguments = '--launch-instance \"{}\"'; \
+             $s.WorkingDirectory = '{}'; \
+             $s.IconLocation = '{}'; \
+             $s.Description = 'Запуск сборки {} в RedPanda Launcher'; \
+             $s.Save();",
+            shortcut_path.to_string_lossy().replace('\'', "''"),
+            current_exe.to_string_lossy().replace('\'', "''"),
+            id.replace('"', "\\\""),
+            work_dir.to_string_lossy().replace('\'', "''"),
+            icon_location.replace('\'', "''"),
+            instance.name.replace('\'', "''"),
+        );
+
+        let output = std::process::Command::new("powershell.exe")
+            .creation_flags(0x08000000)
+            .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+            .output()
+            .map_err(|e| format!("Ошибка вызова PowerShell: {e}"))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("Ошибка создания ярлыка: {stderr}"));
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        return Err("Создание ярлыков на рабочем столе поддерживается только на Windows".to_string());
+    }
+
+    log::info!(
+        "Shortcut created for instance '{}' at: {}",
+        id,
+        shortcut_path.display()
+    );
+    Ok(shortcut_path.to_string_lossy().to_string())
 }

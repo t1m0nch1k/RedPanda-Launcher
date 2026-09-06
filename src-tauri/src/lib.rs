@@ -9,7 +9,7 @@ pub mod errors;
 pub mod import;
 pub mod instances;
 pub mod java;
-mod launcher;
+pub mod launcher;
 mod modrinth;
 mod oauth;
 pub mod security;
@@ -20,6 +20,7 @@ mod versions;
 
 use crate::discord::DiscordState;
 use std::sync::{Mutex, OnceLock};
+use tauri::Manager;
 
 #[cfg(windows)]
 static SINGLE_INSTANCE_HANDLE: OnceLock<usize> = OnceLock::new();
@@ -32,19 +33,52 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let args: Vec<String> = std::env::args().collect();
+    let mut direct_instance: Option<String> = None;
+    for (i, arg) in args.iter().enumerate() {
+        if (arg == "--launch-instance" || arg == "--instance" || arg == "-i") && i + 1 < args.len() {
+            direct_instance = Some(args[i + 1].clone());
+            break;
+        }
+    }
+
     #[cfg(windows)]
-    if !acquire_single_instance() {
+    if direct_instance.is_none() && !acquire_single_instance() {
         return;
     }
+
+    let direct_instance_clone = direct_instance.clone();
 
     tauri::Builder::default()
         .manage(DiscordState {
             client: Mutex::new(None),
             is_enabled: Mutex::new(false),
         })
-        .setup(|app| {
+        .setup(move |app| {
             #[cfg(windows)]
             start_shutdown_listener(app.handle().clone());
+
+            if let Some(instance_id) = direct_instance_clone {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
+
+                let app_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(e) = crate::launcher::launch_game_direct(app_handle.clone(), instance_id).await {
+                        log::error!("Direct launch failed: {}", e);
+                        use tauri_plugin_dialog::DialogExt;
+                        let _ = app_handle
+                            .dialog()
+                            .message(format!("Ошибка запуска сборки:\n{}", e))
+                            .title("RedPanda Launcher")
+                            .kind(tauri_plugin_dialog::MessageDialogKind::Error)
+                            .blocking_show();
+                        app_handle.exit(1);
+                    }
+                });
+            }
+
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
@@ -77,6 +111,8 @@ pub fn run() {
             instances::clone_instance,
             instances::rename_instance,
             instances::set_instance_icon,
+            instances::get_instance_icon,
+            instances::create_instance_shortcut,
             instances::export_instance,
             instances::update_instance_played,
             instances::edit_instance,

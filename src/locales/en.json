@@ -33,9 +33,14 @@
     "download_action": {
       "game": "Downloading game...",
       "java": "Downloading Java...",
+      "java_extract": "Extracting Java...",
       "loader": "Downloading loader...",
-      "extract": "Extracting...",
-      "launch": "Launching...",
+      "extract": "Extracting files...",
+      "mods": "Checking mods...",
+      "checking": "Checking files...",
+      "completed": "Files downloaded",
+      "running": "Game running",
+      "launch": "Launching Minecraft...",
       "import_prep": "Preparing import..."
     },
     "context_menu": {
@@ -45,6 +50,7 @@
       "folder": "Folder",
       "rename": "Rename",
       "icon": "Change Icon",
+      "desktop_shortcut": "Create Desktop Shortcut",
       "export": "Export...",
       "delete": "Delete"
     }

@@ -55,3 +55,6 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
+
+[patch.crates-io]
+lighty-launch = { path = "crates/lighty-launch" }

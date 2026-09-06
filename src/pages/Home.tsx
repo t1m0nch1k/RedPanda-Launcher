@@ -1,4 +1,4 @@
-import { Plus, Play, Anvil, Feather, TreePine, Hammer, Settings, Loader2, Folder, FileText, Trash2, Download, Globe, Copy, Wand2 } from "lucide-react";
+import { Plus, Play, Anvil, Feather, TreePine, Hammer, Settings, Loader2, Folder, FileText, Trash2, Download, Globe, Copy, Wand2, ExternalLink } from "lucide-react";
 import { useState, useEffect, useMemo, memo, useRef, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
@@ -30,6 +30,41 @@ interface HomeProps {
   onSelectInstance: (id: string) => void;
   activeUsername: string | null;
 }
+
+const getLoaderIcon = (loader: string) => {
+  switch (loader) {
+    case "Forge": return <Anvil size={24} className="text-orange-500" />;
+    case "Fabric": return <Feather size={24} className="text-yellow-200" />;
+    case "Vanilla": return <TreePine size={24} className="text-green-500" />;
+    case "NeoForge": return <Hammer size={24} className="text-orange-600" />;
+    default: return <TreePine size={24} className="text-white" />;
+  }
+};
+
+const InstanceIcon = memo(({ iconPath, loaderType, className }: { iconPath?: string; loaderType: string; className?: string }) => {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [iconPath]);
+
+  if (!iconPath || hasError) {
+    return (
+      <div className="flex items-center justify-center w-full h-full">
+        {getLoaderIcon(loaderType)}
+      </div>
+    );
+  }
+
+  return (
+    <img 
+      src={convertFileSrc(iconPath)} 
+      alt="" 
+      className={className || "w-full h-full object-cover"} 
+      onError={() => setHasError(true)} 
+    />
+  );
+});
 
 export default memo(function Home({ selectedInstance, onSelectInstance, activeUsername }: HomeProps) {
   const { t } = useTranslation();
@@ -137,17 +172,6 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
     }
   };
 
-  const getIcon = (loader: string) => {
-    switch (loader) {
-      case "Forge": return <Anvil size={24} className="text-orange-500" />;
-      case "Fabric": return <Feather size={24} className="text-yellow-200" />;
-      case "Vanilla": return <TreePine size={24} className="text-green-500" />;
-      case "NeoForge": return <Hammer size={24} className="text-orange-600" />;
-      default: return <TreePine size={24} className="text-white" />;
-    }
-  };
-
-
   const currentInstance = useMemo(() => instances.find(i => i.id === selectedInstance) || instances[0], [instances, selectedInstance]);
   const otherInstances = useMemo(() => instances.filter(i => currentInstance && i.id !== currentInstance.id), [instances, currentInstance]);
 
@@ -156,6 +180,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
   const [downloadedBytes, setDownloadedBytes] = useState<number>(0);
   const [downloadSpeed, setDownloadSpeed] = useState<number>(0);
   const [downloadAction, setDownloadAction] = useState<string>("");
+  const downloadedBytesRef = useRef<number>(0);
   const speedCalcRef = useRef({ lastBytes: 0, lastTime: 0 });
   const gameLogsRef = useRef<{stream: string, line: string}[]>([]);
   const [crashLogs, setCrashLogs] = useState<{stream: string, line: string}[]>([]);
@@ -223,36 +248,87 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
         
         const eventName = data.event;
         
-        if (eventName === "InstallStarted" || eventName === "ExtractionStarted") {
-           const total = data.total_bytes || data.total_files || 0;
+        if (eventName === "InstallStarted" || eventName === "JavaDownloadStarted") {
+           const total = data.total_bytes || 0;
            setDownloadTotal(total);
+           downloadedBytesRef.current = 0;
            setDownloadedBytes(0);
            setDownloadSpeed(0);
            speedCalcRef.current = { lastBytes: 0, lastTime: performance.now() };
            
-           if (eventType === "Launch") setDownloadAction(t("home.download_action.game"));
-           else if (eventType === "Java") setDownloadAction(t("home.download_action.java"));
-           else if (eventType === "Loader" || eventType === "Modloader") setDownloadAction(t("home.download_action.loader"));
-           else if (eventType === "Core" && eventName === "ExtractionStarted") setDownloadAction(t("home.download_action.extract"));
+           if (eventType === "Java" || eventName === "JavaDownloadStarted") {
+             setDownloadAction(data.version ? `${t("home.download_action.java")} (${data.version})` : t("home.download_action.java"));
+           } else if (eventType === "Launch") {
+             setDownloadAction(t("home.download_action.game"));
+           } else if (eventType === "Loader" || eventType === "Modloader") {
+             setDownloadAction(t("home.download_action.loader"));
+           }
         }
         
-        if (eventName === "InstallProgress" || eventName === "ExtractionProgress") {
-           const currentBytes = data.bytes || data.files_extracted || 0;
+        if (eventName === "InstallProgress") {
+           const delta = data.bytes || 0;
+           downloadedBytesRef.current += delta;
+           const currentBytes = downloadedBytesRef.current;
            setDownloadedBytes(currentBytes);
            
            const now = performance.now();
            const timeDiff = now - speedCalcRef.current.lastTime;
-           if (timeDiff > 500) {
+           if (timeDiff > 300) {
              const bytesDiff = currentBytes - speedCalcRef.current.lastBytes;
-             const speed = (bytesDiff / timeDiff) * 1000;
+             const speed = Math.max(0, (bytesDiff / timeDiff) * 1000);
              setDownloadSpeed(speed);
              speedCalcRef.current = { lastBytes: currentBytes, lastTime: now };
            }
+        }
+
+        if (eventName === "JavaDownloadProgress") {
+           const currentBytes = data.bytes || 0;
+           downloadedBytesRef.current = currentBytes;
+           setDownloadedBytes(currentBytes);
+           
+           const now = performance.now();
+           const timeDiff = now - speedCalcRef.current.lastTime;
+           if (timeDiff > 300) {
+             const bytesDiff = currentBytes - speedCalcRef.current.lastBytes;
+             const speed = Math.max(0, (bytesDiff / timeDiff) * 1000);
+             setDownloadSpeed(speed);
+             speedCalcRef.current = { lastBytes: currentBytes, lastTime: now };
+           }
+        }
+
+        if (eventName === "ExtractionStarted" || eventName === "JavaExtractionStarted") {
+           setDownloadAction(eventName === "JavaExtractionStarted" ? t("home.download_action.java_extract") : t("home.download_action.extract"));
+           setDownloadTotal(data.total_files || 100);
+           downloadedBytesRef.current = 0;
+           setDownloadedBytes(0);
+        }
+        
+        if (eventName === "ExtractionProgress" || eventName === "JavaExtractionProgress") {
+           const currentFiles = data.files_extracted || data.bytes || 0;
+           setDownloadedBytes(currentFiles);
+        }
+
+        if (eventName === "InstallCompleted" || eventName === "JavaDownloadCompleted" || eventName === "JavaExtractionCompleted") {
+           setDownloadAction(t("home.download_action.checking"));
+        }
+
+        if (eventName === "FetchingData" || eventName === "MergingLoaderData") {
+           setDownloadAction(t("home.download_action.loader"));
+        }
+
+        if (eventName === "ResolveStarted" || eventName === "ModpackResolveStart") {
+           setDownloadAction(t("home.download_action.mods"));
         }
         
         if (eventName === "Launching") {
            setDownloadAction(t("home.download_action.launch"));
            setDownloadTotal(0);
+           setDownloadedBytes(0);
+           setDownloadSpeed(0);
+        }
+
+        if (eventName === "Launched") {
+           setDownloadAction(t("home.download_action.running"));
         }
       });
       
@@ -357,6 +433,11 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
     if (isLaunching) return;
     setIsLaunching(true);
     setPandaState("working");
+    setDownloadAction(t("home.download_action.checking"));
+    setDownloadTotal(0);
+    downloadedBytesRef.current = 0;
+    setDownloadedBytes(0);
+    setDownloadSpeed(0);
     
     try {
       const accounts: any[] = await invoke("get_accounts");
@@ -372,11 +453,8 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
       const targetServer = typeof serverUrl === "string" ? serverUrl : (quickServer.trim() || undefined);
 
       await invoke("launch_game", { 
-        username: activeAccount.username,
+        accountId: activeAccount.id,
         instanceId: currentInstance.id,
-        version: currentInstance.game_version,
-        loaderType: currentInstance.loader_type,
-        loaderVersion: currentInstance.loader_version,
         server: targetServer || null
       });
       
@@ -436,11 +514,11 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
           <div className="relative z-10 flex w-full p-6 items-center justify-between">
             <div className="flex items-center gap-6">
               <div className="w-16 h-16 bg-background rounded-none flex items-center justify-center brutalist-border overflow-hidden">
-                {currentInstance.icon_path ? (
-                  <img src={convertFileSrc(currentInstance.icon_path)} alt="icon" className="w-full h-full object-cover" />
-                ) : (
-                  getIcon(currentInstance.loader_type)
-                )}
+                <InstanceIcon 
+                  iconPath={currentInstance.icon_path} 
+                  loaderType={currentInstance.loader_type} 
+                  className="w-full h-full object-cover" 
+                />
               </div>
               <div>
                 <h3 className="text-[22px] font-bold tracking-tight leading-none mb-2 text-white">{currentInstance.name}</h3>
@@ -464,27 +542,35 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
               </div>
             </div>
             
-            <div className="flex items-center gap-4">
-               {isLaunching && downloadAction ? (
-                 <div className="flex flex-col items-end gap-1.5 mr-2">
-                   <div className="flex justify-between w-48 text-[11px] font-medium text-white/80">
-                     <span>{downloadAction}</span>
-                     <span>
-                       {downloadTotal > 0 ? `${Math.round((downloadedBytes / downloadTotal) * 100)}%` : ""}
-                     </span>
-                   </div>
-                   <div className="w-48 h-1.5 bg-background rounded-none overflow-hidden brutalist-border">
-                     <div 
-                       className="h-full bg-primary transition-all duration-300 ease-out"
-                       style={{ width: downloadTotal > 0 ? `${(downloadedBytes / downloadTotal) * 100}%` : "100%" }}
-                     />
-                   </div>
-                   {downloadSpeed > 0 && downloadTotal > 10000 && (
-                     <span className="text-[10px] text-muted">
-                       {(downloadSpeed / 1024 / 1024).toFixed(1)} MB/s
-                     </span>
-                   )}
-                 </div>
+             <div className="flex items-center gap-4">
+                {isLaunching ? (
+                  <div className="flex flex-col items-end gap-1.5 mr-2 min-w-[240px] max-w-[340px]">
+                    <div className="flex justify-between items-center w-full text-[12px] font-medium text-white/90">
+                      <span className="flex items-center gap-1.5 truncate max-w-[200px]" title={downloadAction || t("home.launching")}>
+                        <Loader2 className="animate-spin shrink-0 text-primary" size={13} />
+                        {downloadAction || t("home.launching")}
+                      </span>
+                      <span className="font-bold text-primary ml-2 shrink-0">
+                        {downloadTotal > 0 ? `${Math.min(100, Math.round((downloadedBytes / downloadTotal) * 100))}%` : "..."}
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-background rounded-none overflow-hidden brutalist-border relative">
+                      <div 
+                        className="h-full bg-primary transition-all duration-300 ease-out shadow-[0_0_8px_rgba(239,68,68,0.5)]"
+                        style={{ width: downloadTotal > 0 ? `${Math.min(100, Math.max(2, Math.round((downloadedBytes / downloadTotal) * 100)))}%` : "100%" }}
+                      />
+                    </div>
+                    <div className="flex justify-between w-full text-[10px] text-muted font-mono">
+                      {downloadTotal > 0 ? (
+                        <>
+                          <span>{(downloadedBytes / 1024 / 1024).toFixed(1)} / {(downloadTotal / 1024 / 1024).toFixed(1)} МБ</span>
+                          {downloadSpeed > 0 ? <span>{(downloadSpeed / 1024 / 1024).toFixed(1)} МБ/с</span> : <span />}
+                        </>
+                      ) : (
+                        <span>{downloadAction || t("home.launching")}</span>
+                      )}
+                    </div>
+                  </div>
                 ) : (
                   <div className="flex gap-2">
                       <button 
@@ -525,6 +611,20 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                     >
                       <Globe size={18} />
                     </button>
+                    <button 
+                      onClick={async () => {
+                        try {
+                          const res = await invoke("create_instance_shortcut", { id: currentInstance.id });
+                          toast.success(String(res));
+                        } catch(err) {
+                          toast.error("Не удалось создать ярлык: " + err);
+                        }
+                      }}
+                      className="bg-card hover:bg-background brutalist-border text-muted hover:text-white px-3 py-3 rounded-none transition-colors"
+                      title={t("home.context_menu.desktop_shortcut")}
+                    >
+                      <ExternalLink size={18} />
+                    </button>
                   </div>
                 )}
                <div className="flex flex-col items-end gap-2">
@@ -542,10 +642,15 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                    disabled={isLaunching}
                    onMouseEnter={() => !isLaunching && setPandaState("celebration")}
                    onMouseLeave={() => !isLaunching && setPandaState("welcome")}
-                   className="brutalist-button-primary disabled:opacity-50 disabled:cursor-not-allowed px-7 py-3 text-[13px] flex items-center gap-2"
+                   className="brutalist-button-primary disabled:opacity-50 disabled:cursor-not-allowed px-7 py-3 text-[13px] flex items-center gap-2 min-w-[140px] justify-center"
                  >
                    {isLaunching ? (
-                     <><Loader2 className="animate-spin" size={16} /> <span className="translate-y-[0.5px]">{t("home.launching")}</span></>
+                     <>
+                       <Loader2 className="animate-spin" size={16} /> 
+                       <span className="translate-y-[0.5px]">
+                         {downloadTotal > 0 ? `${Math.min(100, Math.round((downloadedBytes / downloadTotal) * 100))}%` : t("home.launching")}
+                       </span>
+                     </>
                    ) : (
                      <><Play fill="currentColor" size={15} /> <span className="translate-y-[0.5px]">{quickServer.trim() ? "Подключиться к серверу" : t("home.play")}</span></>
                    )}
@@ -629,11 +734,11 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                 }`}
               >
                 <div className="w-10 h-10 bg-background rounded-none flex items-center justify-center brutalist-border mb-4 overflow-hidden">
-                  {inst.icon_path ? (
-                    <img src={convertFileSrc(inst.icon_path)} alt="icon" className="w-full h-full object-cover" />
-                  ) : (
-                    getIcon(inst.loader_type)
-                  )}
+                  <InstanceIcon 
+                    iconPath={inst.icon_path} 
+                    loaderType={inst.loader_type} 
+                    className="w-full h-full object-cover" 
+                  />
                 </div>
                 
                 <div className="mt-auto">
@@ -822,6 +927,23 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
             }}
           >
              <Plus size={14} /> {t("home.context_menu.icon")}
+          </button>
+          
+          <button 
+            className="w-full text-left px-4 py-2 hover:bg-background text-sm text-white flex items-center gap-3 transition-colors"
+            onClick={async (e) => { 
+                e.stopPropagation(); 
+                const id = contextMenu.instanceId;
+                setContextMenu(null);
+                try {
+                  const res = await invoke("create_instance_shortcut", { id });
+                  toast.success(String(res));
+                } catch(err) {
+                  toast.error("Не удалось создать ярлык: " + err);
+                }
+            }}
+          >
+             <ExternalLink size={14} /> {t("home.context_menu.desktop_shortcut")}
           </button>
           
           <button 

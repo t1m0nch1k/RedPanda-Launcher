@@ -2714,8 +2714,6 @@ dependencies = [
 [[package]]
 name = "lighty-launch"
 version = "26.5.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e97ea3f1e7b4f957344bf683b05d43c3be29e55512e45776174acee4e1db09b8"
 dependencies = [
  "async-trait",
  "async_zip",

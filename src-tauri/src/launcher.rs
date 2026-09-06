@@ -5,9 +5,23 @@ use tauri::{AppHandle, Emitter, Manager};
 #[tauri::command]
 pub async fn launch_game(
     app: AppHandle,
-    account_id: String,
+    account_id: Option<String>,
     instance_id: String,
     server: Option<String>,
+) -> Result<(), String> {
+    launch_game_internal(app, account_id, instance_id, server, false).await
+}
+
+pub async fn launch_game_direct(app: AppHandle, instance_id: String) -> Result<(), String> {
+    launch_game_internal(app, None, instance_id, None, true).await
+}
+
+async fn launch_game_internal(
+    app: AppHandle,
+    account_id: Option<String>,
+    instance_id: String,
+    server: Option<String>,
+    is_direct: bool,
 ) -> Result<(), String> {
     crate::security::validate_instance_id(&instance_id)?;
     // Initialize lighty-launcher global state (ignore error if already initialized)
@@ -36,13 +50,13 @@ pub async fn launch_game(
         .jvm_args
         .clone()
         .unwrap_or_else(|| settings.jvm_args.clone());
-    let mut java_path_str = instance_data
+    let java_path_str = instance_data
         .java_path
         .clone()
         .unwrap_or_else(|| settings.java_path.clone());
 
     log::info!(
-        "Starting game {} (Loader: {}) for account {}...",
+        "Starting game {} (Loader: {}) for account {:?}...",
         version,
         loader_type,
         account_id
@@ -56,17 +70,8 @@ pub async fn launch_game(
         _ => Loader::Vanilla,
     };
 
-    if java_path_str.is_empty() {
-        match crate::java::ensure_java_runtime(&version).await {
-            Ok(path) => java_path_str = path.to_string_lossy().into_owned(),
-            Err(error) => log::warn!("Java auto-downloader warning: {error}"),
-        }
-    }
-
     let mut instance = VersionBuilder::new(&instance_id, loader, &loader_version, &version);
-    if !java_path_str.is_empty() {
-        instance = instance.with_custom_java_dir(std::path::PathBuf::from(java_path_str));
-    }
+    instance = configure_custom_java(instance, &java_path_str, &version);
 
     let event_bus = EventBus::new(1000);
     let mut rx = event_bus.subscribe();
@@ -128,10 +133,15 @@ pub async fn launch_game(
                     "redpanda_logo".to_string(),
                 );
 
-                // Reshow the launcher window when the game closes
-                if let Some(window) = app_clone.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
+                if is_direct {
+                    log::info!("Direct launch game finished, exiting launcher process");
+                    app_clone.exit(0);
+                } else {
+                    // Reshow the launcher window when the game closes
+                    if let Some(window) = app_clone.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
                 }
             }
             let _ = app_clone.emit("launcher-event", event);
@@ -139,10 +149,19 @@ pub async fn launch_game(
     });
 
     let accounts = crate::accounts::load_accounts_data(&app)?.accounts;
-    let mut account = accounts
-        .into_iter()
-        .find(|a| a.id == account_id)
-        .ok_or_else(|| format!("Account {} not found", account_id))?;
+    let target_id = account_id.filter(|s| !s.trim().is_empty());
+    let mut account = if let Some(ref id) = target_id {
+        accounts
+            .into_iter()
+            .find(|a| a.id == *id)
+            .ok_or_else(|| format!("Account {} not found", id))?
+    } else {
+        accounts
+            .into_iter()
+            .find(|a| a.is_active)
+            .or_else(|| crate::accounts::load_accounts_data(&app).ok().and_then(|d| d.accounts.into_iter().next()))
+            .ok_or_else(|| "Активный аккаунт не найден. Выберите или добавьте аккаунт перед запуском.".to_string())?
+    };
     let username = account.username.clone();
 
     if let Ok(true) = crate::accounts::refresh_account_tokens(&app, &mut account).await {
@@ -287,7 +306,7 @@ pub async fn launch_game(
                 });
             }
 
-            if settings.launch_behavior == "hide" {
+            if is_direct || settings.launch_behavior == "hide" {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.hide();
                 }
@@ -301,4 +320,92 @@ pub async fn launch_game(
             Err(format!("Launch failed: {}", e))
         }
     }
+}
+
+fn configure_custom_java(
+    instance: VersionBuilder<Loader>,
+    java_path_str: &str,
+    mc_version: &str,
+) -> VersionBuilder<Loader> {
+    let trimmed = java_path_str.trim();
+    if trimmed.is_empty() {
+        // By default, lighty-launcher manages JRE downloads automatically in AppData/Roaming/RedPandaLauncher/jre
+        return instance;
+    }
+
+    let custom_path = std::path::PathBuf::from(trimmed);
+    if !custom_path.exists() {
+        log::warn!(
+            "Custom java path {:?} does not exist, using auto-downloaded JRE",
+            custom_path
+        );
+        return instance;
+    }
+
+    // Determine the java executable and JDK root directory
+    let (java_exe, jdk_root) = if custom_path.is_file() {
+        let exe = custom_path.clone();
+        let root = custom_path
+            .parent()
+            .and_then(|bin| {
+                if bin
+                    .file_name()
+                    .map_or(false, |n| n.eq_ignore_ascii_case("bin"))
+                {
+                    bin.parent().map(|p| p.to_path_buf())
+                } else {
+                    Some(bin.to_path_buf())
+                }
+            })
+            .unwrap_or_else(|| custom_path.clone());
+        (exe, root)
+    } else {
+        (custom_path.join("bin").join("java.exe"), custom_path.clone())
+    };
+
+    if !java_exe.exists() {
+        log::warn!(
+            "java.exe not found at {:?}, using auto-downloaded JRE",
+            java_exe
+        );
+        return instance;
+    }
+
+    // Prepare custom JRE folder structure expected by lighty:
+    // <custom_jre_base>/temurin_<java_version>/custom/bin/java.exe
+    let java_version = crate::java::get_required_java_version(mc_version);
+    if let Some(appdata) = dirs::data_dir() {
+        let custom_jre_base = appdata.join("RedPandaLauncher").join("custom_jre");
+        let version_folder = custom_jre_base.join(format!("temurin_{}", java_version));
+        let custom_link = version_folder.join("custom");
+
+        let _ = std::fs::create_dir_all(&version_folder);
+
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            if custom_link.exists() {
+                let _ = std::fs::remove_dir_all(&custom_link);
+            }
+            let cmd_res = std::process::Command::new("cmd")
+                .creation_flags(0x08000000)
+                .args([
+                    "/C",
+                    "mklink",
+                    "/J",
+                    &custom_link.to_string_lossy(),
+                    &jdk_root.to_string_lossy(),
+                ])
+                .output();
+
+            if let Ok(output) = cmd_res {
+                if output.status.success() && custom_link.join("bin").join("java.exe").exists() {
+                    log::info!("Successfully linked custom Java to {:?}", custom_link);
+                    return instance.with_custom_java_dir(custom_jre_base);
+                }
+            }
+        }
+    }
+
+    instance
 }
