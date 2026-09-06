@@ -1,5 +1,5 @@
 import { Plus, Play, Anvil, Feather, TreePine, Hammer, Settings, Loader2, Folder, FileText, Trash2, Download, Globe, Copy, Wand2, ExternalLink } from "lucide-react";
-import { useState, useEffect, useMemo, memo, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, memo, useRef, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -194,12 +194,13 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
   }, [currentInstance]);
 
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, instanceId: string } | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
 
   const handleOpenContextMenu = (e: React.MouseEvent, instanceId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    const menuWidth = 240;
-    const menuHeight = 440;
+    const menuWidth = 260;
+    const menuHeight = 460;
     const padding = 12;
 
     let x = e.clientX;
@@ -214,6 +215,22 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
 
     setContextMenu({ x, y, instanceId });
   };
+
+  useLayoutEffect(() => {
+    if (!contextMenu || !contextMenuRef.current) return;
+    const el = contextMenuRef.current;
+    const rect = el.getBoundingClientRect();
+    const padding = 12;
+
+    if (rect.right > window.innerWidth - padding) {
+      const newX = Math.max(padding, window.innerWidth - rect.width - padding);
+      el.style.left = `${newX}px`;
+    }
+    if (rect.bottom > window.innerHeight - padding) {
+      const newY = Math.max(padding, window.innerHeight - rect.height - padding);
+      el.style.top = `${newY}px`;
+    }
+  }, [contextMenu]);
 
   useEffect(() => {
     const handleClose = () => setContextMenu(null);
@@ -848,7 +865,8 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
 
       {contextMenu && (
         <div 
-          className="fixed z-50 bg-card brutalist-border rounded-none py-1 min-w-[240px] max-h-[calc(100vh-24px)] overflow-y-auto custom-scrollbar shadow-2xl animate-in fade-in zoom-in-95 duration-100"
+          ref={contextMenuRef}
+          className="fixed z-50 bg-card brutalist-border rounded-none py-1 min-w-[260px] max-h-[calc(100vh-24px)] overflow-y-auto custom-scrollbar shadow-2xl animate-in fade-in zoom-in-95 duration-100"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
           onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
