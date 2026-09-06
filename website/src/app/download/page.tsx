@@ -12,13 +12,15 @@ import {
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.0";
 
+const RELEASE_TAG = "v0.3.0_fix";
+
 export const metadata = {
   title: "Скачать RedPanda Launcher для Windows",
   description: "Официальный установщик RedPanda Launcher для Windows 10/11 x64 с поддержкой Modrinth и CurseForge.",
 };
 
 export default function DownloadPage() {
-  const downloadUrl = `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v${APP_VERSION}/RedPanda_Setup_${APP_VERSION}.exe`;
+  const downloadUrl = `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/${RELEASE_TAG}/RedPanda_Setup_${APP_VERSION}.exe`;
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
@@ -54,10 +56,15 @@ export default function DownloadPage() {
               Автономный графический инсталлятор с автоматической настройкой ярлыков и зависимостей.
             </p>
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-xs font-mono text-muted pt-1">
-                <span className="flex items-center gap-1">
-                  <IconShieldCheck size={16} className="text-emerald-400" />
-                <span>SHA-256 checksum в GitHub Release</span>
-              </span>
+              <a
+                href={`https://github.com/t1m0nch1k/RedPanda-Launcher/releases/tag/${RELEASE_TAG}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 hover:underline text-foreground"
+              >
+                <IconShieldCheck size={16} className="text-emerald-400" />
+                <span>SHA-256 checksum в GitHub Release ({RELEASE_TAG})</span>
+              </a>
               <span>Размер указан в GitHub Release</span>
               <span>Лицензия: Open Source (MIT)</span>
             </div>

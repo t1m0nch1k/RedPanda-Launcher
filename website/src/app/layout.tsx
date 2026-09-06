@@ -99,7 +99,7 @@ const jsonLd = {
         "priceCurrency": "RUB"
       },
       "url": "https://www.redlauncher.ru/",
-      "downloadUrl": `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v${APP_VERSION}/RedPanda_Setup_${APP_VERSION}.exe`,
+      "downloadUrl": `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.3.0_fix/RedPanda_Setup_${APP_VERSION}.exe`,
       "author": {
         "@type": "Organization",
         "name": "RedPanda Team"

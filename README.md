@@ -55,7 +55,8 @@ Makes the launcher feel alive.
 
 ## 📥 Download
 
-- **[📥 Download Setup v0.3.0 (Windows)](https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.3.0/RedPanda_Setup_0.3.0.exe)**
+- **[📥 Download Setup v0.3.0 (Windows)](https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.3.0_fix/RedPanda_Setup_0.3.0.exe)**
+- **[📋 Release Notes & Checksums (v0.3.0_fix)](https://github.com/t1m0nch1k/RedPanda-Launcher/releases/tag/v0.3.0_fix)**
 - **[🌐 Official Website: redlauncher.ru](https://www.redlauncher.ru/)**
 
 ## 🗺️ Roadmap

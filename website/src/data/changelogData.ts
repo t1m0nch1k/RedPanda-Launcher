@@ -17,6 +17,7 @@ export interface LauncherRelease {
 }
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.0";
+const LATEST_RELEASE_TAG = "v0.3.0_fix";
 
 export const LAUNCHER_RELEASES: LauncherRelease[] = [
   {
@@ -24,7 +25,7 @@ export const LAUNCHER_RELEASES: LauncherRelease[] = [
     date: "6 сентября 2026",
     title: "Smart Modpack Builder & Modern MC Engine",
     tagline: "Интеллектуальный конструктор сборок под ключ, поддержка новейших версий 26.x и снапшотов, кастомизация палитры и исправление CurseForge API",
-    downloadUrl: `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v${APP_VERSION}/RedPanda_Setup_${APP_VERSION}.exe`,
+    downloadUrl: `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/${LATEST_RELEASE_TAG}/RedPanda_Setup_${APP_VERSION}.exe`,
     fileSize: "См. опубликованные assets",
     isLatest: true,
     highlights: [
