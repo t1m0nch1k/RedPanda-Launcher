@@ -7,8 +7,10 @@
     "build": "remotion render src/index.ts TikTokPromo out/redpanda-tiktok-promo.mp4",
     "build:update": "remotion render src/index.ts TikTokUpdatePromo out/redpanda-tiktok-update-promo.mp4",
     "build:battle": "remotion render src/index.ts BattlePromo out/redpanda-battle-promo.mp4",
+    "build:builder": "remotion render src/index.ts ModpackBuilderPromo out/redpanda-builder-promo.mp4",
     "render": "remotion render src/index.ts TikTokPromo out/redpanda-tiktok-promo.mp4",
-    "render:battle": "remotion render src/index.ts BattlePromo out/redpanda-battle-promo.mp4"
+    "render:battle": "remotion render src/index.ts BattlePromo out/redpanda-battle-promo.mp4",
+    "render:builder": "remotion render src/index.ts ModpackBuilderPromo out/redpanda-builder-promo.mp4"
   },
   "dependencies": {
     "@remotion/bundler": "^4.0.245",

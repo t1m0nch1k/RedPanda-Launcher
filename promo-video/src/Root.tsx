@@ -3,6 +3,7 @@ import { Composition } from "remotion";
 import { TikTokPromo } from "./TikTokPromo";
 import { TikTokUpdatePromo } from "./TikTokUpdatePromo";
 import { BattlePromo } from "./BattlePromo";
+import { ModpackBuilderPromo } from "./ModpackBuilderPromo";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -45,6 +46,20 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
         defaultProps={{
           version: "v0.2.2",
+          siteUrl: "redlauncher.ru"
+        }}
+      />
+
+      {/* Promo Option 4: Smart Modpack Builder v0.3.0 Feature Video (16s) */}
+      <Composition
+        id="ModpackBuilderPromo"
+        component={ModpackBuilderPromo}
+        durationInFrames={480} // 16 seconds at 30 fps
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          version: "v0.3.0",
           siteUrl: "redlauncher.ru"
         }}
       />
