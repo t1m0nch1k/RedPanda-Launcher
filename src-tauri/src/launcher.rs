@@ -5,11 +5,8 @@ use tauri::{AppHandle, Emitter, Manager};
 #[tauri::command]
 pub async fn launch_game(
     app: AppHandle,
-    username: String,
+    account_id: String,
     instance_id: String,
-    version: String,
-    loader_type: String,
-    loader_version: String,
     server: Option<String>,
 ) -> Result<(), String> {
     crate::security::validate_instance_id(&instance_id)?;
@@ -20,40 +17,35 @@ pub async fn launch_game(
     let settings = crate::settings::get_settings(app.clone())?;
 
     // Find instance settings
-    let instances = crate::instances::get_instances(app.clone())
-        .await
-        .unwrap_or_default();
-    let instance_data = instances.into_iter().find(|i| i.id == instance_id);
-    let min_mem = instance_data
-        .as_ref()
-        .and_then(|i| i.min_memory)
-        .unwrap_or(settings.min_memory);
-    let max_mem = instance_data
-        .as_ref()
-        .and_then(|i| i.max_memory)
-        .unwrap_or(settings.max_memory);
-    let window_width = instance_data
-        .as_ref()
-        .and_then(|i| i.window_width)
-        .unwrap_or(settings.window_width);
+    let instances = crate::instances::get_instances(app.clone()).await?;
+    let instance_data = instances
+        .into_iter()
+        .find(|i| i.id == instance_id)
+        .ok_or_else(|| format!("Инстанс '{}' не найден", instance_id))?;
+    let version = instance_data.game_version.clone();
+    let loader_type = instance_data.loader_type.clone();
+    let loader_version = instance_data.loader_version.clone();
+
+    let min_mem = instance_data.min_memory.unwrap_or(settings.min_memory);
+    let max_mem = instance_data.max_memory.unwrap_or(settings.max_memory);
+    let window_width = instance_data.window_width.unwrap_or(settings.window_width);
     let window_height = instance_data
-        .as_ref()
-        .and_then(|i| i.window_height)
+        .window_height
         .unwrap_or(settings.window_height);
     let jvm_args_str = instance_data
-        .as_ref()
-        .and_then(|i| i.jvm_args.clone())
+        .jvm_args
+        .clone()
         .unwrap_or_else(|| settings.jvm_args.clone());
-    let java_path_str = instance_data
-        .as_ref()
-        .and_then(|i| i.java_path.clone())
+    let mut java_path_str = instance_data
+        .java_path
+        .clone()
         .unwrap_or_else(|| settings.java_path.clone());
 
     log::info!(
-        "Starting game {} (Loader: {}) for user {}...",
+        "Starting game {} (Loader: {}) for account {}...",
         version,
         loader_type,
-        username
+        account_id
     );
 
     let loader = match loader_type.as_str() {
@@ -63,6 +55,13 @@ pub async fn launch_game(
         "NeoForge" => Loader::NeoForge,
         _ => Loader::Vanilla,
     };
+
+    if java_path_str.is_empty() {
+        match crate::java::ensure_java_runtime(&version).await {
+            Ok(path) => java_path_str = path.to_string_lossy().into_owned(),
+            Err(error) => log::warn!("Java auto-downloader warning: {error}"),
+        }
+    }
 
     let mut instance = VersionBuilder::new(&instance_id, loader, &loader_version, &version);
     if !java_path_str.is_empty() {
@@ -139,11 +138,12 @@ pub async fn launch_game(
         }
     });
 
-    let accounts = crate::accounts::get_accounts(app.clone())?;
+    let accounts = crate::accounts::load_accounts_data(&app)?.accounts;
     let mut account = accounts
         .into_iter()
-        .find(|a| a.username == username)
-        .ok_or_else(|| format!("Account {} not found", username))?;
+        .find(|a| a.id == account_id)
+        .ok_or_else(|| format!("Account {} not found", account_id))?;
+    let username = account.username.clone();
 
     if let Ok(true) = crate::accounts::refresh_account_tokens(&app, &mut account).await {
         log::info!("Refreshed auth tokens for user {}", username);
@@ -162,14 +162,6 @@ pub async fn launch_game(
     };
 
     let _launch_behavior = settings.launch_behavior.clone();
-
-    // Ensure required Java version is installed
-    if let Err(e) = crate::java::ensure_java_runtime(&version).await {
-        log::warn!(
-            "Java auto-downloader warning: {}, falling back to default distribution",
-            e
-        );
-    }
 
     // Build launch configuration
     let builder = instance
@@ -232,9 +224,21 @@ pub async fn launch_game(
     if let Some(srv) = server {
         let trimmed = srv.trim();
         if !trimmed.is_empty() {
+            if trimmed.len() > 253 || trimmed.chars().any(|c| c.is_control() || c.is_whitespace()) {
+                return Err("Некорректный адрес сервера".to_string());
+            }
             let parts: Vec<&str> = trimmed.split(':').collect();
+            if parts.len() > 2 || parts[0].is_empty() {
+                return Err("Некорректный адрес сервера".to_string());
+            }
             let host = parts[0];
             let port = parts.get(1).unwrap_or(&"25565");
+            let port_number = port
+                .parse::<u16>()
+                .map_err(|_| "Некорректный порт сервера".to_string())?;
+            if port_number == 0 {
+                return Err("Некорректный порт сервера".to_string());
+            }
             arg_builder = arg_builder.set("server", host).set("port", *port);
         }
     }
@@ -288,7 +292,7 @@ pub async fn launch_game(
                     let _ = window.hide();
                 }
             } else if settings.launch_behavior == "close" {
-                std::process::exit(0);
+                app.exit(0);
             }
             Ok(())
         }

@@ -30,6 +30,12 @@ pub struct Account {
     pub expires_at: Option<i64>,
 }
 
+fn public_account(mut account: Account) -> Account {
+    account.access_token = None;
+    account.refresh_token = None;
+    account
+}
+
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct AccountsData {
     pub accounts: Vec<Account>,
@@ -54,10 +60,82 @@ fn get_encryption_key() -> [u8; 32] {
     key
 }
 
-fn encrypt_secret(plain: &str) -> String {
+#[cfg(windows)]
+fn dpapi_protect(value: &[u8]) -> Option<Vec<u8>> {
+    use windows_sys::Win32::Foundation::LocalFree;
+    use windows_sys::Win32::Security::Cryptography::{CryptProtectData, CRYPT_INTEGER_BLOB};
+
+    let input = CRYPT_INTEGER_BLOB {
+        cbData: value.len() as u32,
+        pbData: value.as_ptr() as *mut u8,
+    };
+    let mut output = CRYPT_INTEGER_BLOB {
+        cbData: 0,
+        pbData: std::ptr::null_mut(),
+    };
+    let ok = unsafe {
+        CryptProtectData(
+            &input,
+            std::ptr::null(),
+            std::ptr::null(),
+            std::ptr::null_mut(),
+            std::ptr::null(),
+            0,
+            &mut output,
+        )
+    };
+    if ok == 0 || output.pbData.is_null() {
+        return None;
+    }
+    let bytes = unsafe { std::slice::from_raw_parts(output.pbData, output.cbData as usize) };
+    let result = bytes.to_vec();
+    unsafe { LocalFree(output.pbData as _) };
+    Some(result)
+}
+
+#[cfg(windows)]
+fn dpapi_unprotect(value: &[u8]) -> Option<Vec<u8>> {
+    use windows_sys::Win32::Foundation::LocalFree;
+    use windows_sys::Win32::Security::Cryptography::{CryptUnprotectData, CRYPT_INTEGER_BLOB};
+
+    let input = CRYPT_INTEGER_BLOB {
+        cbData: value.len() as u32,
+        pbData: value.as_ptr() as *mut u8,
+    };
+    let mut output = CRYPT_INTEGER_BLOB {
+        cbData: 0,
+        pbData: std::ptr::null_mut(),
+    };
+    let ok = unsafe {
+        CryptUnprotectData(
+            &input,
+            std::ptr::null_mut(),
+            std::ptr::null(),
+            std::ptr::null_mut(),
+            std::ptr::null(),
+            0,
+            &mut output,
+        )
+    };
+    if ok == 0 || output.pbData.is_null() {
+        return None;
+    }
+    let bytes = unsafe { std::slice::from_raw_parts(output.pbData, output.cbData as usize) };
+    let result = bytes.to_vec();
+    unsafe { LocalFree(output.pbData as _) };
+    Some(result)
+}
+
+pub(crate) fn encrypt_secret(plain: &str) -> String {
     if plain.is_empty() {
         return String::new();
     }
+
+    #[cfg(windows)]
+    if let Some(ciphertext) = dpapi_protect(plain.as_bytes()) {
+        return format!("enc:dpapi:{}", BASE64.encode(ciphertext));
+    }
+
     let key = get_encryption_key();
     if let Ok(cipher) = Aes256Gcm::new_from_slice(&key) {
         let mut nonce_bytes = [0u8; 12];
@@ -73,32 +151,35 @@ fn encrypt_secret(plain: &str) -> String {
     plain.to_string()
 }
 
-fn decrypt_secret(enc: &str) -> String {
-    if let Some(stripped) = enc.strip_prefix("enc:v2:") {
+pub(crate) fn decrypt_secret(enc: &str) -> String {
+    #[cfg(windows)]
+    if let Some(stripped) = enc.strip_prefix("enc:dpapi:") {
         if let Ok(decoded) = BASE64.decode(stripped) {
-            if decoded.len() > 12 {
-                let (nonce_bytes, ciphertext) = decoded.split_at(12);
-                let key = get_encryption_key();
-                if let Ok(cipher) = Aes256Gcm::new_from_slice(&key) {
-                    let nonce = Nonce::from_slice(nonce_bytes);
-                    if let Ok(plaintext) = cipher.decrypt(nonce, ciphertext) {
-                        if let Ok(s) = String::from_utf8(plaintext) {
-                            return s;
-                        }
-                    }
+            if let Some(plaintext) = dpapi_unprotect(&decoded) {
+                if let Ok(value) = String::from_utf8(plaintext) {
+                    return value;
                 }
             }
         }
-    } else if let Some(stripped) = enc.strip_prefix("enc:") {
-        // Legacy fallback
-        if let Ok(decoded) = BASE64.decode(stripped) {
+    }
+
+    if let Some(stripped) = enc.strip_prefix("enc:v2:") {
+        return decrypt_aes_v2(stripped, enc);
+    }
+    if let Some(stripped) = enc.strip_prefix("enc:") {
+        return decrypt_legacy(stripped, enc);
+    }
+    enc.to_string()
+}
+
+fn decrypt_aes_v2(stripped: &str, original: &str) -> String {
+    if let Ok(decoded) = BASE64.decode(stripped) {
+        if decoded.len() > 12 {
+            let (nonce_bytes, ciphertext) = decoded.split_at(12);
             let key = get_encryption_key();
             if let Ok(cipher) = Aes256Gcm::new_from_slice(&key) {
-                let nonce_bytes = [
-                    0x52, 0x65, 0x64, 0x50, 0x61, 0x6E, 0x64, 0x61, 0x53, 0x65, 0x63, 0x31,
-                ];
-                let nonce = Nonce::from_slice(&nonce_bytes);
-                if let Ok(plaintext) = cipher.decrypt(nonce, decoded.as_ref()) {
+                let nonce = Nonce::from_slice(nonce_bytes);
+                if let Ok(plaintext) = cipher.decrypt(nonce, ciphertext) {
                     if let Ok(s) = String::from_utf8(plaintext) {
                         return s;
                     }
@@ -106,7 +187,25 @@ fn decrypt_secret(enc: &str) -> String {
             }
         }
     }
-    enc.to_string()
+    original.to_string()
+}
+
+fn decrypt_legacy(stripped: &str, original: &str) -> String {
+    if let Ok(decoded) = BASE64.decode(stripped) {
+        let key = get_encryption_key();
+        if let Ok(cipher) = Aes256Gcm::new_from_slice(&key) {
+            let nonce_bytes = [
+                0x52, 0x65, 0x64, 0x50, 0x61, 0x6E, 0x64, 0x61, 0x53, 0x65, 0x63, 0x31,
+            ];
+            let nonce = Nonce::from_slice(&nonce_bytes);
+            if let Ok(plaintext) = cipher.decrypt(nonce, decoded.as_ref()) {
+                if let Ok(s) = String::from_utf8(plaintext) {
+                    return s;
+                }
+            }
+        }
+    }
+    original.to_string()
 }
 
 fn get_accounts_file_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -123,7 +222,7 @@ fn get_accounts_file_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(path)
 }
 
-fn load_accounts_data(app: &AppHandle) -> Result<AccountsData, String> {
+pub(crate) fn load_accounts_data(app: &AppHandle) -> Result<AccountsData, String> {
     let _guard = ACCOUNTS_MUTEX
         .lock()
         .map_err(|_| "Failed to acquire accounts mutex lock".to_string())?;
@@ -134,18 +233,31 @@ fn load_accounts_data(app: &AppHandle) -> Result<AccountsData, String> {
         return Ok(AccountsData::default());
     }
 
-    let contents =
-        fs::read_to_string(path).map_err(|e| format!("Failed to read accounts.json: {}", e))?;
-    let mut data: AccountsData = serde_json::from_str(&contents).unwrap_or_default();
+    let mut data: AccountsData = crate::storage::read_json_with_backup(&path)?;
 
-    // Decrypt sensitive tokens transparently
+    let mut needs_migration = false;
+    // Decrypt sensitive tokens transparently and migrate legacy encryption.
     for acc in &mut data.accounts {
         if let Some(token) = &acc.access_token {
+            #[cfg(windows)]
+            {
+                needs_migration |= !token.starts_with("enc:dpapi:");
+            }
             acc.access_token = Some(decrypt_secret(token));
         }
         if let Some(token) = &acc.refresh_token {
+            #[cfg(windows)]
+            {
+                needs_migration |= !token.starts_with("enc:dpapi:");
+            }
             acc.refresh_token = Some(decrypt_secret(token));
         }
+    }
+
+    #[cfg(windows)]
+    if needs_migration {
+        drop(_guard);
+        save_accounts_data(app, &data)?;
     }
 
     Ok(data)
@@ -171,14 +283,22 @@ fn save_accounts_data(app: &AppHandle, data: &AccountsData) -> Result<(), String
 
     let contents = serde_json::to_string_pretty(&to_save)
         .map_err(|e| format!("Failed to serialize accounts: {}", e))?;
-    fs::write(path, contents).map_err(|e| format!("Failed to write accounts.json: {}", e))?;
-    Ok(())
+    crate::storage::atomic_write(&path, contents.as_bytes())
+        .map_err(|e| format!("Failed to write accounts.json: {e}"))
 }
 
 #[tauri::command]
 pub fn get_accounts(app: AppHandle) -> Result<Vec<Account>, String> {
     let data = load_accounts_data(&app)?;
-    Ok(data.accounts)
+    Ok(data
+        .accounts
+        .into_iter()
+        .map(|mut account| {
+            account.access_token = None;
+            account.refresh_token = None;
+            account
+        })
+        .collect())
 }
 
 #[tauri::command]
@@ -207,7 +327,7 @@ pub fn add_offline_account(app: AppHandle, username: String) -> Result<Account, 
     data.accounts.push(new_account.clone());
     save_accounts_data(&app, &data)?;
 
-    Ok(new_account)
+    Ok(public_account(new_account))
 }
 
 #[tauri::command]
@@ -271,7 +391,7 @@ pub async fn add_elyby_account(
     email: String,
     password: String,
 ) -> Result<Account, String> {
-    let client = reqwest::Client::new();
+    let client = crate::downloads::trusted_download_client("RedPandaLauncher/accounts")?;
     let payload = serde_json::json!({
         "agent": { "name": "Minecraft", "version": 1 },
         "username": email,
@@ -321,7 +441,7 @@ pub async fn add_elyby_account(
     data.accounts.push(new_account.clone());
     save_accounts_data(&app, &data)?;
 
-    Ok(new_account)
+    Ok(public_account(new_account))
 }
 
 #[derive(Serialize, Clone)]
@@ -336,7 +456,7 @@ pub struct DeviceCodeInfo {
 pub async fn microsoft_device_code() -> Result<DeviceCodeInfo, String> {
     let client_id = "00000000402b5328";
 
-    let client = reqwest::Client::new();
+    let client = crate::downloads::trusted_download_client("RedPandaLauncher/accounts")?;
     let res = client
         .post("https://login.live.com/oauth20_connect.srf")
         .form(&[
@@ -518,7 +638,7 @@ pub async fn poll_microsoft_device_code(
     device_code: String,
 ) -> Result<Account, String> {
     let client_id = "00000000402b5328";
-    let client = reqwest::Client::new();
+    let client = crate::downloads::trusted_download_client("RedPandaLauncher/accounts")?;
 
     let token_res = client
         .post("https://login.live.com/oauth20_token.srf")
@@ -583,7 +703,7 @@ pub async fn poll_microsoft_device_code(
     data.accounts.push(new_account.clone());
     save_accounts_data(&app, &data)?;
 
-    Ok(new_account)
+    Ok(public_account(new_account))
 }
 
 #[tauri::command]
@@ -595,13 +715,14 @@ pub async fn add_microsoft_account(app: AppHandle, device_code: String) -> Resul
 pub async fn add_elyby_account_oauth(app: AppHandle) -> Result<Account, String> {
     let client_id = "elyprism-launcher";
     let auth_url_template = format!(
-        "https://account.ely.by/oauth2/v1?client_id={}&response_type=code&scope=account_info+offline_access+minecraft_server_session&prompt=select_account&redirect_uri={{REDIRECT_URI}}",
+        "https://account.ely.by/oauth2/v1?client_id={}&response_type=code&scope=account_info+offline_access+minecraft_server_session&prompt=select_account&state={{STATE}}&code_challenge={{CODE_CHALLENGE}}&code_challenge_method=S256&redirect_uri={{REDIRECT_URI}}",
         client_id
     );
 
-    let (code, redirect_uri) = crate::oauth::start_oauth_flow(&app, &auth_url_template).await?;
+    let (code, redirect_uri, code_verifier) =
+        crate::oauth::start_oauth_flow(&app, &auth_url_template).await?;
 
-    let client = reqwest::Client::new();
+    let client = crate::downloads::trusted_download_client("RedPandaLauncher/accounts")?;
     let token_res = client
         .post("https://account.ely.by/api/oauth2/v1/token")
         .form(&[
@@ -609,6 +730,7 @@ pub async fn add_elyby_account_oauth(app: AppHandle) -> Result<Account, String> 
             ("grant_type", "authorization_code"),
             ("code", &code),
             ("redirect_uri", &redirect_uri),
+            ("code_verifier", &code_verifier),
         ])
         .send()
         .await
@@ -670,20 +792,21 @@ pub async fn add_elyby_account_oauth(app: AppHandle) -> Result<Account, String> 
     data.accounts.push(new_account.clone());
     save_accounts_data(&app, &data)?;
 
-    Ok(new_account)
+    Ok(public_account(new_account))
 }
 
 #[tauri::command]
 pub async fn add_microsoft_account_oauth(app: AppHandle) -> Result<Account, String> {
     let client_id = "00000000402b5328";
     let auth_url_template = format!(
-        "https://login.live.com/oauth20_authorize.srf?client_id={}&response_type=code&scope=service::user.auth.xboxlive.com::MBI_SSL&redirect_uri={{REDIRECT_URI}}",
+        "https://login.live.com/oauth20_authorize.srf?client_id={}&response_type=code&scope=service::user.auth.xboxlive.com::MBI_SSL&state={{STATE}}&code_challenge={{CODE_CHALLENGE}}&code_challenge_method=S256&redirect_uri={{REDIRECT_URI}}",
         client_id
     );
 
-    let (code, redirect_uri) = crate::oauth::start_oauth_flow(&app, &auth_url_template).await?;
+    let (code, redirect_uri, code_verifier) =
+        crate::oauth::start_oauth_flow(&app, &auth_url_template).await?;
 
-    let client = reqwest::Client::new();
+    let client = crate::downloads::trusted_download_client("RedPandaLauncher/accounts")?;
     let token_res = client
         .post("https://login.live.com/oauth20_token.srf")
         .form(&[
@@ -691,6 +814,7 @@ pub async fn add_microsoft_account_oauth(app: AppHandle) -> Result<Account, Stri
             ("grant_type", "authorization_code"),
             ("code", &code),
             ("redirect_uri", &redirect_uri),
+            ("code_verifier", &code_verifier),
         ])
         .send()
         .await
@@ -740,7 +864,7 @@ pub async fn add_microsoft_account_oauth(app: AppHandle) -> Result<Account, Stri
     data.accounts.push(new_account.clone());
     save_accounts_data(&app, &data)?;
 
-    Ok(new_account)
+    Ok(public_account(new_account))
 }
 
 pub async fn refresh_account_tokens(
@@ -755,7 +879,7 @@ pub async fn refresh_account_tokens(
         }
     }
 
-    let client = reqwest::Client::new();
+    let client = crate::downloads::trusted_download_client("RedPandaLauncher/accounts")?;
 
     if account.account_type == "ElyBy" {
         if let Some(ref_tok) = &account.refresh_token {
@@ -840,5 +964,7 @@ pub async fn validate_and_refresh_account(app: AppHandle, id: String) -> Result<
         save_accounts_data(&app, &data)?;
     }
 
-    updated_account.ok_or_else(|| "Account not found".to_string())
+    updated_account
+        .map(public_account)
+        .ok_or_else(|| "Account not found".to_string())
 }

@@ -4,8 +4,8 @@ import React, { useState } from "react";
 import { Navbar } from "../../components/Navbar";
 import { Footer } from "../../components/Footer";
 import { ModCard } from "../../components/ModCard";
-import { TOP_MODS } from "../../data/modsData";
-import { IconPuzzle, IconSearch, IconFlame, IconCheck } from "@tabler/icons-react";
+import { TOP_MODS, ModItem } from "../../data/modsData";
+import { IconPuzzle, IconSearch } from "@tabler/icons-react";
 
 export default function ModsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("Все");
@@ -17,7 +17,7 @@ export default function ModsPage() {
 
   const filteredMods = TOP_MODS.filter((mod) => {
     const matchesCat = selectedCategory === "Все" || mod.category === selectedCategory;
-    const matchesLoader = selectedLoader === "Все" || mod.loaders.includes(selectedLoader as any);
+  const matchesLoader = selectedLoader === "Все" || mod.loaders.includes(selectedLoader as ModItem["loaders"][number]);
     const matchesSearch = 
       mod.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       mod.author.toLowerCase().includes(searchQuery.toLowerCase()) ||

@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { X, Puzzle, Palette, Settings as SettingsIcon, Trash2, Plus, Loader2, RefreshCw, ArrowUpCircle, Globe, Gamepad2, Check, Power, Stethoscope, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
 import ModrinthBrowser from "./ModrinthBrowser";
 import CurseForgeBrowser from "./CurseForgeBrowser";
+import { InstallTask, command, getErrorMessage } from "../lib/ipc";
+
+const invoke = command;
 
 interface Instance {
   id: string;
@@ -43,6 +45,18 @@ interface ModUpdate {
     new_version_id: string;
     new_file_name: string;
     new_file_url: string;
+    new_sha1?: string;
+}
+
+interface ModrinthVersionSummary {
+  id: string;
+  name: string;
+  version_number: string;
+}
+
+interface CurseForgeVersionSummary {
+  id: number;
+  gameVersions?: string[];
 }
 
 interface InstanceManagerModalProps {
@@ -105,7 +119,8 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
               instanceId: instance.id,
               oldFileName: update.file_name,
               newFileName: update.new_file_name,
-              downloadUrl: update.new_file_url
+              downloadUrl: update.new_file_url,
+              expectedSha1: update.new_sha1
           });
           
           setModUpdates(prev => {
@@ -223,7 +238,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
   const handleInstallE4mc = async () => {
     setInstallingE4mc(true);
     try {
-        const versions: any[] = await invoke("get_modrinth_versions", {
+        const versions: ModrinthVersionSummary[] = await invoke("get_modrinth_versions", {
             projectSlug: "e4mc",
             gameVersion: instance.game_version,
             loader: instance.loader_type,
@@ -235,7 +250,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
             return;
         }
         
-        const tasks: any[] = await invoke("resolve_dependencies", {
+        const tasks: InstallTask[] = await invoke("resolve_dependencies", {
             instanceId: instance.id,
             source: "modrinth",
             id: versions[0].id,
@@ -255,16 +270,17 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                     instanceId: instance.id,
                     downloadUrl: task.url,
                     fileName: task.filename,
-                    projectType: "mod"
+                    projectType: "mod",
+                    expectedSha1: task.sha1
                 });
             }
         }
         
         toast.success("Мод e4mc успешно установлен!");
         await loadMods();
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error(e);
-        toast.error(t("common.error") + ": " + e);
+        toast.error(t("common.error") + ": " + getErrorMessage(e));
     } finally {
         setInstallingE4mc(false);
     }
@@ -274,13 +290,13 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
     setInstallingE4steam(true);
     try {
         // e4steam mod_id on CurseForge is 1633302
-        let versions: any[] = await invoke("get_curseforge_versions", {
+        let versions: CurseForgeVersionSummary[] = await invoke("get_curseforge_versions", {
             modId: 1633302,
             gameVersion: instance.game_version,
         });
 
         const loaderLower = instance.loader_type.toLowerCase();
-        let targetVersion = versions.find((v: any) => {
+        let targetVersion = versions.find((v) => {
             const gvList = (v.gameVersions || []).map((gv: string) => gv.toLowerCase());
             return gvList.includes(loaderLower);
         });
@@ -291,7 +307,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                 modId: 1633302,
                 gameVersion: null,
             });
-            targetVersion = versions.find((v: any) => {
+            targetVersion = versions.find((v) => {
                 const gvList = (v.gameVersions || []).map((gv: string) => gv.toLowerCase());
                 return gvList.includes(loaderLower) && gvList.includes(instance.game_version.toLowerCase());
             });
@@ -302,7 +318,7 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
             return;
         }
 
-        const tasks: any[] = await invoke("resolve_dependencies", {
+        const tasks: InstallTask[] = await invoke("resolve_dependencies", {
             instanceId: instance.id,
             source: "curseforge",
             id: targetVersion.id.toString(),
@@ -322,16 +338,17 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
                     instanceId: instance.id,
                     downloadUrl: task.url,
                     fileName: task.filename,
-                    projectType: "mod"
+                    projectType: "mod",
+                    expectedSha1: task.sha1
                 });
             }
         }
 
         toast.success("Мод e4steam успешно установлен!");
         await loadMods();
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error(e);
-        toast.error(t("common.error") + ": " + e);
+        toast.error(t("common.error") + ": " + getErrorMessage(e));
     } finally {
         setInstallingE4steam(false);
     }
@@ -352,9 +369,9 @@ export default function InstanceManagerModal({ instance, onClose, onDelete }: In
         } else {
             toast.error(`Файл мода ${modType} не найден.`);
         }
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error(e);
-        toast.error(t("common.error") + ": " + e);
+        toast.error(t("common.error") + ": " + getErrorMessage(e));
     } finally {
         setUninstallingMod(null);
     }

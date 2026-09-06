@@ -5,15 +5,9 @@ import { IconArrowUp } from "@tabler/icons-react";
 
 export function ScrollToTop() {
   const [visible, setVisible] = useState(false);
-  const [scrollProgress, setScrollProgress] = useState(0);
-
   useEffect(() => {
     const handleScroll = () => {
       const totalScroll = document.documentElement.scrollTop;
-      const windowHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-      if (windowHeight > 0) {
-        setScrollProgress((totalScroll / windowHeight) * 100);
-      }
       setVisible(totalScroll > 300);
     };
 

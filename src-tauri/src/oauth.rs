@@ -1,16 +1,21 @@
+use aes_gcm::aead::{rand_core::RngCore, OsRng};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+use reqwest::Url;
+use sha2::{Digest, Sha256};
 use std::net::SocketAddr;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::time::timeout;
+use uuid::Uuid;
 
 /// Starts a temporary local HTTP server on a random port, opens the given authorization URL in the browser,
 /// and waits for a callback with the `code` query parameter.
 pub async fn start_oauth_flow(
     app: &tauri::AppHandle,
     auth_url_template: &str, // e.g. "https://login.live.com/oauth20_authorize.srf?client_id=...&response_type=code&redirect_uri={REDIRECT_URI}"
-) -> Result<(String, String), String> {
-    // Returns (code, redirect_uri)
+) -> Result<(String, String, String), String> {
+    // Returns (code, redirect_uri, PKCE code_verifier)
     // 1. Start a local TCP listener on a random port
     let listener = TcpListener::bind("127.0.0.1:0")
         .await
@@ -21,9 +26,17 @@ pub async fn start_oauth_flow(
         .map_err(|e| format!("Failed to get local address: {}", e))?;
 
     let redirect_uri = format!("http://127.0.0.1:{}/auth/callback", local_addr.port());
+    let state = Uuid::new_v4().to_string();
+    let mut verifier_bytes = [0u8; 32];
+    OsRng.fill_bytes(&mut verifier_bytes);
+    let code_verifier = URL_SAFE_NO_PAD.encode(verifier_bytes);
+    let code_challenge = URL_SAFE_NO_PAD.encode(Sha256::digest(code_verifier.as_bytes()));
 
     // 2. Format the URL and open the browser
-    let auth_url = auth_url_template.replace("{REDIRECT_URI}", &urlencoding::encode(&redirect_uri));
+    let auth_url = auth_url_template
+        .replace("{REDIRECT_URI}", &urlencoding::encode(&redirect_uri))
+        .replace("{STATE}", &urlencoding::encode(&state))
+        .replace("{CODE_CHALLENGE}", &urlencoding::encode(&code_challenge));
 
     // Use tauri-plugin-opener to open the URL
     use tauri_plugin_opener::OpenerExt;
@@ -42,25 +55,32 @@ pub async fn start_oauth_flow(
                 if bytes_read > 0 {
                     let request_line = String::from_utf8_lossy(&buffer[..bytes_read]);
 
-                    // Parse the GET request line e.g., "GET /auth/callback?code=abc... HTTP/1.1"
                     if let Some(line) = request_line.lines().next() {
-                        if line.starts_with("GET /auth/callback") {
-                            // Extract code
-                            let mut code = None;
-                            if let Some(query_start) = line.find('?') {
-                                if let Some(query_end) = line.find(" HTTP") {
-                                    let query = &line[query_start + 1..query_end];
-                                    for pair in query.split('&') {
-                                        if let Some((k, v)) = pair.split_once('=') {
-                                            if k == "code" {
-                                                code = Some(v.to_string());
-                                                break;
-                                            }
-                                        }
-                                    }
+                        let mut code = None;
+                        if let Some(target) = line
+                            .strip_prefix("GET ")
+                            .and_then(|value| value.split_whitespace().next())
+                        {
+                            if let Ok(url) = Url::parse(&format!("http://localhost{target}")) {
+                                let callback_state = url
+                                    .query_pairs()
+                                    .find(|(key, _)| key == "state")
+                                    .map(|(_, value)| value.into_owned());
+                                if url.path() != "/auth/callback"
+                                    || callback_state.as_deref() != Some(state.as_str())
+                                {
+                                    let response = "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+                                    let _ = socket.write_all(response.as_bytes()).await;
+                                    continue;
                                 }
+                                code = url
+                                    .query_pairs()
+                                    .find(|(key, _)| key == "code")
+                                    .map(|(_, value)| value.into_owned());
                             }
+                        }
 
+                        if let Some(code) = code {
                             // Send success response to browser
                             let response_body = r#"
                                 <!DOCTYPE html>
@@ -94,9 +114,7 @@ pub async fn start_oauth_flow(
                             let _ = socket.write_all(response.as_bytes()).await;
                             let _ = socket.flush().await;
 
-                            if let Some(c) = code {
-                                return Ok(c);
-                            }
+                            return Ok(code);
                         }
                     }
 
@@ -109,7 +127,7 @@ pub async fn start_oauth_flow(
     }).await;
 
     match result {
-        Ok(Ok(code)) => Ok((code, redirect_uri)),
+        Ok(Ok(code)) => Ok((code, redirect_uri, code_verifier)),
         Ok(Err(e)) => Err(format!("Socket error: {}", e)),
         Err(_) => Err("Timeout waiting for authorization".to_string()),
     }

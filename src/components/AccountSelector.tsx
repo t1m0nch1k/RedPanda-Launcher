@@ -1,14 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { ChevronDown, Plus, UserPlus, Trash2, X, LayoutGrid, UserCircle2 } from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
+import { Account, command } from "../lib/ipc";
 
-export interface Account {
-  id: string;
-  username: string;
-  account_type: string;
-  is_active: boolean;
-  uuid?: string;
-}
+const invoke = command;
 
 interface AccountSelectorProps {
   onAccountChange?: (username: string | null) => void;

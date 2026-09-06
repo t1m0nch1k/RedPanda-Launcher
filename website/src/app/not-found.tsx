@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
-import { IconAlertTriangle, IconHome, IconNews, IconDownload, IconArrowLeft } from "@tabler/icons-react";
+import { IconAlertTriangle, IconHome, IconNews, IconDownload } from "@tabler/icons-react";
 
 export const metadata = {
   title: "404 — Страница не найдена | RedPanda Launcher",

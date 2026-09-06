@@ -11,6 +11,10 @@ pub fn validate_instance_id(id: &str) -> Result<String, String> {
         return Err("Instance ID cannot exceed 64 characters".to_string());
     }
 
+    if trimmed.ends_with('.') || trimmed.ends_with(' ') || is_reserved_windows_name(trimmed) {
+        return Err("Instance ID is not a valid Windows directory name".to_string());
+    }
+
     if trimmed.contains("..")
         || trimmed.contains('/')
         || trimmed.contains('\\')
@@ -76,7 +80,44 @@ pub fn validate_filename(name: &str) -> Result<String, String> {
         return Err("File name contains control characters".to_string());
     }
 
+    if trimmed.len() > 255
+        || trimmed.ends_with('.')
+        || trimmed.ends_with(' ')
+        || is_reserved_windows_name(trimmed)
+    {
+        return Err("File name is not valid on Windows".to_string());
+    }
+
     Ok(trimmed.to_string())
+}
+
+fn is_reserved_windows_name(name: &str) -> bool {
+    let stem = name.split('.').next().unwrap_or(name).to_ascii_uppercase();
+    matches!(
+        stem.as_str(),
+        "CON"
+            | "PRN"
+            | "AUX"
+            | "NUL"
+            | "COM1"
+            | "COM2"
+            | "COM3"
+            | "COM4"
+            | "COM5"
+            | "COM6"
+            | "COM7"
+            | "COM8"
+            | "COM9"
+            | "LPT1"
+            | "LPT2"
+            | "LPT3"
+            | "LPT4"
+            | "LPT5"
+            | "LPT6"
+            | "LPT7"
+            | "LPT8"
+            | "LPT9"
+    )
 }
 
 /// Returns the private directory containing all launcher instances.
@@ -112,7 +153,45 @@ pub fn safe_join(base: &Path, subpath: &str) -> Result<PathBuf, String> {
         }
     }
 
+    // Reject existing symlinks/junctions anywhere in the resolved path. This
+    // closes the common archive/import escape where a safe textual path points
+    // through a link outside the launcher data directory.
+    let mut current = base.to_path_buf();
+    if is_link_like(&current) {
+        return Err("Base directory cannot be a symbolic link".to_string());
+    }
+    for component in sub.components() {
+        if let Component::Normal(name) = component {
+            current.push(name);
+            if is_link_like(&current) {
+                return Err(format!(
+                    "Path contains a symbolic link: {}",
+                    current.display()
+                ));
+            }
+        }
+    }
+
     Ok(result)
+}
+
+fn is_link_like(path: &Path) -> bool {
+    let Ok(metadata) = std::fs::symlink_metadata(path) else {
+        return false;
+    };
+    if metadata.file_type().is_symlink() {
+        return true;
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x0400;
+        metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
+    }
+    #[cfg(not(windows))]
+    {
+        false
+    }
 }
 
 #[cfg(test)]
@@ -159,5 +238,7 @@ mod tests {
         assert!(validate_filename("folder/mod.jar").is_err());
         assert!(validate_filename("..\\secret.txt").is_err());
         assert!(validate_filename("").is_err());
+        assert!(validate_filename("CON").is_err());
+        assert!(validate_filename("name.").is_err());
     }
 }

@@ -2742,7 +2742,7 @@ dependencies = [
 
 [[package]]
 name = "redpanda-installer"
-version = "0.2.2"
+version = "0.3.0"
 dependencies = [
  "dirs",
  "log",
@@ -2752,6 +2752,9 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
+ "tempfile",
+ "uuid",
+ "windows-sys 0.61.2",
  "winreg 0.52.0",
  "zip",
 ]

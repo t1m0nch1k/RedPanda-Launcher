@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { Navbar } from "../../components/Navbar";
 import { Footer } from "../../components/Footer";
 import { LAUNCHER_RELEASES } from "../../data/changelogData";
@@ -15,8 +15,6 @@ import {
 } from "@tabler/icons-react";
 
 export default function ChangelogPage() {
-  const [filterType, setFilterType] = useState<string>("all");
-
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Navbar />
@@ -78,7 +76,7 @@ export default function ChangelogPage() {
               {/* Ключевые хайлайты */}
               <div className="mb-8 p-4 bg-background border border-border">
                 <p className="font-mono text-xs uppercase tracking-wider text-muted mb-3 font-bold">
-                  // Ключевые нововведения:
+                  {"// Ключевые нововведения:"}
                 </p>
                 <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {rel.highlights.map((h, i) => (
@@ -93,7 +91,7 @@ export default function ChangelogPage() {
               {/* Детальный чейнджлог */}
               <div className="space-y-4">
                 <p className="font-mono text-xs uppercase tracking-wider text-muted font-bold">
-                  // Технические изменения:
+                  {"// Технические изменения:"}
                 </p>
                 <div className="space-y-3">
                   {rel.changes.map((c, i) => (

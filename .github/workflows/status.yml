@@ -1,0 +1,45 @@
+name: Service health status
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check public dependencies
+        shell: pwsh
+        run: |
+          $checks = @{
+            "minecraft-auth" = "https://sessionserver.mojang.com/session/minecraft/profile/4566e69fc90748ee8d71d7ba5aa00d20"
+            "elyby" = "https://skinsystem.ely.by/"
+            "modrinth" = "https://api.modrinth.com/v2/"
+          }
+          $services = [ordered]@{}
+          foreach ($id in $checks.Keys) {
+            $status = "outage"
+            try {
+              $response = Invoke-WebRequest -Uri $checks[$id] -Method Head -TimeoutSec 15 -UseBasicParsing
+              if ($response.StatusCode -eq 429) { $status = "degraded" }
+              elseif ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) { $status = "operational" }
+            } catch { $status = "outage" }
+            $services[$id] = @{ status = $status }
+          }
+          foreach ($id in @("curseforge", "e4mc", "redpanda-cdn")) { $services[$id] = @{ status = "unknown" } }
+          $payload = @{ checkedAt = (Get-Date).ToUniversalTime().ToString("o"); services = $services }
+          $payload | ConvertTo-Json -Depth 5 | Set-Content website/public/status.json
+      - name: Publish status data
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add website/public/status.json
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: update service status"
+          git push

@@ -59,7 +59,7 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
       if (info && info.has_update) {
         alert(`Найдено обновление! Доступна версия v${info.latest_version}.`);
       } else {
-        alert(`У вас установлена самая свежая версия (v${info?.current_version || "0.2.2"})`);
+        alert(`У вас установлена самая свежая версия (v${info?.current_version || "0.3.0"})`);
       }
     } catch (e) {
       alert("Ошибка при проверке обновлений: " + e);
@@ -103,6 +103,7 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
     }
     if (key === "accent_color") {
       document.documentElement.style.setProperty("--color-primary", value as string);
+      document.documentElement.style.setProperty("--color-primary-hover", value as string);
     }
     setSettings(newSettings);
     saveSettings(newSettings);
@@ -275,8 +276,8 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
 
                   <div className="bg-background brutalist-border p-4 flex items-center justify-between">
                     <div>
-                      <div className="font-bold text-xs text-text">Версия v0.2.2 Stable</div>
-                      <div className="text-[10px] text-muted font-mono mt-0.5">Build 2026.08.16</div>
+                      <div className="font-bold text-xs text-text">Версия v0.3.0 Stable</div>
+                      <div className="text-[10px] text-muted font-mono mt-0.5">Build 2026.09.06</div>
                       <div className="text-[10px] text-muted mt-0.5">Автоматическая проверка релизов с GitHub</div>
                     </div>
                     <button
@@ -680,6 +681,21 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
                         {preset.name}
                       </button>
                     ))}
+
+                    {/* Custom Color Picker */}
+                    <div className="flex items-center gap-2 px-3 py-1.5 brutalist-border bg-card">
+                      <input
+                        type="color"
+                        id="custom_accent_color"
+                        value={settings.accent_color || "#F55E1D"}
+                        onChange={(e) => updateSetting("accent_color", e.target.value)}
+                        className="w-6 h-6 border-0 bg-transparent cursor-pointer rounded-none p-0"
+                        title="Выбрать свой цвет"
+                      />
+                      <label htmlFor="custom_accent_color" className="text-xs font-mono font-bold text-white uppercase cursor-pointer">
+                        {settings.accent_color || "#F55E1D"}
+                      </label>
+                    </div>
                   </div>
                 </section>
 
@@ -736,11 +752,11 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
                       autoComplete="off"
                       value={settings.curseforge_api_key ?? ""}
                       onChange={(e) => updateSetting("curseforge_api_key", e.target.value)}
-                      placeholder="Введите ключ CurseForge"
+                      placeholder="Встроенный ключ активен (или введите свой)"
                       className="w-full bg-card brutalist-border px-3 py-2 text-xs text-white focus:outline-none focus:border-primary font-mono"
                     />
                     <p className="text-[10px] text-muted">
-                      Ключ берётся также из переменной окружения CURSEFORGE_API_KEY.
+                      По умолчанию используется встроенный ключ лаунчера. Вы можете указать свой личный ключ (или через CURSEFORGE_API_KEY).
                     </p>
                   </div>
                 </section>

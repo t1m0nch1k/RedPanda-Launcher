@@ -1,8 +1,11 @@
 mod accounts;
 pub mod backup;
+pub mod builder;
 pub mod curseforge;
 pub mod dependencies;
 pub mod discord;
+pub mod downloads;
+pub mod errors;
 pub mod import;
 pub mod instances;
 pub mod java;
@@ -11,11 +14,15 @@ mod modrinth;
 mod oauth;
 pub mod security;
 pub mod settings;
+pub mod storage;
 pub mod updater;
 mod versions;
 
 use crate::discord::DiscordState;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
+
+#[cfg(windows)]
+static SINGLE_INSTANCE_HANDLE: OnceLock<usize> = OnceLock::new();
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -25,10 +32,20 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(windows)]
+    if !acquire_single_instance() {
+        return;
+    }
+
     tauri::Builder::default()
         .manage(DiscordState {
             client: Mutex::new(None),
             is_enabled: Mutex::new(false),
+        })
+        .setup(|app| {
+            #[cfg(windows)]
+            start_shutdown_listener(app.handle().clone());
+            Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
         .plugin(
@@ -67,6 +84,8 @@ pub fn run() {
             instances::get_installed_mods,
             instances::toggle_mod,
             instances::diagnose_instance,
+            backup::list_backups,
+            backup::restore_backup,
             instances::delete_mod,
             instances::install_mod_jar,
             instances::open_instance_folder,
@@ -96,12 +115,65 @@ pub fn run() {
             modrinth::update_mod,
             curseforge::search_curseforge,
             curseforge::get_curseforge_versions,
+            curseforge::get_curseforge_download_url,
             curseforge::download_curseforge_version,
             curseforge::download_curseforge_modpack,
             updater::check_for_updates,
             updater::download_and_install_update,
             dependencies::resolve_dependencies,
+            builder::build_custom_modpack,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(windows)]
+fn acquire_single_instance() -> bool {
+    use std::os::windows::ffi::OsStrExt;
+    use std::ptr::null_mut;
+    use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
+    use windows_sys::Win32::System::Threading::CreateMutexW;
+
+    let name: Vec<u16> = std::ffi::OsStr::new("Local\\RedPandaLauncher.SingleInstance")
+        .encode_wide()
+        .chain(Some(0))
+        .collect();
+    let handle = unsafe { CreateMutexW(null_mut(), 0, name.as_ptr()) };
+    if handle.is_null() {
+        log::error!("Unable to create single-instance mutex");
+        return true;
+    }
+    if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
+        unsafe { windows_sys::Win32::Foundation::CloseHandle(handle) };
+        return false;
+    }
+
+    // Keep the mutex handle open for the lifetime of the process; Windows
+    // releases it automatically on process termination.
+    let _ = SINGLE_INSTANCE_HANDLE.set(handle as usize);
+    true
+}
+
+#[cfg(windows)]
+fn start_shutdown_listener(app: tauri::AppHandle) {
+    use std::os::windows::ffi::OsStrExt;
+    use std::ptr::null_mut;
+    use windows_sys::Win32::System::Threading::{CreateEventW, WaitForSingleObject, INFINITE};
+
+    let name: Vec<u16> = std::ffi::OsStr::new("Local\\RedPandaLauncher.GracefulShutdown")
+        .encode_wide()
+        .chain(Some(0))
+        .collect();
+    let event = unsafe { CreateEventW(null_mut(), 0, 0, name.as_ptr()) };
+    if event.is_null() {
+        log::error!("Unable to create graceful shutdown event");
+        return;
+    }
+    let event_handle = event as usize;
+    std::thread::spawn(move || {
+        let event = event_handle as *mut std::ffi::c_void;
+        unsafe { WaitForSingleObject(event, INFINITE) };
+        app.exit(0);
+        unsafe { windows_sys::Win32::Foundation::CloseHandle(event) };
+    });
 }

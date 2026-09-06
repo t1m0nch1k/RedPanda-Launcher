@@ -1,9 +1,9 @@
-use reqwest::{Client, Url};
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use tauri::AppHandle;
 
-fn is_trusted_download_url(value: &str) -> bool {
+pub(crate) fn is_trusted_download_url(value: &str) -> bool {
     let Ok(url) = Url::parse(value) else {
         return false;
     };
@@ -62,10 +62,10 @@ pub async fn search_modrinth(
     project_type: String,
     categories: Option<Vec<String>>,
 ) -> Result<Vec<ModrinthSearchResult>, String> {
-    let client = Client::builder()
-        .user_agent("RedPandaLauncher/1.0.0")
-        .build()
-        .map_err(|e| e.to_string())?;
+    let client = crate::downloads::trusted_download_client(&format!(
+        "RedPandaLauncher/{}",
+        env!("REDPANDA_VERSION")
+    ))?;
 
     let mut facets = Vec::new();
 
@@ -140,10 +140,10 @@ pub async fn get_modrinth_versions(
     loader: String,
     project_type: String,
 ) -> Result<Vec<ModrinthVersion>, String> {
-    let client = Client::builder()
-        .user_agent("RedPandaLauncher/1.0.0")
-        .build()
-        .map_err(|e| e.to_string())?;
+    let client = crate::downloads::trusted_download_client(&format!(
+        "RedPandaLauncher/{}",
+        env!("REDPANDA_VERSION")
+    ))?;
 
     let mut loaders_json = String::new();
     let pt = if project_type.is_empty() {
@@ -200,7 +200,7 @@ pub async fn download_modrinth_version(
     project_type: String,
 ) -> Result<(), String> {
     // 1. Get the version details to find the primary file URL
-    let client = Client::new();
+    let client = crate::downloads::trusted_download_client("RedPandaLauncher/1.0.0")?;
     let url = format!("https://api.modrinth.com/v2/version/{}", version_id);
     let res = client.get(&url).send().await.map_err(|e| e.to_string())?;
     let version: ModrinthVersion = res.json().await.map_err(|e| e.to_string())?;
@@ -210,8 +210,6 @@ pub async fn download_modrinth_version(
         .iter()
         .find(|f| f.primary)
         .or_else(|| version.files.first());
-
-    const MAX_DOWNLOAD_BYTES: usize = 500 * 1024 * 1024; // 500 MB
 
     if let Some(file) = file {
         let download_url = &file.url;
@@ -235,7 +233,7 @@ pub async fn download_modrinth_version(
         }
 
         if let Some(cl) = file_res.content_length() {
-            if cl > (MAX_DOWNLOAD_BYTES as u64) {
+            if cl > (crate::downloads::MAX_DOWNLOAD_BYTES as u64) {
                 return Err(format!(
                     "Размер файла превышает лимит 500 МБ: {} МБ",
                     cl / (1024 * 1024)
@@ -244,9 +242,11 @@ pub async fn download_modrinth_version(
         }
 
         let bytes = file_res.bytes().await.map_err(|e| e.to_string())?;
-        if bytes.len() > MAX_DOWNLOAD_BYTES {
+        if bytes.len() > crate::downloads::MAX_DOWNLOAD_BYTES {
             return Err("Размер загруженных данных превысил лимит 500 МБ".to_string());
         }
+
+        crate::downloads::verify_modrinth_hashes(&bytes, &file.hashes)?;
 
         let mut path = crate::security::instance_dir(&instance_id)?;
 
@@ -260,7 +260,7 @@ pub async fn download_modrinth_version(
             .map_err(|e| format!("Failed to create folder {:?}: {}", path, e))?;
 
         path.push(filename);
-        fs::write(path, bytes).map_err(|e| e.to_string())?;
+        crate::storage::atomic_write(&path, &bytes)?;
 
         Ok(())
     } else {
@@ -270,10 +270,10 @@ pub async fn download_modrinth_version(
 
 #[tauri::command]
 pub async fn download_modrinth_modpack(app: AppHandle, version_id: String) -> Result<(), String> {
-    const MAX_DOWNLOAD_BYTES: usize = 500 * 1024 * 1024; // 500 MB
+    const MAX_DOWNLOAD_BYTES: usize = crate::downloads::MAX_DOWNLOAD_BYTES;
 
     // 1. Get the version details to find the primary file URL
-    let client = Client::new();
+    let client = crate::downloads::trusted_download_client("RedPandaLauncher/1.0.0")?;
     let url = format!("https://api.modrinth.com/v2/version/{}", version_id);
     let res = client.get(&url).send().await.map_err(|e| e.to_string())?;
     let version: ModrinthVersion = res.json().await.map_err(|e| e.to_string())?;
@@ -311,6 +311,7 @@ pub async fn download_modrinth_modpack(app: AppHandle, version_id: String) -> Re
         if bytes.len() > MAX_DOWNLOAD_BYTES {
             return Err("Размер загруженных данных модпака превысил лимит 500 МБ".to_string());
         }
+        crate::downloads::verify_modrinth_hashes(&bytes, &file.hashes)?;
 
         // 3. Save to a temporary location
         let mut temp_path = std::env::temp_dir();
@@ -318,7 +319,7 @@ pub async fn download_modrinth_modpack(app: AppHandle, version_id: String) -> Re
         fs::create_dir_all(&temp_path).map_err(|e| format!("Failed to create temp dir: {}", e))?;
         temp_path.push(filename);
 
-        fs::write(&temp_path, bytes).map_err(|e| e.to_string())?;
+        crate::storage::atomic_write(&temp_path, &bytes)?;
 
         // 4. Import the .mrpack file
         let path_str = temp_path.to_string_lossy().to_string();
@@ -339,6 +340,7 @@ pub struct ModUpdate {
     pub new_version_id: String,
     pub new_file_name: String,
     pub new_file_url: String,
+    pub new_sha1: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -406,7 +408,10 @@ pub async fn check_mod_updates(
     }
 
     // 3. Query Modrinth API
-    let client = Client::new();
+    let client = crate::downloads::trusted_download_client(&format!(
+        "RedPandaLauncher/{}",
+        env!("REDPANDA_VERSION")
+    ))?;
     let mut loaders = Vec::new();
     match instance.loader_type.as_str() {
         "Fabric" => loaders.push("fabric".to_string()),
@@ -465,6 +470,7 @@ pub async fn check_mod_updates(
                         new_version_id: version.id.clone(),
                         new_file_name: f.filename.clone(),
                         new_file_url: f.url.clone(),
+                        new_sha1: f.hashes.get("sha1").cloned(),
                     });
                 }
             }
@@ -480,22 +486,22 @@ pub async fn update_mod(
     old_file_name: String,
     new_file_name: String,
     download_url: String,
+    expected_sha1: Option<String>,
 ) -> Result<(), String> {
     const MAX_DOWNLOAD_BYTES: usize = 500 * 1024 * 1024;
     let mut path = crate::security::instance_dir(&instance_id)?;
     path.push("mods");
     let old_file_name = crate::security::validate_filename(&old_file_name)?;
     let new_file_name = crate::security::sanitize_filename(&new_file_name);
-
-    // Delete old file
-    let mut old_path = path.clone();
-    old_path.push(old_file_name);
-    if old_path.exists() {
-        fs::remove_file(old_path).map_err(|e| e.to_string())?;
+    if !is_trusted_download_url(&download_url) {
+        return Err("Untrusted Modrinth download URL".to_string());
     }
+    let expected_sha1 = expected_sha1
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| "У обновления отсутствует SHA-1 checksum".to_string())?;
 
     // Download new file
-    let client = Client::new();
+    let client = crate::downloads::trusted_download_client("RedPandaLauncher/1.0.0")?;
     let res = client
         .get(&download_url)
         .send()
@@ -518,9 +524,14 @@ pub async fn update_mod(
         return Err("Downloaded mod exceeds the 500 MB limit".to_string());
     }
 
-    let mut new_path = path.clone();
-    new_path = crate::security::safe_join(&new_path, &new_file_name)?;
-    fs::write(new_path, bytes).map_err(|e| e.to_string())?;
+    crate::downloads::verify_sha1(&bytes, &expected_sha1)?;
+    let new_path = crate::security::safe_join(&path, &new_file_name)?;
+    crate::storage::atomic_write(&new_path, &bytes)?;
+
+    let old_path = crate::security::safe_join(&path, &old_file_name)?;
+    if old_path != new_path && old_path.exists() {
+        fs::remove_file(old_path).map_err(|e| e.to_string())?;
+    }
 
     Ok(())
 }

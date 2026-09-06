@@ -8,8 +8,8 @@ import { ShowcaseScene } from "./components/ShowcaseScene";
 import { CtaScene } from "./components/CtaScene";
 
 interface TikTokPromoProps {
-  version: string;
-  siteUrl: string;
+  version?: string;
+  siteUrl?: string;
 }
 
 export const TikTokPromo: React.FC<TikTokPromoProps> = ({

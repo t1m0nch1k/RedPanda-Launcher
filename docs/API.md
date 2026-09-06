@@ -7,7 +7,7 @@
 ## 👤 Управление аккаунтами (Accounts)
 
 ### `get_accounts()`
-- **Описание**: Возвращает список всех сохранённых аккаунтов (токены расшифровываются прозрачно на лету).
+- **Описание**: Возвращает список аккаунтов без access/refresh-токенов. Секреты используются только в backend-командах.
 - **Возвращает**: `Promise<Account[]>`
 
 ### `add_offline_account({ username: string })`
@@ -56,8 +56,8 @@
 
 ## 🎮 Запуск игры (Launcher)
 
-### `launch_game({ username, instanceId, version, loaderType, loaderVersion, server? })`
-- **Описание**: Выполняет сборку JVM аргументов, авто-скачивание Java, валидацию токенов и запуск игрового процесса Minecraft с трансляцией логов в `launcher-event`.
+### `launch_game({ accountId, instanceId, server? })`
+- **Описание**: Загружает версию, loader и JVM-конфигурацию только из сохранённого инстанса. Выполняет авто-скачивание Java и трансляцию логов в `launcher-event`.
 - **Возвращает**: `Promise<void>`
 
 ---
@@ -124,8 +124,8 @@
 - **Описание**: Скачивание файла с лимитом размера 500 МБ и санитизацией пути.
 - **Возвращает**: `Promise<void>`
 
-### `download_curseforge_version({ instanceId, downloadUrl, fileName, projectType })`
-- **Описание**: Скачивание файла из доверенных доменов CurseForge/ForgeCDN с лимитом размера 500 МБ.
+### `download_curseforge_version({ instanceId, downloadUrl, fileName, projectType, expectedSha1 })`
+- **Описание**: Скачивание файла из доверенных доменов CurseForge/ForgeCDN с лимитом размера 500 МБ и обязательной проверкой SHA-1.
 - **Возвращает**: `Promise<void>`
 
 ---
@@ -133,9 +133,12 @@
 ## 🔄 Авто-обновления (Updater)
 
 ### `check_for_updates()`
-- **Описание**: Проверяет наличие новых релизов лаунчера на GitHub Releases.
+- **Описание**: Проверяет подписанный `update-manifest.json`, точный asset, SHA-256, размер и Ed25519-подпись в GitHub Releases.
 - **Возвращает**: `Promise<UpdateInfo>`
 
-### `download_and_install_update({ downloadUrl: string })`
-- **Описание**: Загружает и применяет обновление лаунчера.
+### `download_and_install_update({ downloadUrl, expectedSha256, expectedSignature, expectedAssetName, expectedSize, expectedManifest })`
+- **Описание**: Повторно проверяет подпись manifest, URL, размер, формат и SHA-256 до запуска установщика; загрузка идёт потоково во временный файл.
 - **Возвращает**: `Promise<void>`
+
+### `import_mrpack({ path: string })` / `import_curseforge_pack({ path: string })`
+- **Описание**: Импортируют сборку с лимитами ZIP-архива, проверкой доверенного URL и хэшей файлов. Команда возвращает ошибку со списком файлов, которые не удалось установить.

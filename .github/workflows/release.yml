@@ -10,6 +10,10 @@ jobs:
     permissions:
       contents: write
     runs-on: windows-latest
+    env:
+      REDPANDA_UPDATE_PUBLIC_KEY_HEX: ${{ vars.REDPANDA_UPDATE_PUBLIC_KEY_HEX }}
+      REDPANDA_UPDATE_KEY_ID: ${{ vars.REDPANDA_UPDATE_KEY_ID }}
+      REDPANDA_UPDATE_SIGNING_PRIVATE_KEY_PEM: ${{ secrets.REDPANDA_UPDATE_SIGNING_PRIVATE_KEY_PEM }}
     steps:
       - uses: actions/checkout@v4
 
@@ -36,6 +40,44 @@ jobs:
         run: |
           $version = $env:GITHUB_REF_NAME.TrimStart('v')
           .\scripts\build-custom-installer.ps1 -Version $version
+          $installer = "release_output\RedPanda_Setup_${version}.exe"
+          $hash = (Get-FileHash -Algorithm SHA256 -Path $installer).Hash.ToLowerInvariant()
+          "$hash  RedPanda_Setup_${version}.exe" | Set-Content -NoNewline "release_output\RedPanda_Setup_${version}.exe.sha256"
+
+      - name: sign installer and update manifest
+        shell: pwsh
+        env:
+          WINDOWS_SIGNING_CERT_BASE64: ${{ secrets.WINDOWS_SIGNING_CERT_BASE64 }}
+          WINDOWS_SIGNING_CERT_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERT_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:REDPANDA_UPDATE_PUBLIC_KEY_HEX) -or
+              [string]::IsNullOrWhiteSpace($env:REDPANDA_UPDATE_KEY_ID) -or
+              [string]::IsNullOrWhiteSpace($env:REDPANDA_UPDATE_SIGNING_PRIVATE_KEY_PEM)) {
+            throw "Update signing variables are not configured"
+          }
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_CERT_BASE64) -or
+              [string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_CERT_PASSWORD)) {
+            throw "Authenticode signing secrets are not configured"
+          }
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          $certPath = Join-Path $env:RUNNER_TEMP "redpanda-signing.pfx"
+          [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:WINDOWS_SIGNING_CERT_BASE64))
+          $installer = "release_output\RedPanda_Setup_${version}.exe"
+          & signtool sign /fd SHA256 /f $certPath /p $env:WINDOWS_SIGNING_CERT_PASSWORD /tr http://timestamp.digicert.com /td SHA256 $installer
+          if ($LASTEXITCODE -ne 0) { throw "Authenticode signing failed" }
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer).Hash.ToLowerInvariant()
+          "$hash  RedPanda_Setup_${version}.exe" | Set-Content -NoNewline "release_output\RedPanda_Setup_${version}.exe.sha256"
+          .\scripts\sign-update-manifest.ps1 -Version $version -OutputDir release_output
+          & signtool verify /pa $installer
+          if ($LASTEXITCODE -ne 0) { throw "Authenticode signature verification failed" }
+          $manifest = Get-Content -Raw "release_output\update-manifest.json" | ConvertFrom-Json
+          if ($manifest.version -ne $version -or
+              $manifest.assetName -ne "RedPanda_Setup_${version}.exe" -or
+              $manifest.sha256 -ne $hash -or
+              $manifest.size -ne (Get-Item -LiteralPath $installer).Length) {
+            throw "Update manifest does not match the signed installer"
+          }
+          Remove-Item -LiteralPath $certPath -Force -ErrorAction SilentlyContinue
 
       - name: replace release assets with custom installer
         uses: actions/github-script@v7
@@ -54,9 +96,21 @@ jobs:
             const version = tag.replace(/^v/, '');
             const installerName = `RedPanda_Setup_${version}.exe`;
             const installerPath = path.join(process.env.GITHUB_WORKSPACE, 'release_output', installerName);
+            const checksumName = `${installerName}.sha256`;
+            const manifestName = 'update-manifest.json';
+            const signatureName = 'update-manifest.json.sig';
+            const checksumPath = path.join(process.env.GITHUB_WORKSPACE, 'release_output', checksumName);
+            const manifestPath = path.join(process.env.GITHUB_WORKSPACE, 'release_output', manifestName);
+            const signaturePath = path.join(process.env.GITHUB_WORKSPACE, 'release_output', signatureName);
 
             if (!fs.existsSync(installerPath)) {
               throw new Error(`Custom installer was not found: ${installerPath}`);
+            }
+            if (!fs.existsSync(checksumPath)) {
+              throw new Error(`Checksum file was not found: ${checksumPath}`);
+            }
+            if (!fs.existsSync(manifestPath) || !fs.existsSync(signaturePath)) {
+              throw new Error('Signed update manifest assets were not found');
             }
 
             let release;
@@ -98,5 +152,31 @@ jobs:
               headers: {
                 'content-type': 'application/vnd.microsoft.portable-executable',
                 'content-length': data.length,
+              },
+            });
+            for (const [name, filePath, contentType] of [
+              [manifestName, manifestPath, 'application/json'],
+              [signatureName, signaturePath, 'text/plain; charset=utf-8'],
+            ]) {
+              const content = fs.readFileSync(filePath);
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: release.id,
+                name,
+                data: content,
+                headers: { 'content-type': contentType, 'content-length': content.length },
+              });
+            }
+            const checksum = fs.readFileSync(checksumPath);
+            await github.rest.repos.uploadReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: release.id,
+              name: checksumName,
+              data: checksum,
+              headers: {
+                'content-type': 'text/plain; charset=utf-8',
+                'content-length': checksum.length,
               },
             });

@@ -30,14 +30,14 @@ pub struct Instance {
     pub total_play_time_seconds: Option<u64>,
 }
 
-pub fn get_instances_file(app: &AppHandle) -> PathBuf {
+pub fn get_instances_file(app: &AppHandle) -> Result<PathBuf, String> {
     let mut path = app
         .path()
         .app_data_dir()
-        .unwrap_or_else(|_| PathBuf::from("."));
-    let _ = fs::create_dir_all(&path);
+        .map_err(|e| format!("Could not determine instances directory: {e}"))?;
+    fs::create_dir_all(&path).map_err(|e| format!("Could not create instances directory: {e}"))?;
     path.push("instances.json");
-    path
+    Ok(path)
 }
 
 #[tauri::command]
@@ -46,13 +46,16 @@ pub async fn get_instances(app: AppHandle) -> Result<Vec<Instance>, String> {
         .lock()
         .map_err(|_| "Failed to lock instances mutex".to_string())?;
 
-    let path = get_instances_file(&app);
+    read_instances_unlocked(&app)
+}
+
+fn read_instances_unlocked(app: &AppHandle) -> Result<Vec<Instance>, String> {
+    let path = get_instances_file(app)?;
     if !path.exists() {
         return Ok(Vec::new());
     }
 
-    let data = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    let instances_raw: Vec<Instance> = serde_json::from_str(&data).unwrap_or_else(|_| Vec::new());
+    let instances_raw: Vec<Instance> = crate::storage::read_json_with_backup(&path)?;
 
     let mut needs_save = false;
     let mut migrated_instances = Vec::new();
@@ -70,14 +73,15 @@ pub async fn get_instances(app: AppHandle) -> Result<Vec<Instance>, String> {
             new_dir.push("RedPandaLauncher");
             new_dir.push(&new_id);
 
+            if old_dir.exists() && new_dir.exists() {
+                return Err(format!(
+                    "Cannot migrate instance {}: target already exists",
+                    instance.id
+                ));
+            }
             if old_dir.exists() {
                 if let Err(e) = fs::rename(&old_dir, &new_dir) {
-                    log::error!(
-                        "Failed to rename instance dir from {} to {}: {}",
-                        instance.id,
-                        new_id,
-                        e
-                    );
+                    return Err(format!("Failed to migrate instance {}: {e}", instance.id));
                 }
             }
 
@@ -91,7 +95,7 @@ pub async fn get_instances(app: AppHandle) -> Result<Vec<Instance>, String> {
 
     if needs_save {
         if let Ok(new_data) = serde_json::to_string_pretty(&instances) {
-            let _ = fs::write(&path, new_data);
+            crate::storage::atomic_write(&path, new_data.as_bytes())?;
         }
     }
 
@@ -140,7 +144,10 @@ pub async fn add_instance(
     loader_type: String,
     loader_version: String,
 ) -> Result<Instance, String> {
-    let mut instances = get_instances(app.clone()).await?;
+    let _guard = INSTANCES_MUTEX
+        .lock()
+        .map_err(|_| "Failed to lock instances mutex".to_string())?;
+    let mut instances = read_instances_unlocked(&app)?;
 
     let new_id = generate_instance_id(&name, &instances);
     crate::security::validate_instance_id(&new_id)?;
@@ -164,9 +171,9 @@ pub async fn add_instance(
 
     instances.push(new_instance.clone());
 
-    let path = get_instances_file(&app);
+    let path = get_instances_file(&app)?;
     let data = serde_json::to_string_pretty(&instances).map_err(|e| e.to_string())?;
-    fs::write(path, data).map_err(|e| e.to_string())?;
+    crate::storage::atomic_write(&path, data.as_bytes())?;
 
     Ok(new_instance)
 }
@@ -174,16 +181,49 @@ pub async fn add_instance(
 #[tauri::command]
 pub async fn remove_instance(app: AppHandle, id: String) -> Result<(), String> {
     crate::security::validate_instance_id(&id)?;
-    let mut instances = get_instances(app.clone()).await?;
+    let _guard = INSTANCES_MUTEX
+        .lock()
+        .map_err(|_| "Failed to lock instances mutex".to_string())?;
+    let mut instances = read_instances_unlocked(&app)?;
+    let original_instances = instances.clone();
+    let initial_len = instances.len();
     instances.retain(|i| i.id != id);
+    if instances.len() == initial_len {
+        return Err("Инстанс не найден".to_string());
+    }
 
-    let path = get_instances_file(&app);
+    let path = get_instances_file(&app)?;
     let data = serde_json::to_string_pretty(&instances).map_err(|e| e.to_string())?;
-    fs::write(path, data).map_err(|e| e.to_string())?;
 
-    // Remove the instance directory
-    if let Ok(dir_path) = crate::security::instance_dir(&id) {
-        let _ = std::fs::remove_dir_all(dir_path);
+    // Move the directory aside first. If metadata persistence fails, restore
+    // it so the filesystem and instances.json stay consistent.
+    let dir_path = crate::security::instance_dir(&id)?;
+    let tombstone =
+        crate::security::launcher_data_dir()?.join(format!(".{}.removing-{}", id, Uuid::new_v4()));
+    let moved = if dir_path.exists() {
+        fs::rename(&dir_path, &tombstone)
+            .map_err(|e| format!("Не удалось подготовить удаление инстанса: {e}"))?;
+        true
+    } else {
+        false
+    };
+
+    if let Err(error) = crate::storage::atomic_write(&path, data.as_bytes()) {
+        if moved {
+            let _ = fs::rename(&tombstone, &dir_path);
+        }
+        return Err(error);
+    }
+    if moved {
+        if let Err(error) = fs::remove_dir_all(&tombstone) {
+            let original_data = serde_json::to_string_pretty(&original_instances)
+                .map_err(|e| format!("Не удалось восстановить метаданные инстанса: {e}"))?;
+            let _ = crate::storage::atomic_write(&path, original_data.as_bytes());
+            let _ = fs::rename(&tombstone, &dir_path);
+            return Err(format!(
+                "Метаданные восстановлены, но не удалось очистить файлы инстанса: {error}"
+            ));
+        }
     }
 
     Ok(())
@@ -197,6 +237,22 @@ fn copy_dir_all(
     for entry in std::fs::read_dir(src)? {
         let entry = entry?;
         let ty = entry.file_type()?;
+        if ty.is_symlink() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Нельзя клонировать символические ссылки",
+            ));
+        }
+        if matches!(
+            entry
+                .file_name()
+                .to_string_lossy()
+                .to_ascii_lowercase()
+                .as_str(),
+            "logs" | "cache" | "backups"
+        ) {
+            continue;
+        }
         if ty.is_dir() {
             copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
         } else {
@@ -206,10 +262,27 @@ fn copy_dir_all(
     Ok(())
 }
 
+fn copy_user_file_no_overwrite(source: &Path, destination: &Path) -> Result<(), String> {
+    if destination.exists() {
+        return Err(format!("Файл уже существует: {}", destination.display()));
+    }
+    let mut input = fs::File::open(source).map_err(|e| e.to_string())?;
+    let mut output = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(destination)
+        .map_err(|e| format!("Не удалось создать файл назначения: {e}"))?;
+    std::io::copy(&mut input, &mut output).map_err(|e| e.to_string())?;
+    output.sync_all().map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub async fn clone_instance(app: AppHandle, id: String) -> Result<Instance, String> {
     crate::security::validate_instance_id(&id)?;
-    let mut instances = get_instances(app.clone()).await?;
+    let _guard = INSTANCES_MUTEX
+        .lock()
+        .map_err(|_| "Failed to lock instances mutex".to_string())?;
+    let mut instances = read_instances_unlocked(&app)?;
 
     let original = instances
         .iter()
@@ -237,12 +310,14 @@ pub async fn clone_instance(app: AppHandle, id: String) -> Result<Instance, Stri
         total_play_time_seconds: Some(0),
         ..original
     };
+    let mut new_instance = new_instance;
+    new_instance.icon_path = None;
 
     instances.push(new_instance.clone());
 
-    let path = get_instances_file(&app);
+    let path = get_instances_file(&app)?;
     let data = serde_json::to_string_pretty(&instances).map_err(|e| e.to_string())?;
-    std::fs::write(path, data).map_err(|e| e.to_string())?;
+    crate::storage::atomic_write(&path, data.as_bytes())?;
 
     Ok(new_instance)
 }
@@ -612,7 +687,10 @@ pub async fn delete_shader(instance_id: String, filename: String) -> Result<(), 
 #[tauri::command]
 pub async fn update_instance_played(app: AppHandle, id: String) -> Result<(), String> {
     crate::security::validate_instance_id(&id)?;
-    let mut instances = get_instances(app.clone()).await?;
+    let _guard = INSTANCES_MUTEX
+        .lock()
+        .map_err(|_| "Failed to lock instances mutex".to_string())?;
+    let mut instances = read_instances_unlocked(&app)?;
 
     for instance in instances.iter_mut() {
         if instance.id == id {
@@ -626,9 +704,14 @@ pub async fn update_instance_played(app: AppHandle, id: String) -> Result<(), St
         }
     }
 
-    let path = get_instances_file(&app);
+    let found = instances.iter().any(|instance| instance.id == id);
+    if !found {
+        return Err("Инстанс не найден".to_string());
+    }
+
+    let path = get_instances_file(&app)?;
     let data = serde_json::to_string_pretty(&instances).map_err(|e| e.to_string())?;
-    fs::write(path, data).map_err(|e| e.to_string())?;
+    crate::storage::atomic_write(&path, data.as_bytes())?;
 
     Ok(())
 }
@@ -643,7 +726,10 @@ pub async fn edit_instance(
     loader_version: String,
 ) -> Result<(), String> {
     crate::security::validate_instance_id(&id)?;
-    let mut instances = get_instances(app.clone()).await?;
+    let _guard = INSTANCES_MUTEX
+        .lock()
+        .map_err(|_| "Failed to lock instances mutex".to_string())?;
+    let mut instances = read_instances_unlocked(&app)?;
 
     for instance in instances.iter_mut() {
         if instance.id == id {
@@ -655,9 +741,14 @@ pub async fn edit_instance(
         }
     }
 
-    let path = get_instances_file(&app);
+    let found = instances.iter().any(|instance| instance.id == id);
+    if !found {
+        return Err("Инстанс не найден".to_string());
+    }
+
+    let path = get_instances_file(&app)?;
     let data = serde_json::to_string_pretty(&instances).map_err(|e| e.to_string())?;
-    fs::write(path, data).map_err(|e| e.to_string())?;
+    crate::storage::atomic_write(&path, data.as_bytes())?;
 
     Ok(())
 }
@@ -675,7 +766,10 @@ pub async fn save_instance_settings(
     window_height: Option<u32>,
 ) -> Result<(), String> {
     crate::security::validate_instance_id(&id)?;
-    let mut instances = get_instances(app.clone()).await?;
+    let _guard = INSTANCES_MUTEX
+        .lock()
+        .map_err(|_| "Failed to lock instances mutex".to_string())?;
+    let mut instances = read_instances_unlocked(&app)?;
 
     for instance in instances.iter_mut() {
         if instance.id == id {
@@ -689,9 +783,25 @@ pub async fn save_instance_settings(
         }
     }
 
-    let path = get_instances_file(&app);
+    let found = instances.iter().any(|instance| instance.id == id);
+    if !found {
+        return Err("Инстанс не найден".to_string());
+    }
+
+    if let (Some(min), Some(max)) = (min_memory, max_memory) {
+        if min < 256 || max < min || max > 65_536 {
+            return Err("Некорректный диапазон памяти инстанса".to_string());
+        }
+    }
+    if window_width.is_some_and(|v| !(400..=7680).contains(&v))
+        || window_height.is_some_and(|v| !(300..=4320).contains(&v))
+    {
+        return Err("Некорректный размер окна инстанса".to_string());
+    }
+
+    let path = get_instances_file(&app)?;
     let data = serde_json::to_string_pretty(&instances).map_err(|e| e.to_string())?;
-    fs::write(path, data).map_err(|e| e.to_string())?;
+    crate::storage::atomic_write(&path, data.as_bytes())?;
 
     Ok(())
 }
@@ -709,8 +819,8 @@ pub async fn install_mod_jar(_app: AppHandle, id: String, jar_path: String) -> R
         .to_string();
     let file_name = crate::security::sanitize_filename(&raw_name);
 
-    path.push(file_name);
-    fs::copy(&jar_path, &path).map_err(|e| e.to_string())?;
+    path = crate::security::safe_join(&path, &file_name)?;
+    copy_user_file_no_overwrite(Path::new(&jar_path), &path)?;
 
     Ok(())
 }
@@ -866,8 +976,8 @@ pub async fn install_resourcepack_zip(
         .to_string();
     let file_name = crate::security::sanitize_filename(&raw_name);
 
-    path.push(file_name);
-    fs::copy(&zip_path, &path).map_err(|e| e.to_string())?;
+    path = crate::security::safe_join(&path, &file_name)?;
+    copy_user_file_no_overwrite(Path::new(&zip_path), &path)?;
 
     Ok(())
 }
@@ -890,8 +1000,8 @@ pub async fn install_shader_zip(
         .to_string();
     let file_name = crate::security::sanitize_filename(&raw_name);
 
-    path.push(file_name);
-    fs::copy(&zip_path, &path).map_err(|e| e.to_string())?;
+    path = crate::security::safe_join(&path, &file_name)?;
+    copy_user_file_no_overwrite(Path::new(&zip_path), &path)?;
 
     Ok(())
 }
@@ -899,13 +1009,15 @@ pub async fn install_shader_zip(
 #[tauri::command]
 pub async fn rename_instance(app: AppHandle, id: String, new_name: String) -> Result<(), String> {
     crate::security::validate_instance_id(&id)?;
-    let path = get_instances_file(&app);
+    let _guard = INSTANCES_MUTEX
+        .lock()
+        .map_err(|_| "Failed to lock instances mutex".to_string())?;
+    let path = get_instances_file(&app)?;
     if !path.exists() {
         return Err("Instances file not found".into());
     }
 
-    let data = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    let mut instances: Vec<Instance> = serde_json::from_str(&data).unwrap_or_else(|_| Vec::new());
+    let mut instances: Vec<Instance> = crate::storage::read_json_with_backup(&path)?;
 
     if let Some(instance) = instances.iter_mut().find(|i| i.id == id) {
         instance.name = new_name;
@@ -914,7 +1026,7 @@ pub async fn rename_instance(app: AppHandle, id: String, new_name: String) -> Re
     }
 
     let updated_data = serde_json::to_string_pretty(&instances).map_err(|e| e.to_string())?;
-    fs::write(path, updated_data).map_err(|e| e.to_string())?;
+    crate::storage::atomic_write(&path, updated_data.as_bytes())?;
 
     Ok(())
 }
@@ -925,6 +1037,10 @@ pub async fn set_instance_icon(
     id: String,
     icon_path: String,
 ) -> Result<(), String> {
+    let _guard = INSTANCES_MUTEX
+        .lock()
+        .map_err(|_| "Failed to lock instances mutex".to_string())?;
+    crate::security::validate_instance_id(&id)?;
     let inst_dir = crate::security::instance_dir(&id)?;
 
     fs::create_dir_all(&inst_dir).map_err(|e| e.to_string())?;
@@ -939,16 +1055,17 @@ pub async fn set_instance_icon(
 
     fs::copy(&icon_path, &dest_path).map_err(|e| e.to_string())?;
 
-    let path = get_instances_file(&app);
-    let data = fs::read_to_string(&path).unwrap_or_else(|_| "[]".to_string());
-    let mut instances: Vec<Instance> = serde_json::from_str(&data).unwrap_or_else(|_| Vec::new());
+    let path = get_instances_file(&app)?;
+    let mut instances: Vec<Instance> = crate::storage::read_json_with_backup(&path)?;
 
     if let Some(instance) = instances.iter_mut().find(|i| i.id == id) {
         instance.icon_path = Some(dest_path.to_string_lossy().into_owned());
+    } else {
+        return Err("Instance not found".to_string());
     }
 
     let updated_data = serde_json::to_string_pretty(&instances).map_err(|e| e.to_string())?;
-    fs::write(path, updated_data).map_err(|e| e.to_string())?;
+    crate::storage::atomic_write(&path, updated_data.as_bytes())?;
 
     Ok(())
 }
@@ -969,16 +1086,13 @@ pub async fn export_instance(app: AppHandle, id: String, dest_path: String) -> R
 
     if is_mrpack {
         // Load instance details
-        let path = get_instances_file(&app);
-        if let Ok(data) = fs::read_to_string(&path) {
-            if let Ok(instances) = serde_json::from_str::<Vec<Instance>>(&data) {
-                if let Some(inst) = instances.iter().find(|i| i.id == id) {
-                    instance_name = inst.name.clone();
-                    game_version = inst.game_version.clone();
-                    loader_type = inst.loader_type.clone();
-                    loader_version = inst.loader_version.clone();
-                }
-            }
+        let path = get_instances_file(&app)?;
+        let instances: Vec<Instance> = crate::storage::read_json_with_backup(&path)?;
+        if let Some(inst) = instances.iter().find(|i| i.id == id) {
+            instance_name = inst.name.clone();
+            game_version = inst.game_version.clone();
+            loader_type = inst.loader_type.clone();
+            loader_version = inst.loader_version.clone();
         }
     }
 
@@ -1051,14 +1165,19 @@ pub async fn export_instance(app: AppHandle, id: String, dest_path: String) -> R
 
 pub async fn add_play_time(app: AppHandle, id: String, elapsed_seconds: u64) -> Result<(), String> {
     crate::security::validate_instance_id(&id)?;
-    let mut instances = get_instances(app.clone()).await?;
+    let _guard = INSTANCES_MUTEX
+        .lock()
+        .map_err(|_| "Failed to lock instances mutex".to_string())?;
+    let mut instances = read_instances_unlocked(&app)?;
     if let Some(instance) = instances.iter_mut().find(|i| i.id == id) {
         let current = instance.total_play_time_seconds.unwrap_or(0);
         instance.total_play_time_seconds = Some(current + elapsed_seconds);
 
-        let path = get_instances_file(&app);
+        let path = get_instances_file(&app)?;
         let data = serde_json::to_string_pretty(&instances).map_err(|e| e.to_string())?;
-        std::fs::write(path, data).map_err(|e| e.to_string())?;
+        crate::storage::atomic_write(&path, data.as_bytes())?;
+    } else {
+        return Err("Инстанс не найден".to_string());
     }
     Ok(())
 }

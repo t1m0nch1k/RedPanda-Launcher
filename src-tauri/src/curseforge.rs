@@ -1,4 +1,3 @@
-use reqwest::Client;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -40,6 +39,14 @@ pub struct CurseForgeFile {
     pub download_url: Option<String>,
     pub game_versions: Vec<String>,
     pub dependencies: Option<Vec<CurseForgeDependency>>,
+    pub hashes: Option<Vec<CurseForgeHash>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CurseForgeHash {
+    pub value: String,
+    pub algo: u32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -54,6 +61,9 @@ struct FilesResponse {
     data: Vec<CurseForgeFile>,
 }
 
+pub const DEFAULT_CURSEFORGE_API_KEY: &str =
+    "$2a$10$QdP21DmwEcYxV.f.T1orWeyr7SB65NMbFxme2NGVEsEpyFeen44RK";
+
 pub fn get_curseforge_api_key(app: &AppHandle) -> String {
     if let Ok(key) = std::env::var("CURSEFORGE_API_KEY") {
         let trimmed = key.trim();
@@ -61,16 +71,68 @@ pub fn get_curseforge_api_key(app: &AppHandle) -> String {
             return trimmed.to_string();
         }
     }
-    if let Ok(settings) = crate::settings::get_settings(app.clone()) {
-        let trimmed = settings.curseforge_api_key.trim();
+    if let Ok(key) = crate::settings::get_curseforge_api_key(app) {
+        let trimmed = key.trim();
         if !trimmed.is_empty() {
             return trimmed.to_string();
         }
     }
-    String::new()
+    DEFAULT_CURSEFORGE_API_KEY.to_string()
 }
 
-fn is_trusted_download_url(value: &str) -> bool {
+pub(crate) async fn send_curseforge_request(
+    app: &AppHandle,
+    client: &reqwest::Client,
+    method: reqwest::Method,
+    url: &str,
+    json_body: Option<&serde_json::Value>,
+) -> Result<reqwest::Response, String> {
+    let api_key = get_curseforge_api_key(app);
+
+    let send = |key: &str| {
+        let mut builder = client
+            .request(method.clone(), url)
+            .header("x-api-key", key)
+            .header("Accept", "application/json");
+        if let Some(body) = json_body {
+            builder = builder.json(body);
+        }
+        builder.send()
+    };
+
+    let res = send(&api_key)
+        .await
+        .map_err(|e| format!("Ошибка подключения к CurseForge API: {}", e))?;
+
+    // If custom key returned 401 or 403, fallback to DEFAULT_CURSEFORGE_API_KEY
+    if (res.status() == reqwest::StatusCode::FORBIDDEN
+        || res.status() == reqwest::StatusCode::UNAUTHORIZED)
+        && api_key != DEFAULT_CURSEFORGE_API_KEY
+    {
+        log::warn!(
+            "Кастомный API-ключ CurseForge вернул {}. Пробуем встроенный ключ лаунчера...",
+            res.status()
+        );
+        if let Ok(fallback_res) = send(DEFAULT_CURSEFORGE_API_KEY).await {
+            if fallback_res.status().is_success() {
+                return Ok(fallback_res);
+            }
+        }
+    }
+
+    if !res.status().is_success() {
+        let status = res.status();
+        let error_text = res.text().await.unwrap_or_default();
+        return Err(format!(
+            "CurseForge API вернул ошибку {}: {}",
+            status, error_text
+        ));
+    }
+
+    Ok(res)
+}
+
+pub(crate) fn is_trusted_download_url(value: &str) -> bool {
     let Ok(url) = Url::parse(value) else {
         return false;
     };
@@ -93,15 +155,10 @@ pub async fn search_curseforge(
     index: usize,
     page_size: usize,
 ) -> Result<Vec<CurseForgeSearchResult>, String> {
-    let api_key = get_curseforge_api_key(&app);
-    if api_key.is_empty() {
-        return Err("API-ключ CurseForge не настроен. Укажите его в Настройки → Интеграции или через CURSEFORGE_API_KEY.".to_string());
-    }
-
-    let client = Client::builder()
-        .user_agent("RedPandaLauncher/1.0.0")
-        .build()
-        .map_err(|e| e.to_string())?;
+    let client = crate::downloads::trusted_download_client(&format!(
+        "RedPandaLauncher/{}",
+        env!("REDPANDA_VERSION")
+    ))?;
 
     // CurseForge API documentation: https://docs.curseforge.com/
     // Endpoint: GET /v1/mods/search
@@ -121,22 +178,7 @@ pub async fn search_curseforge(
         ));
     }
 
-    let res = client
-        .get(&url)
-        .header("x-api-key", &api_key)
-        .header("Accept", "application/json")
-        .send()
-        .await
-        .map_err(|e| format!("Ошибка подключения к CurseForge API: {}", e))?;
-
-    if !res.status().is_success() {
-        let status = res.status();
-        let error_text = res.text().await.unwrap_or_default();
-        return Err(format!(
-            "CurseForge API вернул ошибку {}: {}",
-            status, error_text
-        ));
-    }
+    let res = send_curseforge_request(&app, &client, reqwest::Method::GET, &url, None).await?;
 
     let search_res: SearchResponse = res
         .json()
@@ -152,15 +194,10 @@ pub async fn get_curseforge_versions(
     mod_id: u32,
     game_version: Option<String>,
 ) -> Result<Vec<CurseForgeFile>, String> {
-    let api_key = get_curseforge_api_key(&app);
-    if api_key.is_empty() {
-        return Err("API-ключ CurseForge не настроен. Укажите его в Настройки → Интеграции или через CURSEFORGE_API_KEY.".to_string());
-    }
-
-    let client = Client::builder()
-        .user_agent("RedPandaLauncher/1.0.0")
-        .build()
-        .map_err(|e| e.to_string())?;
+    let client = crate::downloads::trusted_download_client(&format!(
+        "RedPandaLauncher/{}",
+        env!("REDPANDA_VERSION")
+    ))?;
 
     let mut url = format!(
         "https://api.curseforge.com/v1/mods/{}/files?pageSize=50",
@@ -172,22 +209,7 @@ pub async fn get_curseforge_versions(
         }
     }
 
-    let res = client
-        .get(&url)
-        .header("x-api-key", &api_key)
-        .header("Accept", "application/json")
-        .send()
-        .await
-        .map_err(|e| format!("Ошибка подключения к CurseForge API: {}", e))?;
-
-    if !res.status().is_success() {
-        let status = res.status();
-        let error_text = res.text().await.unwrap_or_default();
-        return Err(format!(
-            "CurseForge API вернул ошибку {}: {}",
-            status, error_text
-        ));
-    }
+    let res = send_curseforge_request(&app, &client, reqwest::Method::GET, &url, None).await?;
 
     let files_res: FilesResponse = res
         .json()
@@ -198,19 +220,54 @@ pub async fn get_curseforge_versions(
 }
 
 #[tauri::command]
+pub async fn get_curseforge_download_url(
+    app: AppHandle,
+    mod_id: u32,
+    file_id: u32,
+) -> Result<String, String> {
+    let client = crate::downloads::trusted_download_client(&format!(
+        "RedPandaLauncher/{}",
+        env!("REDPANDA_VERSION")
+    ))?;
+
+    let url = format!(
+        "https://api.curseforge.com/v1/mods/{}/files/{}/download-url",
+        mod_id, file_id
+    );
+
+    let res = send_curseforge_request(&app, &client, reqwest::Method::GET, &url, None).await?;
+
+    #[derive(Deserialize)]
+    struct DownloadUrlResponse {
+        data: Option<String>,
+    }
+
+    let parsed: DownloadUrlResponse = res
+        .json()
+        .await
+        .map_err(|e| format!("Не удалось распарсить ссылку на скачивание: {}", e))?;
+
+    parsed
+        .data
+        .filter(|u| !u.trim().is_empty())
+        .ok_or_else(|| "Автор мода отключил прямое скачивание сторонними приложениями.".to_string())
+}
+
+#[tauri::command]
 pub async fn download_curseforge_version(
     _app: AppHandle,
     instance_id: String,
     download_url: String,
     file_name: String,
     project_type: String,
+    expected_sha1: Option<String>,
 ) -> Result<(), String> {
     const MAX_DOWNLOAD_BYTES: usize = 500 * 1024 * 1024; // 500 MB
     let instance_dir = crate::security::instance_dir(&instance_id)?;
     if !is_trusted_download_url(&download_url) {
         return Err("Untrusted CurseForge download URL".to_string());
     }
-    let client = Client::new();
+    let client = crate::downloads::trusted_download_client("RedPandaLauncher/1.0.0")?;
 
     let file_res = client
         .get(&download_url)
@@ -236,6 +293,11 @@ pub async fn download_curseforge_version(
         return Err("Размер загруженных данных превысил лимит 500 МБ".to_string());
     }
 
+    let expected_sha1 = expected_sha1
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| "У файла CurseForge отсутствует SHA-1 checksum".to_string())?;
+    crate::downloads::verify_sha1(&bytes, &expected_sha1)?;
+
     let clean_filename = crate::security::sanitize_filename(&file_name);
 
     let mut path = instance_dir;
@@ -250,7 +312,7 @@ pub async fn download_curseforge_version(
         .map_err(|e| format!("Не удалось создать директорию {:?}: {}", path, e))?;
 
     path.push(clean_filename);
-    fs::write(path, bytes).map_err(|e| e.to_string())?;
+    crate::storage::atomic_write(&path, &bytes)?;
 
     Ok(())
 }
@@ -260,12 +322,13 @@ pub async fn download_curseforge_modpack(
     _app: AppHandle,
     download_url: String,
     file_name: String,
+    expected_sha1: Option<String>,
 ) -> Result<(), String> {
     const MAX_DOWNLOAD_BYTES: usize = 500 * 1024 * 1024; // 500 MB
     if !is_trusted_download_url(&download_url) {
         return Err("Untrusted CurseForge download URL".to_string());
     }
-    let client = Client::new();
+    let client = crate::downloads::trusted_download_client("RedPandaLauncher/1.0.0")?;
 
     let file_res = client
         .get(&download_url)
@@ -294,6 +357,11 @@ pub async fn download_curseforge_modpack(
         return Err("Размер загруженных данных модпака превысил лимит 500 МБ".to_string());
     }
 
+    let expected_sha1 = expected_sha1
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| "У модпака CurseForge отсутствует SHA-1 checksum".to_string())?;
+    crate::downloads::verify_sha1(&bytes, &expected_sha1)?;
+
     let clean_filename = crate::security::sanitize_filename(&file_name);
 
     let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -304,7 +372,7 @@ pub async fn download_curseforge_modpack(
         .map_err(|e| format!("Не удалось создать директорию {:?}: {}", path, e))?;
 
     path.push(clean_filename);
-    fs::write(path, bytes).map_err(|e| e.to_string())?;
+    crate::storage::atomic_write(&path, &bytes)?;
 
     Ok(())
 }

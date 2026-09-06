@@ -3,6 +3,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { IconBrandTelegram, IconBrandGithub, IconArrowUpRight, IconShieldCheck, IconCpu, IconRocket } from "@tabler/icons-react";
 
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.0";
+
 export function Footer() {
   return (
     <footer className="border-t border-border bg-card/60 pt-10 sm:pt-16 pb-8 sm:pb-10 font-mono text-xs">
@@ -25,7 +27,7 @@ export function Footer() {
               </span>
             </Link>
             <p className="text-muted leading-relaxed text-xs max-w-sm">
-              Высокопроизводительный Open-Source лаунчер Minecraft нового поколения на стеке Rust & Tauri. Поддержка Modrinth, CurseForge, P2P игра по сети без открытия портов и нулевая реклама.
+              Open-Source лаунчер Minecraft на Rust и Tauri. Поддержка Modrinth, CurseForge, диагностика сборок и P2P-игра.
             </p>
             <div className="flex flex-wrap items-center gap-2.5 pt-2">
               <a
@@ -52,7 +54,7 @@ export function Footer() {
           {/* Разделы сайта */}
           <div className="space-y-3">
             <p className="font-display font-bold text-foreground text-xs uppercase tracking-wider text-primary">
-              // Разделы
+              {"// Разделы"}
             </p>
             <ul className="space-y-2 text-muted">
               <li>
@@ -101,7 +103,7 @@ export function Footer() {
           {/* Экосистема */}
           <div className="space-y-3">
             <p className="font-display font-bold text-foreground text-xs uppercase tracking-wider text-primary">
-              // Технологии
+              {"// Технологии"}
             </p>
             <ul className="space-y-2 text-muted">
               <li className="flex items-center gap-1.5">
@@ -110,7 +112,7 @@ export function Footer() {
               </li>
               <li className="flex items-center gap-1.5">
                 <IconShieldCheck size={14} className="text-emerald-400" />
-                <span>AES-256 Vault</span>
+                <span>Windows DPAPI</span>
               </li>
               <li className="flex items-center gap-1.5">
                 <IconRocket size={14} className="text-sky-400" />
@@ -134,7 +136,7 @@ export function Footer() {
           {/* Быстрая загрузка */}
           <div className="space-y-3">
             <p className="font-display font-bold text-foreground text-xs uppercase tracking-wider text-primary">
-              // Релиз v0.2.2
+              {`// Релиз v${APP_VERSION}`}
             </p>
             <p className="text-muted text-[11px] leading-relaxed">
               Автономный инсталлятор для Windows 10/11 x64.
@@ -143,7 +145,7 @@ export function Footer() {
               href="/download"
               className="inline-block w-full text-center bg-primary hover:bg-primary-hover text-black py-2.5 px-3 font-display font-bold text-xs uppercase tracking-wider transition-colors brutalist-button"
             >
-              Скачать v0.2.2 (.exe)
+              Скачать v{APP_VERSION} (.exe)
             </Link>
             <p className="text-[10px] text-muted">Кастомный GUI-инсталлятор · SHA-256 Verified</p>
           </div>

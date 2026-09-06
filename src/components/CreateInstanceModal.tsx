@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { X, Box, Layers, Play } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "./Toast";
+import { AppSettings } from "../lib/ipc";
 
 interface CreateInstanceModalProps {
   onClose: () => void;
@@ -22,16 +23,30 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
   const [loaderVersions, setLoaderVersions] = useState<string[]>([]);
   const [loadingVersions, setLoadingVersions] = useState(true);
   const [loadingLoaderVersions, setLoadingLoaderVersions] = useState(false);
+  const [showSnapshots, setShowSnapshots] = useState(false);
+
+  // Sync snapshot preference from settings on mount
+  useEffect(() => {
+    invoke<AppSettings>("get_settings")
+      .then((s) => {
+        if (s?.show_snapshots) setShowSnapshots(true);
+      })
+      .catch(() => {});
+  }, []);
 
   // Load Minecraft versions
-  
   useEffect(() => {
     async function loadMcVersions() {
+      setLoadingVersions(true);
       try {
-        const versions = await invoke<string[]>("get_minecraft_versions");
+        const versions = await invoke<string[]>("get_minecraft_versions", {
+          includeSnapshots: showSnapshots,
+        });
         setAllMcVersions(versions);
         setMcVersions(versions);
-        if (versions.length > 0) setGameVersion(versions[0]);
+        if (versions.length > 0) {
+          setGameVersion((prev) => (versions.includes(prev) ? prev : versions[0]));
+        }
       } catch (e) {
         console.error(e);
       } finally {
@@ -39,7 +54,7 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
       }
     }
     loadMcVersions();
-  }, []);
+  }, [showSnapshots]);
 
   // Filter game versions when loaderType changes
   useEffect(() => {
@@ -213,7 +228,20 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-muted mb-2 block uppercase tracking-wider font-semibold">{t("create_instance.version")}</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs text-muted block uppercase tracking-wider font-semibold">
+                  {t("create_instance.version")}
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer select-none group">
+                  <input
+                    type="checkbox"
+                    checked={showSnapshots}
+                    onChange={(e) => setShowSnapshots(e.target.checked)}
+                    className="w-3.5 h-3.5 accent-primary cursor-pointer rounded-none"
+                  />
+                  <span className="text-[11px] text-muted group-hover:text-white transition-colors">Снапшоты</span>
+                </label>
+              </div>
               <select 
                 value={gameVersion}
                 onChange={(e) => setGameVersion(e.target.value)}

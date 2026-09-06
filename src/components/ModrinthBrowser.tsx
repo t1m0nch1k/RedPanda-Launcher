@@ -1,7 +1,9 @@
 import { useState, useEffect, memo } from "react";
 import { Search, Download, Loader2, ArrowLeft } from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
+import { InstallTask, command } from "../lib/ipc";
+
+const invoke = command;
 
 interface Instance {
   id: string;
@@ -189,7 +191,7 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
                 toast.success(t("modrinth.install_success_modpack"));
                 onClose();
             } else {
-                const tasks: any[] = await invoke("resolve_dependencies", {
+                const tasks: InstallTask[] = await invoke("resolve_dependencies", {
                     instanceId: instance?.id || "",
                     source: "modrinth",
                     id: versionId,
@@ -220,7 +222,8 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
                             instanceId: instance?.id,
                             downloadUrl: task.url,
                             fileName: task.filename,
-                            projectType
+                            projectType,
+                            expectedSha1: task.sha1,
                         });
                     }
                 }

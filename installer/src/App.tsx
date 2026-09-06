@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { command as invoke } from "./lib/ipc";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-dialog";
 import { 
@@ -152,9 +152,9 @@ export default function App() {
         }
       }, 700);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Installation failed", err);
-      setErrorMessage(err?.toString() || "Неизвестная ошибка при установке");
+      setErrorMessage(err instanceof Error ? err.message : String(err));
       addLog(`[ERROR] Ошибка установки: ${err}`);
     }
   };
@@ -180,9 +180,9 @@ export default function App() {
 
       addLog("[00:00:06] Деинсталляция успешно завершена.");
       setStep("uninstalled");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Uninstall failed", err);
-      setErrorMessage(err?.toString() || "Неизвестная ошибка при удалении");
+      setErrorMessage(err instanceof Error ? err.message : String(err));
       addLog(`[ERROR] Ошибка удаления: ${err}`);
     }
   };
@@ -247,6 +247,7 @@ export default function App() {
 
         <div className="flex items-center gap-1">
           <button 
+            aria-label="Свернуть"
             onClick={(e) => {
               e.stopPropagation();
               handleMinimize();
@@ -257,6 +258,7 @@ export default function App() {
             <Minus size={14} />
           </button>
           <button 
+            aria-label="Закрыть"
             onClick={(e) => {
               e.stopPropagation();
               handleClose();
@@ -348,7 +350,7 @@ export default function App() {
                   </div>
                   <div className="mt-2 text-[11px] text-muted flex items-center gap-1.5">
                     <HardDrive size={13} className="text-primary" />
-                    Требуется свободного места: <span className="text-white font-bold">~120 МБ</span>
+                    Требуется свободного места: <span className="text-white font-bold">~40 МБ</span>
                   </div>
                 </div>
 
@@ -358,29 +360,29 @@ export default function App() {
                     Дополнительные параметры
                   </label>
 
-                  <div 
+                  <button type="button" aria-pressed={createDesktopShortcut}
                     onClick={() => setCreateDesktopShortcut(!createDesktopShortcut)}
                     className="flex items-center gap-2.5 text-xs text-white cursor-pointer hover:text-primary transition-colors"
                   >
                     {createDesktopShortcut ? <CheckSquare size={16} className="text-primary shrink-0" /> : <Square size={16} className="text-muted shrink-0" />}
                     <span>Создать ярлык на Рабочем столе</span>
-                  </div>
+                  </button>
 
-                  <div 
+                  <button type="button" aria-pressed={createStartMenuShortcut}
                     onClick={() => setCreateStartMenuShortcut(!createStartMenuShortcut)}
                     className="flex items-center gap-2.5 text-xs text-white cursor-pointer hover:text-primary transition-colors"
                   >
                     {createStartMenuShortcut ? <CheckSquare size={16} className="text-primary shrink-0" /> : <Square size={16} className="text-muted shrink-0" />}
                     <span>Создать ярлык в меню «Пуск»</span>
-                  </div>
+                  </button>
 
-                  <div 
+                  <button type="button" aria-pressed={launchAfterInstall}
                     onClick={() => setLaunchAfterInstall(!launchAfterInstall)}
                     className="flex items-center gap-2.5 text-xs text-white cursor-pointer hover:text-primary transition-colors"
                   >
                     {launchAfterInstall ? <CheckSquare size={16} className="text-primary shrink-0" /> : <Square size={16} className="text-muted shrink-0" />}
                     <span>Запустить RedPanda Launcher сразу после установки</span>
-                  </div>
+                  </button>
                 </div>
               </div>
 
@@ -436,7 +438,7 @@ export default function App() {
                     <Terminal size={13} className="text-primary" />
                     <span>ЛОГ УСТАНОВКИ</span>
                   </div>
-                  <div 
+                  <div
                     ref={logContainerRef}
                     className="h-44 overflow-y-auto font-mono text-[11px] text-muted space-y-1 pr-1 custom-scrollbar"
                   >

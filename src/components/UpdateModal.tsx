@@ -1,17 +1,10 @@
 import { useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Download, ExternalLink, X, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "./Toast";
+import { command, getErrorMessage, UpdateInfo } from "../lib/ipc";
 
-export interface UpdateInfo {
-  has_update: boolean;
-  current_version: string;
-  latest_version: string;
-  release_notes: string;
-  download_url: string;
-  html_url: string;
-}
+export type { UpdateInfo };
 
 interface UpdateModalProps {
   updateInfo: UpdateInfo;
@@ -27,13 +20,20 @@ export default function UpdateModal({ updateInfo, onClose }: UpdateModalProps) {
     setIsDownloading(true);
     setErrorMessage(null);
     try {
-      await invoke("download_and_install_update", { downloadUrl: updateInfo.download_url });
+      await command("download_and_install_update", {
+        downloadUrl: updateInfo.download_url,
+        expectedSha256: updateInfo.sha256,
+        expectedSignature: updateInfo.signature,
+        expectedAssetName: updateInfo.asset_name,
+        expectedSize: updateInfo.size,
+        expectedManifest: updateInfo.manifest_json,
+      });
       setDownloadSuccess(true);
       toast.success("Инсталлятор успешно запущен!");
     } catch (e) {
-      console.error("Failed to install update", e);
-      setErrorMessage(String(e));
-      toast.error(" Ошибка установки: " + e);
+      const message = getErrorMessage(e);
+      setErrorMessage(message);
+      toast.error("Ошибка установки: " + message);
     } finally {
       setIsDownloading(false);
     }

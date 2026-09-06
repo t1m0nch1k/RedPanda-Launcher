@@ -1,4 +1,4 @@
-import { Plus, Play, Anvil, Feather, TreePine, Hammer, Settings, Loader2, Folder, FileText, Trash2, Download, Globe, Copy } from "lucide-react";
+import { Plus, Play, Anvil, Feather, TreePine, Hammer, Settings, Loader2, Folder, FileText, Trash2, Download, Globe, Copy, Wand2 } from "lucide-react";
 import { useState, useEffect, useMemo, memo, useRef, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
@@ -11,6 +11,7 @@ const InstanceManagerModal = lazy(() => import("../components/InstanceManagerMod
 const CrashModal = lazy(() => import("../components/CrashModal"));
 const ModrinthBrowser = lazy(() => import("../components/ModrinthBrowser"));
 const CurseForgeBrowser = lazy(() => import("../components/CurseForgeBrowser"));
+const ModpackBuilderModal = lazy(() => import("../components/ModpackBuilderModal"));
 const SkinViewer = lazy(() => import("../components/SkinViewer"));
 
 interface Instance {
@@ -34,6 +35,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
   const { t } = useTranslation();
   const [showModpackBrowser, setShowModpackBrowser] = useState(false);
   const [showCurseForgeModpackBrowser, setShowCurseForgeModpackBrowser] = useState(false);
+  const [showModpackBuilder, setShowModpackBuilder] = useState(false);
   const [activeAccountObj, setActiveAccountObj] = useState<any>(null);
 
   useEffect(() => {
@@ -595,6 +597,19 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
             <span className="text-[13px] font-medium group-hover:text-[#F55E1D] transition-colors">Сборка CurseForge</span>
           </button>
 
+          <button 
+            onClick={() => setShowModpackBuilder(true)}
+            className="bg-transparent hover:bg-card border border-dashed border-primary/60 hover:border-primary text-primary rounded-none flex flex-col items-center justify-center gap-3 min-h-[140px] transition-colors group relative overflow-hidden"
+          >
+            <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-amber-500/20 border border-amber-500/40 text-amber-400 text-[9px] font-mono font-bold uppercase">
+              BETA
+            </div>
+            <div className="w-10 h-10 rounded-none bg-card brutalist-border flex items-center justify-center group-hover:bg-primary group-hover:text-background transition-colors text-primary">
+              <Wand2 size={18} />
+            </div>
+            <span className="text-[13px] font-bold group-hover:text-primary transition-colors">Конструктор сборок</span>
+          </button>
+
           {/* Other Instance Cards */}
           {otherInstances.map((inst) => {
             const isSelected = selectedInstance === inst.id;
@@ -665,6 +680,18 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
               loadInstances();
             }}
             projectType="modpack"
+          />
+        </Suspense>
+      )}
+
+      {showModpackBuilder && (
+        <Suspense fallback={null}>
+          <ModpackBuilderModal
+            onClose={() => setShowModpackBuilder(false)}
+            onInstanceCreated={(newInstanceId) => {
+              loadInstances();
+              onSelectInstance(newInstanceId);
+            }}
           />
         </Suspense>
       )}

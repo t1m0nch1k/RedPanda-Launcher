@@ -7,6 +7,8 @@ import { MINECRAFT_NEWS } from "../../../data/minecraftNews";
 import { NewsCard } from "../../../components/NewsCard";
 import { IconArrowLeft, IconCalendar, IconClock, IconUser, IconTag, IconDownload } from "@tabler/icons-react";
 
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.0";
+
 export function generateStaticParams() {
   return MINECRAFT_NEWS.map((article) => ({
     slug: article.slug,
@@ -128,7 +130,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
               className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-black px-4 py-2 font-display font-bold text-xs uppercase shrink-0 brutalist-button"
             >
               <IconDownload size={16} />
-              <span>Скачать v0.2.2</span>
+              <span>Скачать v{APP_VERSION}</span>
             </Link>
           </div>
         </article>
@@ -137,7 +139,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
         {related.length > 0 && (
           <div>
             <h2 className="font-display font-bold text-xl uppercase tracking-wider mb-6 text-foreground">
-              // Другие материалы
+              {"// Другие материалы"}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {related.map((r) => (

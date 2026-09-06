@@ -1,85 +1,70 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Navbar } from "../../components/Navbar";
 import { Footer } from "../../components/Footer";
 import { 
   IconActivity, 
-  IconCheck, 
-  IconServer, 
-  IconWorld, 
-  IconRefresh, 
-  IconShieldCheck,
-  IconCpu
 } from "@tabler/icons-react";
 
 interface ServiceStatus {
+  id: string;
   name: string;
   category: "Minecraft Core" | "Community & Auth" | "Modding APIs" | "Multiplayer P2P";
-  status: "operational" | "degraded" | "maintenance";
-  latency: string;
-  uptime: string;
   description: string;
+  status?: "operational" | "degraded" | "outage" | "unknown";
+  checkedAt?: string;
 }
 
+type StatusPayload = { checkedAt?: string; services?: Record<string, { status: ServiceStatus["status"] }> };
+
 export default function StatusPage() {
-  const [refreshing, setRefreshing] = useState(false);
+  const [liveStatus, setLiveStatus] = useState<StatusPayload | null>(null);
+  useEffect(() => {
+    fetch("/status.json", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() as Promise<StatusPayload> : null)
+      .then((payload) => setLiveStatus(payload))
+      .catch(() => setLiveStatus(null));
+  }, []);
 
   const services: ServiceStatus[] = [
     {
+      id: "minecraft-auth",
       name: "Mojang Authentication & Session",
       category: "Minecraft Core",
-      status: "operational",
-      latency: "42 ms",
-      uptime: "99.98%",
       description: "Официальные серверы проверки лицензий и сессий Microsoft / Mojang."
     },
     {
+      id: "elyby",
       name: "Ely.by Skin & Account System",
       category: "Community & Auth",
-      status: "operational",
-      latency: "35 ms",
-      uptime: "99.95%",
       description: "Серверы авторизации и 3D-скинов системы Ely.by."
     },
     {
+      id: "modrinth",
       name: "Modrinth API v2",
       category: "Modding APIs",
-      status: "operational",
-      latency: "68 ms",
-      uptime: "99.99%",
       description: "Каталог модов, модпаков, ресурс-паков и шейдеров Modrinth."
     },
     {
+      id: "curseforge",
       name: "CurseForge Core API",
       category: "Modding APIs",
-      status: "operational",
-      latency: "84 ms",
-      uptime: "99.91%",
       description: "Поиск и загрузка модификаций из базы CurseForge."
     },
     {
+      id: "e4mc",
       name: "e4mc P2P Tunneling Network",
       category: "Multiplayer P2P",
-      status: "operational",
-      latency: "28 ms",
-      uptime: "99.97%",
       description: "Серверы защищенных P2P-туннелей для сетевой игры без открытия портов."
     },
     {
+      id: "redpanda-cdn",
       name: "RedPanda CDN & Update Server",
       category: "Minecraft Core",
-      status: "operational",
-      latency: "15 ms",
-      uptime: "100.00%",
       description: "Серверы доставки обновлений лаунчера и манифестов инсталлятора."
     }
   ];
-
-  const handleRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 600);
-  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
@@ -90,48 +75,44 @@ export default function StatusPage() {
           <div>
             <div className="flex items-center gap-2 text-primary text-xs uppercase tracking-widest mb-2">
               <IconActivity size={16} />
-              <span>Live System Monitor</span>
+              <span>Integration Status</span>
             </div>
             <h1 className="font-display font-bold text-2xl sm:text-3xl md:text-4xl uppercase tracking-tight text-foreground leading-tight">
               Статус сервисов
             </h1>
             <p className="text-muted text-xs sm:text-sm mt-2">
-              Мониторинг доступности серверов авторизации, API каталогов модов и P2P сети.
+              Список внешних сервисов, с которыми работает лаунчер. Их доступность может меняться независимо от RedPanda.
             </p>
           </div>
-
-          <button
-            onClick={handleRefresh}
-            className="flex items-center gap-2 px-3.5 py-2 bg-card border border-border hover:border-primary text-xs text-muted hover:text-foreground transition-colors cursor-pointer"
-          >
-            <IconRefresh size={14} className={refreshing ? "animate-spin text-primary" : ""} />
-            <span>Обновить статус</span>
-          </button>
         </div>
 
         {/* Общий индикатор здоровья */}
-        <div className="brutalist-card p-6 border-emerald-500/40 bg-emerald-500/5 mb-10 flex items-center justify-between gap-4">
+        <div className="brutalist-card p-6 border-sky-500/40 bg-sky-500/5 mb-10 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></span>
+            <span className="w-3 h-3 rounded-full bg-sky-400"></span>
             <div>
               <p className="font-display font-bold text-base uppercase text-foreground">
-                Все системы работают в штатном режиме
+                {liveStatus ? "Состояние сервисов обновлено автоматически" : "Данные мониторинга пока недоступны"}
               </p>
               <p className="text-muted text-xs">
-                Сбоев и критических инцидентов не зафиксировано.
+                {liveStatus?.checkedAt ? `Последняя проверка: ${new Date(liveStatus.checkedAt).toLocaleString("ru-RU")}` : "Статус отображается как Unknown, пока health-check не опубликовал данные."}
               </p>
             </div>
           </div>
-          <span className="text-xs text-emerald-400 font-bold uppercase hidden sm:inline">100% Operational</span>
+          <span className="text-xs text-sky-400 font-bold uppercase hidden sm:inline">External Services</span>
         </div>
 
         {/* Сетка сервисов */}
         <div className="space-y-4">
-          {services.map((svc, i) => (
-            <div key={i} className="brutalist-card p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          {services.map((svc) => {
+            const status = liveStatus?.services?.[svc.id]?.status ?? "unknown";
+            const statusLabel = { operational: "Operational", degraded: "Degraded", outage: "Outage", unknown: "Unknown" }[status];
+            const statusClass = { operational: "bg-emerald-400", degraded: "bg-amber-400", outage: "bg-red-400", unknown: "bg-sky-400" }[status];
+            return (
+            <div key={svc.id} className="brutalist-card p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <span className={`w-2 h-2 rounded-full ${statusClass}`}></span>
                   <h3 className="font-display font-bold text-base text-foreground">
                     {svc.name}
                   </h3>
@@ -144,21 +125,14 @@ export default function StatusPage() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-6 text-xs text-muted shrink-0 w-full sm:w-auto justify-between sm:justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
-                <div>
-                  <span className="text-[10px] uppercase text-muted block">Пинг:</span>
-                  <span className="text-foreground font-bold">{svc.latency}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase text-muted block">Аптайм:</span>
-                  <span className="text-emerald-400 font-bold">{svc.uptime}</span>
-                </div>
-                <span className="px-2 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold uppercase">
-                  Online
-                </span>
+              <div className="flex items-center text-xs text-muted shrink-0 w-full sm:w-auto justify-between sm:justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
+                  <span className="px-2 py-1 bg-sky-500/10 text-sky-400 border border-sky-500/30 text-[10px] font-bold uppercase">
+                  {statusLabel}
+                  </span>
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
       </main>
 

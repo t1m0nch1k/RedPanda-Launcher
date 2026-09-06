@@ -102,7 +102,7 @@ export default function FaqPage() {
                 >
                   <div>
                     <span className="text-[10px] font-mono uppercase text-primary mb-1 block">
-                      // {item.category}
+                      {`// ${item.category}`}
                     </span>
                     <h3 className="font-display font-bold text-sm sm:text-base text-foreground leading-snug">
                       {item.q}

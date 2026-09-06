@@ -118,7 +118,19 @@ export default function CurseForgeBrowser({ instance, onClose, projectType = "mo
     };
 
     const handleInstallVersion = async (file: CurseForgeFile) => {
-        if (!file.downloadUrl) {
+        let downloadUrl = file.downloadUrl;
+        if (!downloadUrl && selectedMod) {
+            try {
+                downloadUrl = await invoke<string>("get_curseforge_download_url", {
+                    modId: selectedMod.id,
+                    fileId: file.id,
+                });
+            } catch {
+                downloadUrl = undefined;
+            }
+        }
+
+        if (!downloadUrl) {
             toast.error("Автор мода запретил скачивание сторонними приложениями. Пожалуйста, скачайте файл вручную с сайта CurseForge.");
             return;
         }
@@ -127,7 +139,7 @@ export default function CurseForgeBrowser({ instance, onClose, projectType = "mo
         try {
             if (projectType === "modpack") {
                 await invoke("download_curseforge_modpack", { 
-                    downloadUrl: file.downloadUrl,
+                    downloadUrl,
                     fileName: file.fileName 
                 });
                 toast.success(t("modrinth.install_success_modpack"));

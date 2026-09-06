@@ -1,5 +1,5 @@
 import React from "react";
-import { IconDownload, IconPuzzle, IconCheck } from "@tabler/icons-react";
+import { IconDownload } from "@tabler/icons-react";
 import type { ModItem } from "../data/modsData";
 
 export function ModCard({ mod }: { mod: ModItem }) {

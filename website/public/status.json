@@ -1,0 +1,11 @@
+{
+  "checkedAt": null,
+  "services": {
+    "minecraft-auth": { "status": "unknown" },
+    "elyby": { "status": "unknown" },
+    "modrinth": { "status": "unknown" },
+    "curseforge": { "status": "unknown" },
+    "e4mc": { "status": "unknown" },
+    "redpanda-cdn": { "status": "unknown" }
+  }
+}

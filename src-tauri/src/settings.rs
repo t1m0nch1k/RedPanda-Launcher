@@ -2,8 +2,9 @@ use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
 
 lazy_static! {
@@ -100,11 +101,32 @@ pub fn get_settings(app: AppHandle) -> Result<AppSettings, String> {
         return Ok(AppSettings::default());
     }
 
-    let contents =
-        fs::read_to_string(path).map_err(|e| format!("Failed to read settings.json: {}", e))?;
-    let data: AppSettings = serde_json::from_str(&contents).unwrap_or_default();
+    let mut data: AppSettings = crate::storage::read_json_with_backup(&path)?;
+    validate_settings(&data)?;
+    let decrypted_key = crate::accounts::decrypt_secret(&data.curseforge_api_key);
+    #[cfg(windows)]
+    let needs_key_migration =
+        !data.curseforge_api_key.is_empty() && !data.curseforge_api_key.starts_with("enc:dpapi:");
+    #[cfg(not(windows))]
+    let needs_key_migration = false;
+    #[cfg(windows)]
+    if needs_key_migration {
+        data.curseforge_api_key = decrypted_key.clone();
+        drop(_guard);
+        save_settings(app.clone(), data.clone())?;
+    }
+    data.curseforge_api_key = decrypted_key;
 
     Ok(data)
+}
+
+pub(crate) fn get_curseforge_api_key(app: &AppHandle) -> Result<String, String> {
+    let path = get_settings_file_path(app)?;
+    if !path.exists() {
+        return Ok(String::new());
+    }
+    let data: AppSettings = crate::storage::read_json_with_backup(&path)?;
+    Ok(crate::accounts::decrypt_secret(&data.curseforge_api_key))
 }
 
 #[tauri::command]
@@ -113,10 +135,50 @@ pub fn save_settings(app: AppHandle, settings: AppSettings) -> Result<(), String
         .lock()
         .map_err(|_| "Failed to acquire settings mutex lock".to_string())?;
 
+    validate_settings(&settings)?;
+    let mut settings = settings;
+    let trimmed_key = settings.curseforge_api_key.trim();
+    if !trimmed_key.is_empty() {
+        settings.curseforge_api_key = crate::accounts::encrypt_secret(trimmed_key);
+    } else {
+        settings.curseforge_api_key = String::new();
+    }
     let path = get_settings_file_path(&app)?;
     let contents = serde_json::to_string_pretty(&settings)
         .map_err(|e| format!("Failed to serialize settings: {}", e))?;
-    fs::write(path, contents).map_err(|e| format!("Failed to write settings.json: {}", e))?;
+    crate::storage::atomic_write(&path, contents.as_bytes())
+        .map_err(|e| format!("Failed to write settings.json: {e}"))
+}
+
+fn validate_settings(settings: &AppSettings) -> Result<(), String> {
+    if settings.min_memory < 256 || settings.min_memory > 65_536 {
+        return Err("Минимальная память должна быть от 256 до 65536 МБ".to_string());
+    }
+    if settings.max_memory < settings.min_memory || settings.max_memory > 65_536 {
+        return Err(
+            "Максимальная память должна быть не меньше минимальной и не больше 65536 МБ"
+                .to_string(),
+        );
+    }
+    if !(400..=7680).contains(&settings.window_width)
+        || !(300..=4320).contains(&settings.window_height)
+    {
+        return Err("Некорректный размер окна".to_string());
+    }
+    if settings.custom_bg_opacity > 100 || settings.custom_bg_blur > 100 {
+        return Err("Параметры изображения должны быть в диапазоне 0..100".to_string());
+    }
+    if !matches!(settings.theme.as_str(), "dark" | "light") {
+        return Err("Неизвестная тема интерфейса".to_string());
+    }
+    if settings.jvm_args.len() > 8_192 {
+        return Err("Строка JVM-параметров слишком длинная".to_string());
+    }
+    if !(settings.accent_color.is_empty()
+        || (settings.accent_color.starts_with('#') && settings.accent_color.len() == 7))
+    {
+        return Err("Цвет акцента должен быть в формате #RRGGBB".to_string());
+    }
     Ok(())
 }
 
@@ -170,7 +232,47 @@ pub async fn find_java_installations() -> Result<Vec<JavaInstallation>, String> 
         }
     }
 
+    #[cfg(windows)]
+    for java_home in find_java_homes_in_registry() {
+        let exe_path = java_home.join("bin").join("java.exe");
+        if exe_path.exists() {
+            if let Some(info) = check_java(&exe_path) {
+                if !installations.iter().any(|j| j.path == info.path) {
+                    installations.push(info);
+                }
+            }
+        }
+    }
+
     Ok(installations)
+}
+
+#[cfg(windows)]
+fn find_java_homes_in_registry() -> Vec<PathBuf> {
+    use std::os::windows::process::CommandExt;
+
+    let mut homes = Vec::new();
+    for key in [
+        r"HKLM\SOFTWARE\JavaSoft",
+        r"HKLM\SOFTWARE\WOW6432Node\JavaSoft",
+        r"HKLM\SOFTWARE\Microsoft\JDK",
+    ] {
+        let mut command = Command::new("reg.exe");
+        command.creation_flags(0x08000000);
+        let Ok(output) = command.args(["query", key, "/s"]).output() else {
+            continue;
+        };
+        for line in String::from_utf8_lossy(&output.stdout).lines() {
+            let fields: Vec<&str> = line.splitn(3, "    ").collect();
+            if fields.len() == 3 && fields[0].trim().eq_ignore_ascii_case("JavaHome") {
+                let home = PathBuf::from(fields[2].trim());
+                if !homes.iter().any(|candidate| candidate == &home) {
+                    homes.push(home);
+                }
+            }
+        }
+    }
+    homes
 }
 
 fn check_java(path: &Path) -> Option<JavaInstallation> {
@@ -180,7 +282,25 @@ fn check_java(path: &Path) -> Option<JavaInstallation> {
     #[cfg(target_os = "windows")]
     cmd.creation_flags(0x08000000);
 
-    let output = cmd.arg("-version").output().ok()?;
+    let mut child = cmd
+        .arg("-version")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .ok()?;
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        if child.try_wait().ok()?.is_some() {
+            break;
+        }
+        if Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            return None;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let output = child.wait_with_output().ok()?;
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     let stdout = String::from_utf8_lossy(&output.stdout);

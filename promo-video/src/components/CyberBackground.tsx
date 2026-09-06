@@ -1,7 +1,7 @@
 import React from "react";
 import { interpolate, useCurrentFrame } from "remotion";
 
-export const CyberBackground: React.FC = () => {
+export const CyberBackground: React.FC<{ version?: string }> = ({ version = "v0.2.2" }) => {
   const frame = useCurrentFrame();
 
   const gridOffset = (frame * 2.5) % 60;
@@ -128,7 +128,7 @@ export const CyberBackground: React.FC = () => {
           textTransform: "uppercase",
         }}
       >
-        <span>// REDPANDA_CORE_v0.2.2</span>
+        <span>// REDPANDA_CORE_{version}</span>
         <span style={{ color: "#22C55E" }}>● LIVE_BUILD</span>
       </div>
     </div>

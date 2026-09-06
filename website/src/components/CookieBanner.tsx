@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { IconCookie, IconCheck, IconX, IconShieldCheck, IconAdjustmentsHorizontal } from "@tabler/icons-react";
+import { IconCookie, IconX, IconAdjustmentsHorizontal } from "@tabler/icons-react";
 
 export function CookieBanner() {
   const [show, setShow] = useState(false);
@@ -24,6 +24,7 @@ export function CookieBanner() {
       "redpanda_cookie_consent",
       JSON.stringify({ necessary: true, analytics: true, ads: true, date: new Date().toISOString() })
     );
+    window.dispatchEvent(new Event("redpanda-consent-changed"));
     setShow(false);
   };
 
@@ -32,6 +33,7 @@ export function CookieBanner() {
       "redpanda_cookie_consent",
       JSON.stringify({ necessary: true, analytics: false, ads: false, date: new Date().toISOString() })
     );
+    window.dispatchEvent(new Event("redpanda-consent-changed"));
     setShow(false);
   };
 
@@ -45,6 +47,7 @@ export function CookieBanner() {
         date: new Date().toISOString()
       })
     );
+    window.dispatchEvent(new Event("redpanda-consent-changed"));
     setShow(false);
     setShowSettings(false);
   };

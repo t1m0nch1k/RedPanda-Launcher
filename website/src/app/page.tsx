@@ -11,7 +11,7 @@ import { MINECRAFT_NEWS } from "../data/minecraftNews";
 import { LAUNCHER_RELEASES } from "../data/changelogData";
 import { TOP_MODS } from "../data/modsData";
 import { FAQ_ITEMS } from "../data/faqData";
-import { 
+import {
   IconDownload, 
   IconBolt, 
   IconPuzzle, 
@@ -27,17 +27,20 @@ import {
   IconHelp
 } from "@tabler/icons-react";
 
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.0";
+
 export default function Home() {
   const [typedIndex, setTypedIndex] = useState(0);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   const typedPhrases = [
     "[ LIGHTNING_FAST ]",
+    "[ SMART_MODPACK_BUILDER ]",
+    "[ MC_26.X_&_SNAPSHOTS ]",
     "[ CUSTOM_GUI_INSTALLER ]",
-    "[ AES_256_GCM_VAULT ]",
+    "[ WINDOWS_DPAPI_SECURITY ]",
     "[ MODRINTH_&_CURSEFORGE ]",
     "[ E4MC_&_STEAM_P2P ]",
-    "[ 3D_SKIN_PREVIEWER ]",
     "[ ZERO_BLOATWARE ]"
   ];
 
@@ -49,19 +52,19 @@ export default function Home() {
   }, [typedPhrases.length]);
 
   const features = [
-    { icon: <IconBolt size={24} />, title: "LIGHTNING_FAST", desc: "{ built_with: 'Rust & Tauri',\n  memory_footprint: 'minimal',\n  startup: '< 0.8s' }" },
-    { icon: <IconLayoutGrid size={24} />, title: "CUSTOM_GUI_INSTALLER", desc: "{ type: 'cyber_brutalist_gui',\n  setup: 'RedPanda_Setup_0.2.2.exe',\n  registry_integration: true }" },
-    { icon: <IconShieldLock size={24} />, title: "AES_256_VAULT_&_SECURITY", desc: "{ encryption: 'AES-256-GCM + OsRng',\n  path_traversal: 'safe_join_protection',\n  concurrency: 'mutex_synchronized' }" },
-    { icon: <IconPuzzle size={24} />, title: "DUAL_MOD_ECOSYSTEM", desc: "{ sources: ['Modrinth', 'CurseForge'],\n  dependencies: 'recursive_auto_resolve',\n  scope: 'mods_shaders_resourcepacks' }" },
+    { icon: <IconBolt size={24} />, title: "LIGHTWEIGHT_CORE", desc: "{ built_with: 'Rust & Tauri',\n  memory_footprint: 'optimized',\n  startup: 'native' }" },
+    { icon: <IconPuzzle size={24} />, title: "SMART_MODPACK_BUILDER", desc: "{ mode: 'one_click_curation',\n  genres: ['Magic', 'Adventure', 'Tech', 'RPG'],\n  dependencies: 'auto_cascade_resolved' }" },
+    { icon: <IconLayoutGrid size={24} />, title: "CUSTOM_GUI_INSTALLER", desc: `{ type: 'cyber_brutalist_gui',\n  setup: 'RedPanda_Setup_${APP_VERSION}.exe',\n  registry_integration: true }` },
+    { icon: <IconShieldLock size={24} />, title: "SECURE_STORAGE_&_UPDATES", desc: "{ storage: 'Windows DPAPI',\n  updates: 'signed_manifest + SHA-256',\n  path_traversal: 'protected' }" },
     { icon: <IconGlobe size={24} />, title: "E4MC_&_STEAM_P2P", desc: "{ modes: ['e4mc.link', 'e4steam'],\n  p2p_hosting: 'built-in',\n  ports_required: false }" },
     { icon: <IconRocket size={24} />, title: "3D_SKIN_PREVIEWER", desc: "{ engine: 'skinview3d',\n  sources: ['Ely.by', 'Mojang', 'Fallback'],\n  interactivity: 'rotate & animate' }" },
   ];
 
   const metrics = [
-    { value: "< 0.8s", label: "STARTUP_TIME", sub: "Мгновенный запуск UI" },
-    { value: "40 MB", label: "RAM_FOOTPRINT", sub: "Минимум ресурсов в фоне" },
+    { value: "NATIVE", label: "STARTUP_TIME", sub: "Лёгкий нативный интерфейс" },
+    { value: "LOW", label: "RAM_FOOTPRINT", sub: "Оптимизированное потребление" },
     { value: "5", label: "MOD_LOADERS", sub: "Fabric, Forge, NeoForge, etc." },
-    { value: "100%", label: "OPEN_SOURCE", sub: "0 рекламы и телеметрии" },
+    { value: "MIT", label: "OPEN_SOURCE", sub: "Открытый исходный код" },
   ];
 
   const latestRelease = LAUNCHER_RELEASES[0];
@@ -82,8 +85,8 @@ export default function Home() {
           </div>
           <div className="space-y-1">
             <div>STATUS: <span className="text-white">ONLINE</span></div>
-            <div>VERSION: <span className="text-white">v0.2.2_RELEASE</span></div>
-            <div>SECURITY: <span className="text-white">AES_256_GCM_VAULT</span></div>
+            <div>VERSION: <span className="text-white">v{APP_VERSION}_RELEASE</span></div>
+            <div>SECURITY: <span className="text-white">DPAPI_SIGNED_UPDATES</span></div>
             <div>INSTALLER: <span className="text-white">STANDALONE_GUI</span></div>
             <div>MULTIPLAYER: <span className="text-white">E4MC_&_STEAM</span></div>
           </div>
@@ -108,8 +111,8 @@ export default function Home() {
           </div>
 
           <p className="text-sm sm:text-base md:text-lg text-muted mb-10 max-w-2xl font-mono leading-relaxed bg-card/40 p-4 border-l-2 border-primary">
-            // Высокопроизводительный лаунчер Майнкрафт нового поколения на Rust & Tauri.<br/>
-            // Кастомный GUI установщик, AES-256 хранилище, Modrinth & CurseForge, e4mc/e4steam и 3D скины.
+            {"// Современный лаунчер Майнкрафт на Rust & Tauri."}<br/>
+            {"// GUI установщик, защищённое хранилище, Modrinth & CurseForge, e4mc/e4steam и 3D скины."}
           </p>
 
           <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
@@ -117,7 +120,7 @@ export default function Home() {
               href="/download" 
             className="w-full sm:w-auto flex items-center justify-center gap-2 sm:gap-3 bg-primary hover:bg-primary-hover text-black px-4 sm:px-8 py-4 font-bold text-sm sm:text-base leading-tight transition-all cursor-pointer uppercase brutalist-button"
             >
-              <IconDownload size={22} /> СКАЧАТЬ_SETUP_v0.2.2.EXE
+              <IconDownload size={22} /> СКАЧАТЬ_SETUP_v{APP_VERSION}.EXE
             </Link>
             <Link 
               href="/minecraft-news" 
@@ -172,7 +175,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Section: Последний релиз лаунчера v0.2.2 */}
+      {/* Section: Последний релиз лаунчера */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 border-b border-border bg-card/40">
         <div className="max-w-[1400px] mx-auto">
           <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 mb-10 sm:mb-12 border-l-4 border-primary pl-4 sm:pl-6">
@@ -206,7 +209,7 @@ export default function Home() {
                 className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-black px-4 py-2 font-display font-bold text-xs uppercase brutalist-button"
               >
                 <IconDownload size={16} />
-                <span>Установить v0.2.2</span>
+                <span>Установить v{APP_VERSION}</span>
               </Link>
             </div>
 
@@ -234,7 +237,7 @@ export default function Home() {
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-10 sm:mb-12 border-l-4 border-primary pl-4 sm:pl-6">
             <h2 className="text-white mb-2 font-bold">ИНТЕРФЕЙС ЛАУНЧЕРА</h2>
-            <p className="text-muted font-mono">{"// Чистый кибер-брутализм без рекламы"}</p>
+            <p className="text-muted font-mono">{"// Чистый кибер-брутализм и понятный интерфейс"}</p>
           </div>
         </div>
         

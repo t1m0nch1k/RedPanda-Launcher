@@ -5,7 +5,7 @@ import { Navbar } from "../../components/Navbar";
 import { Footer } from "../../components/Footer";
 import { NewsCard } from "../../components/NewsCard";
 import { MINECRAFT_NEWS } from "../../data/minecraftNews";
-import { IconSearch, IconFlame, IconNews, IconFilter } from "@tabler/icons-react";
+import { IconSearch, IconNews } from "@tabler/icons-react";
 
 export default function MinecraftNewsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("Все");

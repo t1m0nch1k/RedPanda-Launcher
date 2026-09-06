@@ -16,21 +16,67 @@ export interface LauncherRelease {
   changes: ReleaseChange[];
 }
 
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.0";
+
 export const LAUNCHER_RELEASES: LauncherRelease[] = [
+  {
+    version: `v${APP_VERSION}`,
+    date: "6 сентября 2026",
+    title: "Smart Modpack Builder & Modern MC Engine",
+    tagline: "Интеллектуальный конструктор сборок под ключ, поддержка новейших версий 26.x и снапшотов, кастомизация палитры и исправление CurseForge API",
+    downloadUrl: `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v${APP_VERSION}/RedPanda_Setup_${APP_VERSION}.exe`,
+    fileSize: "См. опубликованные assets",
+    isLatest: true,
+    highlights: [
+      "🪄 Конструктор сборок [BETA]: сборка модпака по выбранным тематикам (Магия, Приключения, Технологии, Мир, Декор, RPG) в один клик",
+      "Автоматический каскадный поиск и докачивание скрытых библиотек и зависимостей (Fabric API, Curios, Architectury, Cloth Config)",
+      "Поддержка всех новейших релизов Minecraft (26.2, 26.1) и еженедельных снапшотов с удобным тумблером в модалке",
+      "Автоматическое определение и загрузка Java 21 для современных версий игры",
+      "Полноценный кастомный Color Picker в настройках внешнего вида лаунчера",
+      "Стабильный встроенный CurseForge API с умным fallback и авто-обработкой прямых ссылок"
+    ],
+    changes: [
+      {
+        type: "feat",
+        title: "Конструктор сборок [BETA]",
+        description: "Интерактивный мастер: игрок выбирает тематики и загрузчик, а лаунчер сам подбирает совместимые моды, ядро оптимизации и зависимости."
+      },
+      {
+        type: "feat",
+        title: "Поддержка версий 26.x и снапшотов",
+        description: "Переписан фильтр версий Mojang API: теперь доступны все современные релизы и пре-релизы со встроенным переключателем снапшотов."
+      },
+      {
+        type: "feat",
+        title: "Свободный выбор акцентного цвета",
+        description: "В настройки добавлен встроенный Color Picker: можно выбрать любой HEX-оттенок интерфейса лаунчера."
+      },
+      {
+        type: "fix",
+        title: "Восстановление CurseForge API",
+        description: "Интегрирован отказоустойчивый ключ открытых лаунчеров с автоматическим переключением на резервный источник при ошибках сети."
+      },
+      {
+        type: "perf",
+        title: "Поддержка Java 21",
+        description: "Для версий 26.x и снапшотов автоматически скачивается и конфигурируется Eclipse Temurin Java 21."
+      }
+    ]
+  },
   {
     version: "v0.2.2",
     date: "29 августа 2026",
     title: "Instance Diagnostics & Mod Control",
     tagline: "Проверка готовности сборки к запуску и безопасное управление установленными модами",
     downloadUrl: "https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.2.2/RedPanda_Setup_0.2.2.exe",
-    fileSize: "38.8 MB",
-    isLatest: true,
+    fileSize: "39.1 MB",
+    isLatest: false,
     highlights: [
       "Диагностика папки сборки, Java, памяти и загрузчика перед запуском",
       "Включение и выключение модов без удаления файлов",
       "Отключённые моды отображаются отдельно и восстанавливаются в один клик",
       "Новые безопасные Tauri-команды для работы с состоянием модов",
-      "Обновлены сайт, SEO-метаданные и ссылки на установщик v0.2.2"
+      "Обновлены сайт, SEO-метаданные и ссылки на подписанный установщик"
     ],
     changes: [
       {

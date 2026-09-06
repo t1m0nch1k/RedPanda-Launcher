@@ -1,4 +1,4 @@
-# Usage: .\scripts\release.ps1 0.2.2
+# Usage: .\scripts\release.ps1 0.3.0
 param (
     [Parameter(Mandatory=$true)]
     [string]$Version
@@ -7,10 +7,13 @@ param (
 $ErrorActionPreference = "Stop"
 
 if ($Version -notmatch '^\d+\.\d+\.\d+$') {
-    throw "Version must use semantic versioning, for example 0.2.2"
+    throw "Version must use semantic versioning, for example 0.3.0"
 }
 
 $Tag = "v$Version"
+
+$versionFile = Join-Path (Get-Location) "VERSION"
+Set-Content -Path $versionFile -Value $Version -NoNewline
 
 Write-Host "🚀 Начинаем релиз версии $Tag..." -ForegroundColor Cyan
 
@@ -20,19 +23,17 @@ $PkgJson.version = $Version
 $PkgJson | ConvertTo-Json -Depth 10 | Set-Content package.json
 
 $VersionFiles = @(
+    @{ Path = "package-lock.json"; Pattern = '"version"\s*:\s*"\d+\.\d+\.\d+"\s*,\s*\r?\n\s*"lockfileVersion"'; Replacement = "`"version`": `"$Version`",`n  `"lockfileVersion`"" },
+    @{ Path = "website/package.json"; Pattern = '"version"\s*:\s*"[^\"]+"'; Replacement = "`"version`": `"$Version`"" },
+    @{ Path = "website/package-lock.json"; Pattern = '"version"\s*:\s*"\d+\.\d+\.\d+"\s*,\s*\r?\n\s*"lockfileVersion"'; Replacement = "`"version`": `"$Version`",`n  `"lockfileVersion`"" },
+    @{ Path = "website/package-lock.json"; Pattern = '"name"\s*:\s*"website"\s*,\s*\r?\n\s*"version"\s*:\s*"\d+\.\d+\.\d+"'; Replacement = "`"name`": `"website`",`n  `"version`": `"$Version`"" },
     @{ Path = "src-tauri/Cargo.toml"; Pattern = '(?m)^version\s*=\s*"[^"]+"'; Replacement = "version = `"$Version`"" },
     @{ Path = "installer/src-tauri/Cargo.toml"; Pattern = '(?m)^version\s*=\s*"[^"]+"'; Replacement = "version = `"$Version`"" },
     @{ Path = "installer/package.json"; Pattern = '"version"\s*:\s*"[^"]+"'; Replacement = "`"version`": `"$Version`"" },
     @{ Path = "installer/package-lock.json"; Pattern = '"version"\s*:\s*"\d+\.\d+\.\d+"\s*,\s*\r?\n\s*"lockfileVersion"'; Replacement = "`"version`": `"$Version`",`n  `"lockfileVersion`"" },
     @{ Path = "installer/package-lock.json"; Pattern = '"name"\s*:\s*"redpanda-installer"\s*,\s*\r?\n\s*"version"\s*:\s*"\d+\.\d+\.\d+"'; Replacement = "`"name`": `"redpanda-installer`",`n      `"version`": `"$Version`"" },
     @{ Path = "src-tauri/tauri.conf.json"; Pattern = '"version"\s*:\s*"[^"]+"'; Replacement = "`"version`": `"$Version`"" },
-    @{ Path = "installer/src-tauri/tauri.conf.json"; Pattern = '"version"\s*:\s*"[^"]+"'; Replacement = "`"version`": `"$Version`"" },
-    @{ Path = "src-tauri/src/updater.rs"; Pattern = 'CURRENT_VERSION: &str = "[^"]+"'; Replacement = "CURRENT_VERSION: &str = `"$Version`"" },
-    @{ Path = "src-tauri/src/updater.rs"; Pattern = 'RedPandaLauncher/\d+\.\d+\.\d+'; Replacement = "RedPandaLauncher/$Version" },
-    @{ Path = "src/App.tsx"; Pattern = 'v\d+\.\d+\.\d+ Stable'; Replacement = "v$Version Stable" },
-    @{ Path = "src/components/SettingsModal.tsx"; Pattern = 'Версия v\d+\.\d+\.\d+ Stable'; Replacement = "Версия v$Version Stable" },
-    @{ Path = "src/components/SettingsModal.tsx"; Pattern = 'current_version \|\| "\d+\.\d+\.\d+"'; Replacement = "current_version || `"$Version`"" },
-    @{ Path = "scripts/build-custom-installer.ps1"; Pattern = '\[string\]\$Version = "\d+\.\d+\.\d+"'; Replacement = "[string]`$Version = `"$Version`"" }
+    @{ Path = "installer/src-tauri/tauri.conf.json"; Pattern = '"version"\s*:\s*"[^"]+"'; Replacement = "`"version`": `"$Version`"" }
 )
 
 foreach ($item in $VersionFiles) {

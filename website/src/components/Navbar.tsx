@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { 
+import {
   IconBrandTelegram, 
   IconBrandGithub, 
   IconDownload, 
@@ -16,6 +16,8 @@ import {
   IconHelp,
   IconHome
 } from "@tabler/icons-react";
+
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.0";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -50,7 +52,7 @@ export function Navbar() {
                 REDPANDA
               </span>
               <span className="hidden sm:inline text-[10px] bg-primary text-black font-bold px-1.5 py-0.5 rounded-none tracking-widest">
-                v0.2.2
+                v{APP_VERSION}
               </span>
             </div>
             <p className="hidden sm:block text-[10px] text-muted tracking-widest uppercase font-mono">MINECRAFT LAUNCHER</p>

@@ -1,23 +1,24 @@
 import React from "react";
 import { Navbar } from "../../components/Navbar";
 import { Footer } from "../../components/Footer";
-import { 
+import {
   IconDownload, 
   IconShieldCheck, 
   IconCpu, 
   IconDeviceDesktop, 
-  IconCheck, 
   IconBrandWindows,
   IconArrowUpRight
 } from "@tabler/icons-react";
 
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.0";
+
 export const metadata = {
-  title: "Скачать Ред Лаунчер (RedLauncher / RedPanda Launcher) v0.2.2 для Windows — Бесплатно",
-  description: "Скачать официальный установщик Ред Лаунчера (RedLauncher / RedPanda Launcher) v0.2.2 для Windows 10/11 x64. Быстрый запуск на Rust, моды Modrinth/CurseForge, P2P игра по сети без портов и 0 рекламы.",
+  title: "Скачать RedPanda Launcher для Windows",
+  description: "Официальный установщик RedPanda Launcher для Windows 10/11 x64 с поддержкой Modrinth и CurseForge.",
 };
 
 export default function DownloadPage() {
-  const downloadUrl = "https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.2.2/RedPanda_Setup_0.2.2.exe";
+  const downloadUrl = `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v${APP_VERSION}/RedPanda_Setup_${APP_VERSION}.exe`;
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
@@ -34,7 +35,7 @@ export default function DownloadPage() {
             Скачать RedPanda Launcher
           </h1>
           <p className="text-muted text-sm sm:text-base max-w-2xl mx-auto leading-relaxed font-mono">
-            Новейшая стабильная версия <span className="text-primary font-bold">v0.2.2</span> с диагностикой сборок, управлением модами, кастомным автономным инсталлятором и встроенным P2P мультиплеером.
+            Новейшая стабильная версия <span className="text-primary font-bold">v{APP_VERSION}</span> с диагностикой сборок, управлением модами, кастомным автономным инсталлятором и встроенным P2P мультиплеером.
           </p>
         </div>
 
@@ -43,7 +44,7 @@ export default function DownloadPage() {
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3">
               <span className="font-display font-bold text-xl sm:text-3xl text-foreground break-all">
-                RedPanda_Setup_0.2.2.exe
+                RedPanda_Setup_{APP_VERSION}.exe
               </span>
               <span className="bg-primary text-black font-bold font-mono text-[10px] uppercase px-2 py-0.5 tracking-wider">
                 Official Release
@@ -53,11 +54,11 @@ export default function DownloadPage() {
               Автономный графический инсталлятор с автоматической настройкой ярлыков и зависимостей.
             </p>
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-xs font-mono text-muted pt-1">
-              <span className="flex items-center gap-1">
-                <IconShieldCheck size={16} className="text-emerald-400" />
-                <span>SHA-256 Verified</span>
+                <span className="flex items-center gap-1">
+                  <IconShieldCheck size={16} className="text-emerald-400" />
+                <span>SHA-256 checksum в GitHub Release</span>
               </span>
-              <span>Размер: 38.8 МБ</span>
+              <span>Размер указан в GitHub Release</span>
               <span>Лицензия: Open Source (MIT)</span>
             </div>
           </div>
@@ -128,7 +129,7 @@ export default function DownloadPage() {
                 <span className="font-bold text-primary">03</span>
                 <div>
                   <p className="font-bold text-foreground">Играйте с друзьями</p>
-                  <p className="text-muted text-[11px] mt-0.5">Добавляйте аккаунты, ставьте моды и наслаждайтесь 0 рекламы.</p>
+                <p className="text-muted text-[11px] mt-0.5">Добавляйте аккаунты, ставьте моды и играйте с друзьями.</p>
                 </div>
               </li>
             </ol>

@@ -1,15 +1,23 @@
-# Build RedPanda Launcher v0.2.2 Custom GUI Installer
+# Build RedPanda Launcher Custom GUI Installer
 param(
-    [string]$Version = "0.2.2"
+    [string]$Version = ""
 )
 
 $ErrorActionPreference = "Stop"
+$RootDir = Split-Path -Parent $PSScriptRoot
+Set-Location $RootDir
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    $Version = (Get-Content (Join-Path $RootDir "VERSION") -Raw).Trim()
+}
+
+if ([string]::IsNullOrWhiteSpace($env:REDPANDA_UPDATE_PUBLIC_KEY_HEX)) {
+    $env:REDPANDA_UPDATE_PUBLIC_KEY_HEX = "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
+}
 
 Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host "  RedPanda Launcher v$Version Custom Installer Build" -ForegroundColor Cyan
 Write-Host "==================================================" -ForegroundColor Cyan
 
-$RootDir = Get-Location
 $PayloadDir = Join-Path $RootDir "installer\src-tauri\payload_staging"
 $PayloadZip = Join-Path $RootDir "installer\src-tauri\payload.zip"
 $OutDir = Join-Path $RootDir "release_output"

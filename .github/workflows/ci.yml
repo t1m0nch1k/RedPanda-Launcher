@@ -28,11 +28,26 @@ jobs:
       - name: Cargo Check
         run: cargo check --manifest-path src-tauri/Cargo.toml
 
+      - name: Rust Format
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+
       - name: Cargo Clippy
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
 
       - name: Cargo Test
         run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Installer Cargo Check
+        run: cargo check --manifest-path installer/src-tauri/Cargo.toml
+
+      - name: Installer Rust Format
+        run: cargo fmt --manifest-path installer/src-tauri/Cargo.toml --all -- --check
+
+      - name: Installer Cargo Clippy
+        run: cargo clippy --manifest-path installer/src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+
+      - name: Installer Cargo Test
+        run: cargo test --manifest-path installer/src-tauri/Cargo.toml
 
   frontend-build:
     name: Frontend & Website Build
@@ -52,8 +67,40 @@ jobs:
       - name: Build Launcher Frontend
         run: npm run build
 
+      - name: Check release version consistency
+        shell: pwsh
+        run: .\scripts\check-version.ps1
+
+      - name: Check locale parity
+        shell: pwsh
+        run: .\scripts\check-locales.ps1
+
+      - name: Audit Launcher Dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Build Installer Frontend
+        run: npm --prefix installer run build
+
+      - name: Audit Installer Dependencies
+        run: npm --prefix installer audit --omit=dev --audit-level=high
+
       - name: Install Website Dependencies
         run: npm --prefix website ci
 
+      - name: Lint Website
+        run: npm --prefix website run lint
+
+      - name: Audit Website Dependencies
+        run: npm --prefix website audit --omit=dev --audit-level=high
+
       - name: Build Website
         run: npm --prefix website run build
+
+  rustsec:
+    name: Rust dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
