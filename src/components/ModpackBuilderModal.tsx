@@ -151,12 +151,20 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
     setIsBuilding(true);
 
     try {
+      // Ensure core mods for the selected loader (e.g. Fabric API) are always included
+      const finalSlugs = new Set(selectedModIds);
+      CURATED_MODS.forEach(mod => {
+        if (mod.isCore && mod.loaders.includes(loaderType)) {
+          finalSlugs.add(mod.id);
+        }
+      });
+
       const result = await command<CreatedInstance>("build_custom_modpack", {
         name: packName.trim(),
         gameVersion,
         loaderType,
         loaderVersion: null,
-        modSlugs: Array.from(selectedModIds),
+        modSlugs: Array.from(finalSlugs),
       });
 
       setCreatedInstance(result);

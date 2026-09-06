@@ -26,12 +26,49 @@ struct ModDownloadItem {
     pub hashes: HashMap<String, String>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+enum ResolveTarget {
+    Project(String),
+    Version {
+        version_id: String,
+        fallback_project_id: Option<String>,
+    },
+}
+
+async fn fetch_version_by_id(client: &Client, version_id: &str) -> Option<ModrinthVersion> {
+    let raw = version_id.trim();
+    if raw.is_empty() {
+        return None;
+    }
+    let url = format!("https://api.modrinth.com/v2/version/{}", raw);
+    if let Ok(res) = client.get(&url).send().await {
+        if res.status().is_success() {
+            if let Ok(version) = res.json::<ModrinthVersion>().await {
+                return Some(version);
+            }
+        }
+    }
+    None
+}
+
 async fn fetch_latest_version_for_project(
     client: &Client,
     project_id_or_slug: &str,
     game_version: &str,
     loader_type: &str,
 ) -> Option<ModrinthVersion> {
+    let raw = project_id_or_slug.trim();
+    if raw.is_empty() {
+        return None;
+    }
+
+    // Map loader-specific slugs if needed
+    let mapped_slug = match (loader_type, raw.to_lowercase().as_str()) {
+        ("Fabric" | "Quilt", "create") => "create-fabric",
+        ("Forge" | "NeoForge", "create-fabric") => "create",
+        _ => raw,
+    };
+
     let loaders = match loader_type {
         "Fabric" => "[\"fabric\"]",
         "Forge" => "[\"forge\"]",
@@ -40,20 +77,80 @@ async fn fetch_latest_version_for_project(
         _ => "[]",
     };
 
-    let url = format!(
-        "https://api.modrinth.com/v2/project/{}/version?game_versions=[\"{}\"]&loaders={}",
-        project_id_or_slug,
-        game_version,
-        urlencoding::encode(loaders)
-    );
+    // Helper closure to query versions for a given slug/id and optional game_version filter
+    async fn try_query(
+        client: &Client,
+        proj: &str,
+        gv: Option<&str>,
+        loaders_json: &str,
+    ) -> Option<Vec<ModrinthVersion>> {
+        let mut url = format!(
+            "https://api.modrinth.com/v2/project/{}/version?loaders={}",
+            proj,
+            urlencoding::encode(loaders_json)
+        );
+        if let Some(v) = gv {
+            url.push_str(&format!("&game_versions=[\"{}\"]", v));
+        }
+        if let Ok(res) = client.get(&url).send().await {
+            if res.status().is_success() {
+                if let Ok(versions) = res.json::<Vec<ModrinthVersion>>().await {
+                    if !versions.is_empty() {
+                        return Some(versions);
+                    }
+                }
+            }
+        }
+        None
+    }
 
-    if let Ok(res) = client.get(&url).send().await {
-        if let Ok(mut versions) = res.json::<Vec<ModrinthVersion>>().await {
-            if !versions.is_empty() {
-                return Some(versions.remove(0));
+    // 1. Try exact project and exact game_version
+    if let Some(mut list) = try_query(client, mapped_slug, Some(game_version), loaders).await {
+        return Some(list.remove(0));
+    }
+
+    // 2. If loader is Fabric/Quilt and slug doesn't end with -fabric, try with -fabric
+    if matches!(loader_type, "Fabric" | "Quilt") && !mapped_slug.ends_with("-fabric") {
+        let fabric_slug = format!("{}-fabric", mapped_slug);
+        if let Some(mut list) = try_query(client, &fabric_slug, Some(game_version), loaders).await {
+            return Some(list.remove(0));
+        }
+    }
+
+    // 3. If loader is Forge and slug ends with -fabric, try removing -fabric
+    if loader_type == "Forge" && mapped_slug.ends_with("-fabric") {
+        let base = mapped_slug.trim_end_matches("-fabric");
+        if let Some(mut list) = try_query(client, base, Some(game_version), loaders).await {
+            return Some(list.remove(0));
+        }
+    }
+
+    // 4. Try querying all versions for this loader and finding compatible game_version
+    // (some mods specify minor version e.g. "1.19" which is compatible with "1.19.2")
+    if let Some(all_versions) = try_query(client, mapped_slug, None, loaders).await {
+        // 4a. Check if any version lists game_version
+        for v in &all_versions {
+            if let Some(ref gvs) = v.game_versions {
+                if gvs.iter().any(|g| g == game_version) {
+                    return Some(v.clone());
+                }
+            }
+        }
+
+        // 4b. Check minor version match (e.g. "1.19.2" -> "1.19")
+        let parts: Vec<&str> = game_version.split('.').collect();
+        if parts.len() >= 2 {
+            let minor_prefix = format!("{}.{}", parts[0], parts[1]);
+            for v in &all_versions {
+                if let Some(ref gvs) = v.game_versions {
+                    if gvs.iter().any(|g| g == &minor_prefix || g.starts_with(&minor_prefix)) {
+                        return Some(v.clone());
+                    }
+                }
             }
         }
     }
+
     None
 }
 
@@ -114,38 +211,94 @@ pub async fn build_custom_modpack(
     ))?;
 
     let mut download_queue: Vec<ModDownloadItem> = Vec::new();
-    let mut visited_projects: HashSet<String> = HashSet::new();
-    let mut projects_to_resolve: VecDeque<String> = mod_slugs.into_iter().collect();
+    let mut queued_filenames: HashSet<String> = HashSet::new();
+    let mut queued_hashes: HashSet<String> = HashSet::new();
 
-    // 3. Resolve all mods and dependencies
-    let mut resolved_count = 0;
-    while let Some(project) = projects_to_resolve.pop_front() {
-        let clean_proj = project.trim().to_lowercase();
-        if clean_proj.is_empty() || visited_projects.contains(&clean_proj) {
-            continue;
+    let mut visited_projects: HashSet<String> = HashSet::new();
+    let mut visited_versions: HashSet<String> = HashSet::new();
+    let mut targets_to_resolve: VecDeque<ResolveTarget> = VecDeque::new();
+
+    // Populate initial targets
+    for slug in mod_slugs {
+        let clean = slug.trim().to_string();
+        if !clean.is_empty() {
+            targets_to_resolve.push_back(ResolveTarget::Project(clean));
         }
-        visited_projects.insert(clean_proj.clone());
+    }
+
+    // Always guarantee Fabric API for Fabric & Quilt instances
+    if matches!(loader_type.as_str(), "Fabric" | "Quilt") {
+        let has_fabric_api = targets_to_resolve.iter().any(|t| match t {
+            ResolveTarget::Project(p) => p.eq_ignore_ascii_case("fabric-api") || p == "P7dR8mSH",
+            _ => false,
+        });
+        if !has_fabric_api {
+            targets_to_resolve.push_front(ResolveTarget::Project("fabric-api".to_string()));
+        }
+    }
+
+    // 3. Resolve all mods and dependencies recursively
+    let mut resolved_count = 0;
+    while let Some(target) = targets_to_resolve.pop_front() {
+        let target_display: String;
+        let maybe_version = match &target {
+            ResolveTarget::Version { version_id, fallback_project_id } => {
+                if visited_versions.contains(version_id) {
+                    continue;
+                }
+                if let Some(ref pid) = fallback_project_id {
+                    let trimmed = pid.trim();
+                    if visited_projects.contains(trimmed) || visited_projects.contains(&trimmed.to_lowercase()) {
+                        continue;
+                    }
+                }
+                visited_versions.insert(version_id.clone());
+                target_display = format!("version:{}", version_id);
+
+                let mut v = fetch_version_by_id(&client, version_id).await;
+                if v.is_none() {
+                    if let Some(pid) = fallback_project_id {
+                        if !visited_projects.contains(pid) && !visited_projects.contains(&pid.to_lowercase()) {
+                            v = fetch_latest_version_for_project(&client, pid, &game_version, &loader_type).await;
+                        }
+                    }
+                }
+                v
+            }
+            ResolveTarget::Project(pid) => {
+                let trimmed = pid.trim();
+                // Check if already visited by exact case or lower case
+                if visited_projects.contains(trimmed) || visited_projects.contains(&trimmed.to_lowercase()) {
+                    continue;
+                }
+                visited_projects.insert(trimmed.to_string());
+                visited_projects.insert(trimmed.to_lowercase());
+                target_display = trimmed.to_string();
+
+                fetch_latest_version_for_project(&client, trimmed, &game_version, &loader_type).await
+            }
+        };
 
         let _ = app.emit(
             "builder-progress",
             BuilderProgress {
                 status: "resolving".to_string(),
-                message: format!("Поиск мода и зависимостей: {}", clean_proj),
+                message: format!("Поиск мода и зависимостей: {}", target_display),
                 current: resolved_count,
-                total: visited_projects.len() + projects_to_resolve.len(),
-                current_item: Some(clean_proj.clone()),
+                total: visited_projects.len() + visited_versions.len() + targets_to_resolve.len(),
+                current_item: Some(target_display.clone()),
             },
         );
 
-        if let Some(version) = fetch_latest_version_for_project(
-            &client,
-            &clean_proj,
-            &game_version,
-            &loader_type,
-        )
-        .await
-        {
-            // Pick primary file
+        if let Some(version) = maybe_version {
+            // Mark version ID and project ID as visited so we don't query them again
+            visited_versions.insert(version.id.clone());
+            if let Some(ref proj_id) = version.project_id {
+                visited_projects.insert(proj_id.clone());
+                visited_projects.insert(proj_id.to_lowercase());
+            }
+
+            // Pick primary file or first file
             if let Some(file) = version
                 .files
                 .iter()
@@ -154,12 +307,23 @@ pub async fn build_custom_modpack(
             {
                 if is_trusted_download_url(&file.url) {
                     let sanitized = crate::security::sanitize_filename(&file.filename);
-                    download_queue.push(ModDownloadItem {
-                        name: version.name.clone(),
-                        filename: sanitized,
-                        download_url: file.url.clone(),
-                        hashes: file.hashes.clone(),
-                    });
+                    let primary_hash = file
+                        .hashes
+                        .get("sha1")
+                        .or_else(|| file.hashes.get("sha512"))
+                        .cloned()
+                        .unwrap_or_else(|| sanitized.clone());
+
+                    if !queued_filenames.contains(&sanitized) && !queued_hashes.contains(&primary_hash) {
+                        queued_filenames.insert(sanitized.clone());
+                        queued_hashes.insert(primary_hash);
+                        download_queue.push(ModDownloadItem {
+                            name: version.name.clone(),
+                            filename: sanitized,
+                            download_url: file.url.clone(),
+                            hashes: file.hashes.clone(),
+                        });
+                    }
                 }
             }
 
@@ -167,9 +331,25 @@ pub async fn build_custom_modpack(
             if let Some(deps) = version.dependencies {
                 for dep in deps {
                     if dep.dependency_type == "required" {
-                        if let Some(pid) = dep.project_id {
-                            if !visited_projects.contains(&pid.to_lowercase()) {
-                                projects_to_resolve.push_back(pid);
+                        // If project is already resolved, don't queue older or duplicate version
+                        if let Some(ref pid) = dep.project_id {
+                            let trimmed = pid.trim();
+                            if visited_projects.contains(trimmed) || visited_projects.contains(&trimmed.to_lowercase()) {
+                                continue;
+                            }
+                        }
+
+                        if let Some(vid) = dep.version_id {
+                            if !visited_versions.contains(&vid) {
+                                targets_to_resolve.push_back(ResolveTarget::Version {
+                                    version_id: vid,
+                                    fallback_project_id: dep.project_id.clone(),
+                                });
+                            }
+                        } else if let Some(pid) = dep.project_id {
+                            let trimmed = pid.trim();
+                            if !visited_projects.contains(trimmed) && !visited_projects.contains(&trimmed.to_lowercase()) {
+                                targets_to_resolve.push_back(ResolveTarget::Project(trimmed.to_string()));
                             }
                         }
                     }
@@ -177,8 +357,8 @@ pub async fn build_custom_modpack(
             }
         } else {
             log::warn!(
-                "Не удалось найти версию для мода '{}' ({} / {})",
-                clean_proj,
+                "Не удалось найти версию для '{}' ({} / {})",
+                target_display,
                 game_version,
                 loader_type
             );
