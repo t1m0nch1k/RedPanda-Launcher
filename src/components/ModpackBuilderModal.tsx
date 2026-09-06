@@ -1,11 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   Wand2, X, ChevronRight, ChevronLeft, Check, Sparkles, 
   Play, CheckCircle2, ShieldCheck
 } from "lucide-react";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { command, getErrorMessage, BuilderProgress } from "../lib/ipc";
-import { BUILDER_CATEGORIES, CURATED_MODS } from "../data/builderPresets";
+import { 
+  BUILDER_CATEGORIES, 
+  CURATED_MODS, 
+  BUILDER_PRESETS,
+  BuilderPreset,
+  isModCompatibleWith 
+} from "../data/builderPresets";
 import { toast } from "./Toast";
 
 interface ModpackBuilderModalProps {
@@ -28,6 +34,7 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
   const [showSnapshots, setShowSnapshots] = useState(false);
   const [mcVersions, setMcVersions] = useState<string[]>([]);
   const [loadingVersions, setLoadingVersions] = useState(false);
+  const [activePreset, setActivePreset] = useState<string | null>("magic-rpg");
 
   // Step 2: Selected Categories
   const [selectedCategories, setSelectedCategories] = useState<string[]>([
@@ -35,6 +42,7 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
     "qol",
     "magic",
     "adventure",
+    "rpg",
   ]);
 
   // Step 3: Selected Mods
@@ -85,23 +93,42 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
     }
   }, [selectedCategories]);
 
-  // Filter curated mods by selected categories, game version & loader
-  const availableMods = CURATED_MODS.filter(mod => {
-    if (!selectedCategories.includes(mod.category)) return false;
-    if (!mod.loaders.includes(loaderType)) return false;
-    return true;
-  });
+  // Filter curated mods strictly by selected categories, game version & loader
+  const availableMods = useMemo(() => {
+    return CURATED_MODS.filter(mod => {
+      if (!selectedCategories.includes(mod.category)) return false;
+      return isModCompatibleWith(mod, gameVersion, loaderType);
+    });
+  }, [selectedCategories, gameVersion, loaderType]);
 
-  // When available mods change (category or loader changed), auto-select recommended mods
+  // When available mods, loader, or game version change, auto-select recommended compatible mods
   useEffect(() => {
     const nextSet = new Set<string>();
     availableMods.forEach(mod => {
+      // If was previously selected and still compatible, or is recommended/core
       if (mod.isCore || mod.recommended || selectedModIds.has(mod.id)) {
         nextSet.add(mod.id);
       }
     });
+
+    // If Sodium is selected on Fabric, guarantee Indium is also selected
+    if (loaderType === "Fabric" && nextSet.has("sodium")) {
+      const hasIndiumInCatalog = availableMods.some(m => m.id === "indium");
+      if (hasIndiumInCatalog) {
+        nextSet.add("indium");
+      }
+    }
+
     setSelectedModIds(nextSet);
-  }, [selectedCategories, loaderType]);
+  }, [availableMods, loaderType, gameVersion]);
+
+  // Apply a preset
+  const applyPreset = (preset: BuilderPreset) => {
+    setActivePreset(preset.id);
+    setSelectedCategories(preset.categories);
+    setLoaderType(preset.recommendedLoader);
+    setPackName(`Сборка: ${preset.title}`);
+  };
 
   // Listen to builder events
   useEffect(() => {
@@ -151,10 +178,15 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
     setIsBuilding(true);
 
     try {
-      // Ensure core mods for the selected loader (e.g. Fabric API) are always included
+      // Ensure core mods for the selected loader and version are included
       const finalSlugs = new Set(selectedModIds);
       CURATED_MODS.forEach(mod => {
-        if (mod.isCore && mod.loaders.includes(loaderType)) {
+        if (mod.isCore && isModCompatibleWith(mod, gameVersion, loaderType)) {
+          // If mod is indium, include if sodium is present or loader is Fabric
+          if (mod.id === "indium" && !finalSlugs.has("sodium") && loaderType === "Fabric") {
+            finalSlugs.add("indium");
+            return;
+          }
           finalSlugs.add(mod.id);
         }
       });
@@ -237,7 +269,45 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
           
           {/* STEP 1: General Parameters */}
           {step === 1 && (
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-5">
+              {/* Presets Quick Selector */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold text-muted uppercase tracking-wider block">
+                    Готовые пресеты сборок
+                  </label>
+                  <span className="text-[10px] text-muted font-mono">1 клик для настройки</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                  {BUILDER_PRESETS.map((preset) => {
+                    const isActive = activePreset === preset.id;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => applyPreset(preset)}
+                        className={`p-2.5 brutalist-border text-left transition-all ${
+                          isActive 
+                            ? "bg-primary/15 border-primary text-white scale-[1.01]" 
+                            : "bg-background border-border hover:border-muted text-muted hover:text-white"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <div className="flex items-center gap-1.5 font-bold text-xs truncate">
+                            <span>{preset.icon}</span>
+                            <span className="truncate">{preset.title}</span>
+                          </div>
+                          <span className="text-[9px] px-1 py-0.2 bg-white/10 text-white/80 font-mono shrink-0">
+                            {preset.badge}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-muted line-clamp-1">{preset.subtitle}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div>
                 <label className="text-xs font-semibold text-muted uppercase tracking-wider block mb-2">
                   Название сборки
@@ -303,8 +373,13 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
               <div className="p-4 bg-primary/5 border border-primary/20 flex items-start gap-3">
                 <Sparkles size={18} className="text-primary shrink-0 mt-0.5" />
                 <div className="text-xs text-text/80 space-y-1">
-                  <div className="font-bold text-white">Умный подборщик RedPanda:</div>
-                  <p>Алгоритм автоматически проверит совместимость каждого мода с выбранной версией ({gameVersion}) и загрузчиком ({loaderType}), а также скачает ядро оптимизации FPS и все требуемые библиотеки.</p>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-white">Умный подборщик RedPanda:</span>
+                    <span className="text-[10px] px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 font-mono font-bold">
+                      {CURATED_MODS.filter(m => isModCompatibleWith(m, gameVersion, loaderType)).length} модов под {gameVersion} ({loaderType})
+                    </span>
+                  </div>
+                  <p>Каталог автоматически адаптирует моды под выбранную связку. Несовместимые моды и краши отсекаются, а мосты совместимости (включая Indium для Sodium) подключаются автоматически.</p>
                 </div>
               </div>
             </div>
@@ -313,14 +388,15 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
           {/* STEP 2: Categories / Themes */}
           {step === 2 && (
             <div className="flex flex-col gap-4">
-              <div className="text-xs text-muted mb-1">
-                Выберите тематики, которые хотите включить в вашу новую сборку:
+              <div className="flex items-center justify-between text-xs text-muted">
+                <span>Выберите тематики для включения в сборку:</span>
+                <span className="font-mono text-white/80">Версия: {gameVersion} • {loaderType}</span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {BUILDER_CATEGORIES.map(category => {
                   const isSelected = selectedCategories.includes(category.id);
-                  const modsCount = CURATED_MODS.filter(m => m.category === category.id && m.loaders.includes(loaderType)).length;
+                  const modsCount = CURATED_MODS.filter(m => m.category === category.id && isModCompatibleWith(m, gameVersion, loaderType)).length;
 
                   return (
                     <button
@@ -336,8 +412,10 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
                       <div className="flex-1 overflow-hidden">
                         <div className="flex items-center justify-between gap-2">
                           <h4 className="font-bold text-xs text-white truncate">{category.name}</h4>
-                          <span className="text-[10px] font-mono px-1.5 py-0.5 bg-card text-muted brutalist-border shrink-0">
-                            {modsCount} модов
+                          <span className={`text-[10px] font-mono px-1.5 py-0.5 brutalist-border shrink-0 ${
+                            modsCount > 0 ? "bg-card text-white/90" : "bg-red-500/20 text-red-400"
+                          }`}>
+                            {modsCount > 0 ? `${modsCount} модов` : `нет под ${gameVersion}`}
                           </span>
                         </div>
                         <p className="text-[11px] text-muted mt-1 leading-snug">{category.description}</p>
@@ -359,7 +437,7 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-muted">
-                  Отобрано модов под {gameVersion} ({loaderType}): <strong className="text-white">{selectedModIds.size} из {availableMods.length}</strong>
+                  Совместимо под Minecraft {gameVersion} ({loaderType}): <strong className="text-white">{selectedModIds.size} из {availableMods.length}</strong>
                 </span>
                 <button
                   onClick={() => {
@@ -377,7 +455,7 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
 
               {availableMods.length === 0 ? (
                 <div className="p-8 text-center text-muted border border-dashed border-border text-xs">
-                  Для выбранной комбинации версий нет доступных модов в каталоге. Попробуйте выбрать другие категории или загрузчик.
+                  Для выбранной комбинации версий нет доступных модов в выбранных категориях. Попробуйте выбрать другие тематики или сменить версию игры.
                 </div>
               ) : (
                 <div className="flex flex-col gap-2 max-h-[48vh] overflow-y-auto pr-1 custom-scrollbar">
@@ -398,14 +476,24 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
                             {isChecked && <Check size={10} className="stroke-[3]" />}
                           </div>
                           <div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-bold text-xs text-white">{mod.name}</span>
                               {mod.isCore && (
                                 <span className="text-[9px] px-1 bg-emerald-500/20 text-emerald-400 font-mono font-bold">
                                   CORE
                                 </span>
                               )}
+                              {mod.id === "indium" && (
+                                <span className="text-[9px] px-1 bg-indigo-500/20 text-indigo-400 font-mono font-bold">
+                                  FRAPI BRIDGE
+                                </span>
+                              )}
                               <span className="text-[10px] text-muted font-mono">{mod.id}</span>
+                              {mod.minVersion && (
+                                <span className="text-[9px] px-1 bg-white/5 text-muted font-mono">
+                                  {mod.minVersion}{mod.maxVersion ? `–${mod.maxVersion}` : "+"}
+                                </span>
+                              )}
                             </div>
                             <p className="text-[11px] text-muted truncate mt-0.5">{mod.description}</p>
                           </div>
@@ -418,7 +506,7 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
 
               <div className="p-3 bg-background brutalist-border flex items-center gap-2 text-xs text-muted">
                 <ShieldCheck size={16} className="text-emerald-400 shrink-0" />
-                <span>Все необходимые библиотеки (Fabric API, Architectury, Curios, Cloth Config и др.) будут добавлены и установлены автоматически.</span>
+                <span>Все скрытые библиотеки (Fabric API, Indium, Architectury, Moonlight, Cloth Config и др.) автоматически проверяются и скачиваются движком.</span>
               </div>
             </div>
           )}
