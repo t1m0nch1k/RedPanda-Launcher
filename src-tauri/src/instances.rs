@@ -150,14 +150,65 @@ fn read_instances_unlocked(app: &AppHandle) -> Result<Vec<Instance>, String> {
     Ok(instances)
 }
 
-pub fn generate_instance_id(name: &str, existing_instances: &[Instance]) -> String {
-    let mut base_id: String = name
-        .to_lowercase()
-        .chars()
-        .filter(|c| c.is_alphanumeric() || *c == '-' || *c == ' ' || *c == '_')
-        .collect();
+fn transliterate_to_ascii(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() * 2);
+    for c in s.chars() {
+        match c {
+            'а' | 'А' => out.push_str("a"),
+            'б' | 'Б' => out.push_str("b"),
+            'в' | 'В' => out.push_str("v"),
+            'г' | 'Г' => out.push_str("g"),
+            'д' | 'Д' => out.push_str("d"),
+            'е' | 'Е' | 'ё' | 'Ё' => out.push_str("e"),
+            'ж' | 'Ж' => out.push_str("zh"),
+            'з' | 'З' => out.push_str("z"),
+            'и' | 'И' => out.push_str("i"),
+            'й' | 'Й' => out.push_str("y"),
+            'к' | 'К' => out.push_str("k"),
+            'л' | 'Л' => out.push_str("l"),
+            'м' | 'М' => out.push_str("m"),
+            'н' | 'Н' => out.push_str("n"),
+            'о' | 'О' => out.push_str("o"),
+            'п' | 'П' => out.push_str("p"),
+            'р' | 'Р' => out.push_str("r"),
+            'с' | 'С' => out.push_str("s"),
+            'т' | 'Т' => out.push_str("t"),
+            'у' | 'У' => out.push_str("u"),
+            'ф' | 'Ф' => out.push_str("f"),
+            'х' | 'Х' => out.push_str("kh"),
+            'ц' | 'Ц' => out.push_str("ts"),
+            'ч' | 'Ч' => out.push_str("ch"),
+            'ш' | 'Ш' => out.push_str("sh"),
+            'щ' | 'Щ' => out.push_str("shch"),
+            'ъ' | 'Ъ' | 'ь' | 'Ь' => {},
+            'ы' | 'Ы' => out.push_str("y"),
+            'э' | 'Э' => out.push_str("e"),
+            'ю' | 'Ю' => out.push_str("yu"),
+            'я' | 'Я' => out.push_str("ya"),
+            c if c.is_ascii_alphanumeric() => out.push(c.to_ascii_lowercase()),
+            '.' => out.push('.'),
+            '-' | '_' | ' ' => out.push('-'),
+            _ => {},
+        }
+    }
+    let mut clean = String::new();
+    let mut prev_dash = false;
+    for c in out.chars() {
+        if c == '-' {
+            if !prev_dash && !clean.is_empty() {
+                clean.push('-');
+            }
+            prev_dash = true;
+        } else {
+            clean.push(c);
+            prev_dash = false;
+        }
+    }
+    clean.trim_end_matches('-').to_string()
+}
 
-    base_id = base_id.replace(' ', "-");
+pub fn generate_instance_id(name: &str, existing_instances: &[Instance]) -> String {
+    let mut base_id = transliterate_to_ascii(name);
 
     if base_id.is_empty() {
         base_id = "instance".to_string();
@@ -1340,4 +1391,24 @@ pub async fn create_instance_shortcut(app: AppHandle, id: String) -> Result<Stri
         shortcut_path.display()
     );
     Ok(shortcut_path.to_string_lossy().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_transliterate_to_ascii() {
+        assert_eq!(transliterate_to_ascii("Сборка: Магия & Приключения"), "sborka-magiya-priklyucheniya");
+        assert_eq!(transliterate_to_ascii("Мой Сервер 1.20"), "moy-server-1.20");
+        assert_eq!(transliterate_to_ascii("Vanilla Fabric"), "vanilla-fabric");
+    }
+
+    #[test]
+    fn test_generate_instance_id_ascii() {
+        let existing = vec![];
+        let id = generate_instance_id("Сборка: Магия & Приключения", &existing);
+        assert_eq!(id, "sborka-magiya-priklyucheniya");
+        assert!(id.is_ascii());
+    }
 }

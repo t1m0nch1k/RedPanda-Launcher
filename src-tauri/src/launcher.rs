@@ -248,6 +248,7 @@ async fn launch_game_internal(
 
     if let Ok(mut inst_path) = crate::security::instance_dir(&instance_id) {
         inst_path.push("natives");
+        let inst_path = crate::security::to_short_path(&inst_path);
         jvm_builder = jvm_builder.set(
             "Dorg.lwjgl.librarypath",
             inst_path.to_string_lossy().to_string(),

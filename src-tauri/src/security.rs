@@ -194,6 +194,57 @@ fn is_link_like(path: &Path) -> bool {
     }
 }
 
+/// Converts a path containing non-ASCII characters to a Windows 8.3 short path.
+/// This prevents Java 8 (and certain modloaders) from crashing due to URLClassPath/FileURLMapper bugs on non-ASCII paths.
+#[cfg(windows)]
+pub fn to_short_path<P: AsRef<Path>>(path: P) -> PathBuf {
+    use std::ffi::OsString;
+    use std::os::windows::ffi::{OsStrExt, OsStringExt};
+
+    let p = path.as_ref();
+    let path_str = p.to_string_lossy();
+    if path_str.is_ascii() {
+        return p.to_path_buf();
+    }
+
+    if p.exists() {
+        let mut wide: Vec<u16> = p.as_os_str().encode_wide().collect();
+        wide.push(0);
+
+        unsafe {
+            let len = windows_sys::Win32::Storage::FileSystem::GetShortPathNameW(
+                wide.as_ptr(),
+                std::ptr::null_mut(),
+                0,
+            );
+            if len > 0 {
+                let mut buf = vec![0u16; len as usize];
+                let ret = windows_sys::Win32::Storage::FileSystem::GetShortPathNameW(
+                    wide.as_ptr(),
+                    buf.as_mut_ptr(),
+                    len,
+                );
+                if ret > 0 && ret < len {
+                    buf.truncate(ret as usize);
+                    return PathBuf::from(OsString::from_wide(&buf));
+                }
+            }
+        }
+    }
+
+    if let (Some(parent), Some(file_name)) = (p.parent(), p.file_name()) {
+        let short_parent = to_short_path(parent);
+        return short_parent.join(file_name);
+    }
+
+    p.to_path_buf()
+}
+
+#[cfg(not(windows))]
+pub fn to_short_path<P: AsRef<Path>>(path: P) -> PathBuf {
+    path.as_ref().to_path_buf()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -240,5 +291,23 @@ mod tests {
         assert!(validate_filename("").is_err());
         assert!(validate_filename("CON").is_err());
         assert!(validate_filename("name.").is_err());
+    }
+
+    #[test]
+    fn test_to_short_path_ascii() {
+        let p = Path::new("C:\\Windows\\System32");
+        assert_eq!(to_short_path(p), p);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn test_to_short_path_cyrillic() {
+        if let Some(appdata) = dirs::data_dir() {
+            let cyr_path = appdata.join("RedPandaLauncher").join("сборка-магия--приключения");
+            if cyr_path.exists() {
+                let short = to_short_path(&cyr_path);
+                assert!(short.to_string_lossy().is_ascii(), "Short path should be ASCII: {:?}", short);
+            }
+        }
     }
 }

@@ -25,6 +25,9 @@ dist-ssr
 !.env.example
 
 # Build outputs & Installer artifacts
+target/
+**/target/
+.fabric/
 release_output/
 installer/node_modules/
 installer/dist/

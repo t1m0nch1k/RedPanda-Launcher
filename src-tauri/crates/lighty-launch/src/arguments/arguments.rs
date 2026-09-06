@@ -7,6 +7,57 @@ use lighty_loaders::types::VersionInfo;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 
+/// Converts a path containing non-ASCII characters to a Windows 8.3 short path.
+/// This prevents Java 8 (and certain modloaders) from crashing due to URLClassPath/FileURLMapper bugs on non-ASCII paths.
+#[cfg(windows)]
+pub fn to_short_path<P: AsRef<std::path::Path>>(path: P) -> std::path::PathBuf {
+    use std::ffi::OsString;
+    use std::os::windows::ffi::{OsStrExt, OsStringExt};
+
+    let p = path.as_ref();
+    let path_str = p.to_string_lossy();
+    if path_str.is_ascii() {
+        return p.to_path_buf();
+    }
+
+    if p.exists() {
+        let mut wide: Vec<u16> = p.as_os_str().encode_wide().collect();
+        wide.push(0);
+
+        unsafe {
+            let len = windows_sys::Win32::Storage::FileSystem::GetShortPathNameW(
+                wide.as_ptr(),
+                std::ptr::null_mut(),
+                0,
+            );
+            if len > 0 {
+                let mut buf = vec![0u16; len as usize];
+                let ret = windows_sys::Win32::Storage::FileSystem::GetShortPathNameW(
+                    wide.as_ptr(),
+                    buf.as_mut_ptr(),
+                    len,
+                );
+                if ret > 0 && ret < len {
+                    buf.truncate(ret as usize);
+                    return std::path::PathBuf::from(OsString::from_wide(&buf));
+                }
+            }
+        }
+    }
+
+    if let (Some(parent), Some(file_name)) = (p.parent(), p.file_name()) {
+        let short_parent = to_short_path(parent);
+        return short_parent.join(file_name);
+    }
+
+    p.to_path_buf()
+}
+
+#[cfg(not(windows))]
+pub fn to_short_path<P: AsRef<std::path::Path>>(path: P) -> std::path::PathBuf {
+    path.as_ref().to_path_buf()
+}
+
 // Public placeholder keys matching `${...}` tokens in Mojang's version manifest.
 // Pass them to `ArgumentsBuilder::set(key, value)` to override substitution.
 
@@ -119,7 +170,7 @@ impl<T: VersionInfo> Arguments for T {
         // Force the resolved value so the JVM gets the absolute path.
         variables.insert(
             KEY_GAME_DIRECTORY.into(),
-            self.runtime_dir().display().to_string(),
+            to_short_path(self.runtime_dir()).display().to_string(),
         );
 
         let game_args = replace_variables_in_vec(&builder.arguments.game, &variables);
@@ -261,10 +312,15 @@ fn create_variable_map<T: VersionInfo>(
 
         // runtime_dir() is the single source of truth shared with the install
         // pipeline so mods land where the game actually scans for them.
-        map.insert(KEY_GAME_DIRECTORY.into(), version.runtime_dir().display().to_string());
-        map.insert(KEY_ASSETS_ROOT.into(), version.game_dirs().join("assets").display().to_string());
-        map.insert(KEY_NATIVES_DIRECTORY.into(), version.game_dirs().join("natives").display().to_string());
-        map.insert(KEY_LIBRARY_DIRECTORY.into(), version.game_dirs().join("libraries").display().to_string());
+        let game_dir = to_short_path(version.runtime_dir());
+        let assets_root = to_short_path(&version.game_dirs().join("assets"));
+        let natives_dir = to_short_path(&version.game_dirs().join("natives"));
+        let lib_dir = to_short_path(&version.game_dirs().join("libraries"));
+
+        map.insert(KEY_GAME_DIRECTORY.into(), game_dir.display().to_string());
+        map.insert(KEY_ASSETS_ROOT.into(), assets_root.display().to_string());
+        map.insert(KEY_NATIVES_DIRECTORY.into(), natives_dir.display().to_string());
+        map.insert(KEY_LIBRARY_DIRECTORY.into(), lib_dir.display().to_string());
 
         let assets_index_name = builder.assets_index
             .as_ref()
@@ -289,19 +345,21 @@ fn build_classpath<T: VersionInfo>(version: &T, libraries: &[lighty_loaders::typ
         #[cfg(not(target_os = "windows"))]
         let separator = ":";
 
-        let lib_dir = version.game_dirs().join("libraries");
+        let lib_dir = to_short_path(&version.game_dirs().join("libraries"));
 
         let mut classpath_entries: Vec<String> = libraries
             .iter()
             .filter_map(|lib| {
                 lib.path.as_ref().map(|path| {
-                    lib_dir.join(path).display().to_string()
+                    let p = lib_dir.join(path);
+                    to_short_path(&p).display().to_string()
                 })
             })
             .collect();
 
+        let jar_path = to_short_path(&version.game_dirs().join(format!("{}.jar", version.name())));
         classpath_entries.push(
-            version.game_dirs().join(format!("{}.jar", version.name())).display().to_string()
+            jar_path.display().to_string()
         );
 
         classpath_entries.join(separator)
