@@ -12,7 +12,7 @@ import {
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.0";
 
-const RELEASE_TAG = "v0.3.0_fix";
+const RELEASE_TAG = "v0.3.0_fix2";
 
 export const metadata = {
   title: "Скачать RedPanda Launcher для Windows",

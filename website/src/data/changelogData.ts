@@ -17,7 +17,7 @@ export interface LauncherRelease {
 }
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.0";
-const LATEST_RELEASE_TAG = "v0.3.0_fix";
+const LATEST_RELEASE_TAG = "v0.3.0_fix2";
 
 export const LAUNCHER_RELEASES: LauncherRelease[] = [
   {
