@@ -5,7 +5,10 @@ use zip::ZipArchive;
 
 pub fn get_required_java_version(mc_version: &str) -> u8 {
     // Modern snapshots (24w..., 25w..., 26w...) or pre-releases/release candidates
-    if mc_version.starts_with("24w") || mc_version.starts_with("25w") || mc_version.starts_with("26w") {
+    if mc_version.starts_with("24w")
+        || mc_version.starts_with("25w")
+        || mc_version.starts_with("26w")
+    {
         return 21;
     }
 

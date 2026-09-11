@@ -213,12 +213,19 @@ async fn launch_game_internal(
         accounts
             .into_iter()
             .find(|a| a.is_active)
-            .or_else(|| crate::accounts::load_accounts_data(&app).ok().and_then(|d| d.accounts.into_iter().next()))
-            .ok_or_else(|| "Активный аккаунт не найден. Выберите или добавьте аккаунт перед запуском.".to_string())?
+            .or_else(|| {
+                crate::accounts::load_accounts_data(&app)
+                    .ok()
+                    .and_then(|d| d.accounts.into_iter().next())
+            })
+            .ok_or_else(|| {
+                "Активный аккаунт не найден. Выберите или добавьте аккаунт перед запуском."
+                    .to_string()
+            })?
     };
     let username = account.username.clone();
 
-    if let Ok(true) = crate::accounts::refresh_account_tokens(&app, &mut account).await {
+    if crate::accounts::refresh_account_tokens_and_persist(&app, &mut account).await? {
         log::info!("Refreshed auth tokens for user {}", username);
     }
 
@@ -435,7 +442,7 @@ fn configure_custom_java(
             .and_then(|bin| {
                 if bin
                     .file_name()
-                    .map_or(false, |n| n.eq_ignore_ascii_case("bin"))
+                    .is_some_and(|n| n.eq_ignore_ascii_case("bin"))
                 {
                     bin.parent().map(|p| p.to_path_buf())
                 } else {
@@ -445,7 +452,10 @@ fn configure_custom_java(
             .unwrap_or_else(|| custom_path.clone());
         (exe, root)
     } else {
-        (custom_path.join("bin").join("java.exe"), custom_path.clone())
+        (
+            custom_path.join("bin").join("java.exe"),
+            custom_path.clone(),
+        )
     };
 
     if !java_exe.exists() {

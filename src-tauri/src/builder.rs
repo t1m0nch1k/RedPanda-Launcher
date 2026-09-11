@@ -5,7 +5,6 @@ use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter};
 
-use crate::downloads::{verify_modrinth_hashes, MAX_DOWNLOAD_BYTES};
 use crate::instances::Instance;
 use crate::modrinth::{is_trusted_download_url, ModrinthVersion};
 
@@ -80,11 +79,79 @@ pub fn is_version_supported_by_mod(v: &ModrinthVersion, target_game_version: &st
         let minor_base = format!("{}.{}", parts[0], parts[1]);
         let minor_x = format!("{}.x", minor_base);
         let minor_star = format!("{}.*", minor_base);
-        if gvs.iter().any(|g| g == &minor_base || g.eq_ignore_ascii_case(&minor_x) || g == &minor_star) {
+        if gvs
+            .iter()
+            .any(|g| g == &minor_base || g.eq_ignore_ascii_case(&minor_x) || g == &minor_star)
+        {
             return true;
         }
     }
     false
+}
+
+fn is_loader_supported_by_mod(v: &ModrinthVersion, loader_type: &str) -> bool {
+    let Some(loaders) = &v.loaders else {
+        return true;
+    };
+    if loader_type == "Vanilla" {
+        return true;
+    }
+
+    loaders.iter().any(|loader| match loader_type {
+        "Fabric" => loader.eq_ignore_ascii_case("fabric"),
+        "Forge" => loader.eq_ignore_ascii_case("forge"),
+        "NeoForge" => {
+            loader.eq_ignore_ascii_case("neoforge") || loader.eq_ignore_ascii_case("forge")
+        }
+        "Quilt" => loader.eq_ignore_ascii_case("quilt") || loader.eq_ignore_ascii_case("fabric"),
+        _ => false,
+    })
+}
+
+fn is_version_compatible(version: &ModrinthVersion, game_version: &str, loader_type: &str) -> bool {
+    is_version_supported_by_mod(version, game_version)
+        && is_loader_supported_by_mod(version, loader_type)
+}
+
+fn register_selected_version(
+    selected_versions: &mut HashMap<String, String>,
+    version: &ModrinthVersion,
+    fallback_project_id: Option<&str>,
+) -> Result<(), String> {
+    let project_id = version
+        .project_id
+        .as_deref()
+        .or(fallback_project_id)
+        .map(str::trim)
+        .filter(|project_id| !project_id.is_empty());
+    let Some(project_id) = project_id else {
+        return Ok(());
+    };
+    let project_id = project_id.to_ascii_lowercase();
+
+    match selected_versions.get(&project_id) {
+        Some(selected_version) if selected_version != &version.id => Err(format!(
+            "Конфликт обязательных зависимостей для проекта {project_id}: требуются версии {selected_version} и {}",
+            version.id
+        )),
+        _ => {
+            selected_versions.insert(project_id, version.id.clone());
+            Ok(())
+        }
+    }
+}
+
+fn emit_builder_error(app: &AppHandle, message: &str, current: usize, total: usize) {
+    let _ = app.emit(
+        "builder-progress",
+        BuilderProgress {
+            status: "error".to_string(),
+            message: message.to_string(),
+            current,
+            total,
+            current_item: None,
+        },
+    );
 }
 
 async fn fetch_latest_version_for_project(
@@ -208,16 +275,15 @@ pub async fn build_custom_modpack(
         },
     );
 
-    // 1. Resolve loader version if not supplied
+    // Resolve the loader before creating metadata. A failed build must not leave
+    // an apparently valid instance in the user's list.
     let actual_loader_version = match loader_version {
         Some(lv) if !lv.trim().is_empty() => lv,
         _ => {
             let mut resolved = String::new();
-            if let Ok(versions) = crate::versions::get_loader_versions(
-                loader_type.clone(),
-                game_version.clone(),
-            )
-            .await
+            if let Ok(versions) =
+                crate::versions::get_loader_versions(loader_type.clone(), game_version.clone())
+                    .await
             {
                 if let Some(first) = versions.first() {
                     resolved = first.clone();
@@ -258,16 +324,13 @@ pub async fn build_custom_modpack(
             resolved
         }
     };
-
-    // 2. Create instance in RedPanda
-    let instance = crate::instances::add_instance(
-        app.clone(),
-        name.clone(),
-        game_version.clone(),
-        loader_type.clone(),
-        actual_loader_version,
-    )
-    .await?;
+    if loader_type != "Vanilla" && actual_loader_version.trim().is_empty() {
+        let message = format!(
+            "Не удалось подобрать версию загрузчика {loader_type} для Minecraft {game_version}"
+        );
+        emit_builder_error(&app, &message, 0, mod_slugs.len());
+        return Err(message);
+    }
 
     let client = crate::downloads::trusted_download_client(&format!(
         "RedPandaLauncher/{}",
@@ -275,12 +338,14 @@ pub async fn build_custom_modpack(
     ))?;
 
     let mut download_queue: Vec<ModDownloadItem> = Vec::new();
-    let mut queued_filenames: HashSet<String> = HashSet::new();
+    let mut queued_filenames: HashMap<String, String> = HashMap::new();
     let mut queued_hashes: HashSet<String> = HashSet::new();
 
     let mut visited_projects: HashSet<String> = HashSet::new();
     let mut visited_versions: HashSet<String> = HashSet::new();
+    let mut selected_versions: HashMap<String, String> = HashMap::new();
     let mut targets_to_resolve: VecDeque<ResolveTarget> = VecDeque::new();
+    let mut resolution_errors = Vec::new();
 
     // Populate initial targets with mapped slugs
     for slug in mod_slugs {
@@ -324,53 +389,64 @@ pub async fn build_custom_modpack(
         }
     }
 
-    // 3. Resolve all mods and dependencies recursively
+    // Resolve all requested mods and every required dependency before mutating
+    // the instance directory. Pinned dependencies are still inspected even when
+    // their project has already been encountered so conflicting version pins do
+    // not depend on traversal order.
     let mut resolved_count = 0;
     while let Some(target) = targets_to_resolve.pop_front() {
         let target_display: String;
+        let fallback_project_id = match &target {
+            ResolveTarget::Version {
+                fallback_project_id,
+                ..
+            } => fallback_project_id.as_deref(),
+            ResolveTarget::Project(_) => None,
+        };
         let maybe_version = match &target {
-            ResolveTarget::Version { version_id, fallback_project_id } => {
+            ResolveTarget::Version {
+                version_id,
+                fallback_project_id,
+            } => {
                 if visited_versions.contains(version_id) {
                     continue;
-                }
-                if let Some(ref pid) = fallback_project_id {
-                    let trimmed = pid.trim();
-                    if visited_projects.contains(trimmed) || visited_projects.contains(&trimmed.to_lowercase()) {
-                        continue;
-                    }
                 }
                 visited_versions.insert(version_id.clone());
                 target_display = format!("version:{}", version_id);
 
-                let mut v = fetch_version_by_id(&client, version_id).await;
-                // Validate if pinned version actually supports the instance game_version
-                if let Some(ref ver) = v {
-                    if !is_version_supported_by_mod(ver, &game_version) {
-                        if let Some(ref pid) = fallback_project_id {
-                            let compatible_v = fetch_latest_version_for_project(&client, pid, &game_version, &loader_type).await;
-                            if compatible_v.is_some() {
-                                v = compatible_v;
-                            }
-                        }
-                    }
-                } else if let Some(pid) = fallback_project_id {
-                    if !visited_projects.contains(pid) && !visited_projects.contains(&pid.to_lowercase()) {
-                        v = fetch_latest_version_for_project(&client, pid, &game_version, &loader_type).await;
-                    }
+                let pinned_version = fetch_version_by_id(&client, version_id).await;
+                if pinned_version.as_ref().is_some_and(|version| {
+                    is_version_compatible(version, &game_version, &loader_type)
+                }) {
+                    pinned_version
+                } else if let Some(project_id) = fallback_project_id.as_deref() {
+                    fetch_latest_version_for_project(
+                        &client,
+                        project_id,
+                        &game_version,
+                        &loader_type,
+                    )
+                    .await
+                    .filter(|version| is_version_compatible(version, &game_version, &loader_type))
+                } else {
+                    None
                 }
-                v
             }
             ResolveTarget::Project(pid) => {
                 let trimmed = pid.trim();
                 // Check if already visited by exact case or lower case
-                if visited_projects.contains(trimmed) || visited_projects.contains(&trimmed.to_lowercase()) {
+                if visited_projects.contains(trimmed)
+                    || visited_projects.contains(&trimmed.to_lowercase())
+                {
                     continue;
                 }
                 visited_projects.insert(trimmed.to_string());
                 visited_projects.insert(trimmed.to_lowercase());
                 target_display = trimmed.to_string();
 
-                fetch_latest_version_for_project(&client, trimmed, &game_version, &loader_type).await
+                fetch_latest_version_for_project(&client, trimmed, &game_version, &loader_type)
+                    .await
+                    .filter(|version| is_version_compatible(version, &game_version, &loader_type))
             }
         };
 
@@ -383,9 +459,14 @@ pub async fn build_custom_modpack(
                 }
                 _ => false,
             };
-            if is_sodium && !visited_projects.contains("indium") && !visited_projects.contains("orvt0mra") {
+            if is_sodium
+                && !visited_projects.contains("indium")
+                && !visited_projects.contains("orvt0mra")
+            {
                 let already_queued = targets_to_resolve.iter().any(|t| match t {
-                    ResolveTarget::Project(p) => p.eq_ignore_ascii_case("indium") || p == "Orvt0mRa",
+                    ResolveTarget::Project(p) => {
+                        p.eq_ignore_ascii_case("indium") || p == "Orvt0mRa"
+                    }
                     _ => false,
                 });
                 if !already_queued {
@@ -406,6 +487,14 @@ pub async fn build_custom_modpack(
         );
 
         if let Some(version) = maybe_version {
+            if let Err(error) =
+                register_selected_version(&mut selected_versions, &version, fallback_project_id)
+            {
+                resolution_errors.push(error);
+                resolved_count += 1;
+                continue;
+            }
+
             // Mark version ID and project ID as visited so we don't query them again
             visited_versions.insert(version.id.clone());
             if let Some(ref proj_id) = version.project_id {
@@ -413,25 +502,44 @@ pub async fn build_custom_modpack(
                 visited_projects.insert(proj_id.to_lowercase());
             }
 
-            // Pick primary file or first file
+            // Each resolved version must yield a trusted, verifiable artifact.
             if let Some(file) = version
                 .files
                 .iter()
                 .find(|f| f.primary)
                 .or_else(|| version.files.first())
             {
-                if is_trusted_download_url(&file.url) {
+                if !is_trusted_download_url(&file.url) {
+                    resolution_errors.push(format!(
+                        "У мода {} указан недоверенный адрес загрузки",
+                        version.name
+                    ));
+                } else {
                     let sanitized = crate::security::sanitize_filename(&file.filename);
-                    let primary_hash = file
+                    let artifact_hash = file
                         .hashes
-                        .get("sha1")
-                        .or_else(|| file.hashes.get("sha512"))
-                        .cloned()
-                        .unwrap_or_else(|| sanitized.clone());
+                        .get("sha512")
+                        .or_else(|| file.hashes.get("sha256"))
+                        .or_else(|| file.hashes.get("sha1"))
+                        .cloned();
+                    let Some(artifact_hash) = artifact_hash else {
+                        resolution_errors.push(format!(
+                            "У мода {} отсутствует поддерживаемый checksum",
+                            version.name
+                        ));
+                        resolved_count += 1;
+                        continue;
+                    };
 
-                    if !queued_filenames.contains(&sanitized) && !queued_hashes.contains(&primary_hash) {
-                        queued_filenames.insert(sanitized.clone());
-                        queued_hashes.insert(primary_hash);
+                    if let Some(queued_hash) = queued_filenames.get(&sanitized) {
+                        if queued_hash != &artifact_hash {
+                            resolution_errors.push(format!(
+                                "Несовместимые обязательные файлы используют имя {sanitized}"
+                            ));
+                        }
+                    } else if !queued_hashes.contains(&artifact_hash) {
+                        queued_filenames.insert(sanitized.clone(), artifact_hash.clone());
+                        queued_hashes.insert(artifact_hash);
                         download_queue.push(ModDownloadItem {
                             name: version.name.clone(),
                             filename: sanitized,
@@ -440,98 +548,154 @@ pub async fn build_custom_modpack(
                         });
                     }
                 }
+            } else {
+                resolution_errors.push(format!("У мода {} нет файла для загрузки", version.name));
             }
 
             // Check required dependencies
             if let Some(deps) = version.dependencies {
                 for dep in deps {
                     if dep.dependency_type == "required" {
-                        // If project is already resolved, don't queue older or duplicate version
-                        if let Some(ref pid) = dep.project_id {
-                            let mapped = map_mod_slug(pid, &loader_type);
-                            let trimmed = mapped.trim();
-                            if visited_projects.contains(trimmed) || visited_projects.contains(&trimmed.to_lowercase()) {
-                                continue;
-                            }
-                        }
-
                         if let Some(vid) = dep.version_id {
                             if !visited_versions.contains(&vid) {
                                 targets_to_resolve.push_back(ResolveTarget::Version {
                                     version_id: vid,
-                                    fallback_project_id: dep.project_id.map(|p| map_mod_slug(&p, &loader_type)),
+                                    fallback_project_id: dep
+                                        .project_id
+                                        .map(|p| map_mod_slug(&p, &loader_type)),
                                 });
                             }
                         } else if let Some(pid) = dep.project_id {
                             let mapped = map_mod_slug(&pid, &loader_type);
                             let trimmed = mapped.trim();
-                            if !visited_projects.contains(trimmed) && !visited_projects.contains(&trimmed.to_lowercase()) {
-                                targets_to_resolve.push_back(ResolveTarget::Project(trimmed.to_string()));
+                            if !visited_projects.contains(trimmed)
+                                && !visited_projects.contains(&trimmed.to_lowercase())
+                            {
+                                targets_to_resolve
+                                    .push_back(ResolveTarget::Project(trimmed.to_string()));
                             }
                         }
                     }
                 }
             }
         } else {
-            log::warn!(
-                "Не удалось найти версию для '{}' ({} / {})",
-                target_display,
-                game_version,
-                loader_type
-            );
+            resolution_errors.push(format!(
+                "Не удалось найти совместимую версию для '{}' ({} / {})",
+                target_display, game_version, loader_type
+            ));
         }
 
         resolved_count += 1;
     }
 
-    // 4. Download all gathered files into {instance_dir}/mods
-    let instance_dir = crate::security::instance_dir(&instance.id)?;
-    let mods_dir = instance_dir.join("mods");
-    fs::create_dir_all(&mods_dir)
-        .map_err(|e| format!("Не удалось создать папку mods: {}", e))?;
-
-    let total_downloads = download_queue.len();
-
-    for (index, item) in download_queue.into_iter().enumerate() {
-        let dest_path: PathBuf = mods_dir.join(&item.filename);
-
-        let _ = app.emit(
-            "builder-progress",
-            BuilderProgress {
-                status: "downloading".to_string(),
-                message: format!("Скачивание: {}", item.name),
-                current: index + 1,
-                total: total_downloads,
-                current_item: Some(item.name.clone()),
-            },
+    if !resolution_errors.is_empty() {
+        let message = format!(
+            "Не удалось разрешить сборку ({} проблем): {}",
+            resolution_errors.len(),
+            resolution_errors
+                .iter()
+                .take(5)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join("; ")
         );
+        emit_builder_error(&app, &message, resolved_count, resolved_count);
+        return Err(message);
+    }
 
-        // Skip if already downloaded
-        if dest_path.exists() {
-            continue;
+    // Persist metadata only after dependency resolution. Downloads are written to
+    // a sibling staging directory and published as one directory rename.
+    let instance = crate::instances::add_instance(
+        app.clone(),
+        name,
+        game_version.clone(),
+        loader_type.clone(),
+        actual_loader_version,
+    )
+    .await
+    .inspect_err(|error| {
+        emit_builder_error(&app, error, resolved_count, download_queue.len());
+    })?;
+
+    let instance_dir = crate::security::instance_dir(&instance.id)?;
+    let data_dir = instance_dir
+        .parent()
+        .ok_or_else(|| "Не удалось определить каталог экземпляров".to_string())?
+        .to_path_buf();
+    let total_downloads = download_queue.len();
+    let build_result = async {
+        if instance_dir.exists() {
+            return Err(format!(
+                "Каталог нового экземпляра уже существует: {}",
+                instance_dir.display()
+            ));
+        }
+        fs::create_dir_all(&data_dir)
+            .map_err(|error| format!("Не удалось создать каталог экземпляров: {error}"))?;
+        let staging = tempfile::Builder::new()
+            .prefix("redpanda-builder-")
+            .tempdir_in(&data_dir)
+            .map_err(|error| format!("Не удалось создать staging-каталог: {error}"))?;
+        let mods_dir = staging.path().join("mods");
+        fs::create_dir_all(&mods_dir)
+            .map_err(|error| format!("Не удалось создать папку mods: {error}"))?;
+
+        let mut download_errors = Vec::new();
+        for (index, item) in download_queue.into_iter().enumerate() {
+            let dest_path: PathBuf = mods_dir.join(&item.filename);
+
+            let _ = app.emit(
+                "builder-progress",
+                BuilderProgress {
+                    status: "downloading".to_string(),
+                    message: format!("Скачивание: {}", item.name),
+                    current: index + 1,
+                    total: total_downloads,
+                    current_item: Some(item.name.clone()),
+                },
+            );
+
+            if let Err(error) = crate::downloads::download_to_file_with_hashes(
+                &client,
+                &item.download_url,
+                &dest_path,
+                &item.hashes,
+            )
+            .await
+            {
+                download_errors.push(format!("{}: {error}", item.name));
+            }
         }
 
-        match client.get(&item.download_url).send().await {
-            Ok(resp) if resp.status().is_success() => {
-                if let Ok(bytes) = resp.bytes().await {
-                    if bytes.len() <= MAX_DOWNLOAD_BYTES {
-                        if verify_modrinth_hashes(&bytes, &item.hashes).is_ok() {
-                            let _ = fs::write(&dest_path, bytes);
-                        }
-                    }
+        if !download_errors.is_empty() {
+            return Err(format!(
+                "Не удалось скачать {} обязательных файлов: {}",
+                download_errors.len(),
+                download_errors
+                    .iter()
+                    .take(5)
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            ));
+        }
+
+        fs::rename(staging.path(), &instance_dir)
+            .map_err(|error| format!("Не удалось опубликовать сборку: {error}"))?;
+        Ok(())
+    }
+    .await;
+
+    if let Err(error) = build_result {
+        let message =
+            match crate::instances::remove_instance(app.clone(), instance.id.clone()).await {
+                Ok(()) => error,
+                Err(cleanup_error) => {
+                    format!("{error}. Не удалось удалить неполную запись сборки: {cleanup_error}")
                 }
-            }
-            Ok(err_resp) => {
-                log::warn!(
-                    "Ошибка загрузки {}: HTTP {}",
-                    item.filename,
-                    err_resp.status()
-                );
-            }
-            Err(e) => {
-                log::warn!("Сетевая ошибка при скачивании {}: {}", item.filename, e);
-            }
-        }
+            };
+        emit_builder_error(&app, &message, 0, total_downloads);
+        return Err(message);
     }
 
     let _ = app.emit(

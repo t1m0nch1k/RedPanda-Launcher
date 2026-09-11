@@ -244,7 +244,11 @@ pub async fn resolve_dependencies(
                             sha1: file
                                 .hashes
                                 .as_ref()
-                                .and_then(|hashes| hashes.iter().find(|hash| hash.algo == 2))
+                                .and_then(|hashes| {
+                                    hashes
+                                        .iter()
+                                        .find(|hash| hash.algo == crate::curseforge::HASH_ALGO_SHA1)
+                                })
                                 .map(|hash| hash.value.clone()),
                         });
 

@@ -12,7 +12,11 @@ export function getErrorMessage(error: unknown): string {
     if (typeof message === "string") return message;
   }
   if (error instanceof Error) return error.message;
-  return typeof error === "string" ? error : "Операция не выполнена";
+  if (typeof error === "string") return error;
+  if (typeof error === "number" || typeof error === "boolean" || typeof error === "bigint") {
+    return String(error);
+  }
+  return "Операция не выполнена";
 }
 
 export function command<T>(name: string, args?: Record<string, unknown>): Promise<T> {

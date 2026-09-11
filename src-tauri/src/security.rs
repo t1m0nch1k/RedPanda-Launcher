@@ -303,10 +303,16 @@ mod tests {
     #[cfg(windows)]
     fn test_to_short_path_cyrillic() {
         if let Some(appdata) = dirs::data_dir() {
-            let cyr_path = appdata.join("RedPandaLauncher").join("сборка-магия--приключения");
+            let cyr_path = appdata
+                .join("RedPandaLauncher")
+                .join("сборка-магия--приключения");
             if cyr_path.exists() {
                 let short = to_short_path(&cyr_path);
-                assert!(short.to_string_lossy().is_ascii(), "Short path should be ASCII: {:?}", short);
+                assert!(
+                    short.to_string_lossy().is_ascii(),
+                    "Short path should be ASCII: {:?}",
+                    short
+                );
             }
         }
     }

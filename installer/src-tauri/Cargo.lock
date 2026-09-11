@@ -2742,12 +2742,14 @@ dependencies = [
 
 [[package]]
 name = "redpanda-installer"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
+ "base64 0.22.1",
  "dirs",
  "log",
  "serde",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",

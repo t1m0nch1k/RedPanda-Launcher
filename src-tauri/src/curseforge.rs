@@ -49,6 +49,9 @@ pub struct CurseForgeHash {
     pub algo: u32,
 }
 
+/// CurseForge's HashAlgo enum uses 1 for SHA-1 and 2 for MD5.
+pub const HASH_ALGO_SHA1: u32 = 1;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CurseForgeDependency {
@@ -64,19 +67,16 @@ struct FilesResponse {
 pub const DEFAULT_CURSEFORGE_API_KEY: &str =
     "$2a$10$QdP21DmwEcYxV.f.T1orWeyr7SB65NMbFxme2NGVEsEpyFeen44RK";
 
-pub fn get_curseforge_api_key(app: &AppHandle) -> String {
+pub fn get_curseforge_api_key(_app: &AppHandle) -> String {
     if let Ok(key) = std::env::var("CURSEFORGE_API_KEY") {
         let trimmed = key.trim();
         if !trimmed.is_empty() {
             return trimmed.to_string();
         }
     }
-    if let Ok(key) = crate::settings::get_curseforge_api_key(app) {
-        let trimmed = key.trim();
-        if !trimmed.is_empty() {
-            return trimmed.to_string();
-        }
-    }
+    // API keys are intentionally not stored in launcher settings. Keep the
+    // app parameter for command-call compatibility; deployments may still use
+    // CURSEFORGE_API_KEY as a process-level override.
     DEFAULT_CURSEFORGE_API_KEY.to_string()
 }
 
@@ -104,13 +104,13 @@ pub(crate) async fn send_curseforge_request(
         .await
         .map_err(|e| format!("Ошибка подключения к CurseForge API: {}", e))?;
 
-    // If custom key returned 401 or 403, fallback to DEFAULT_CURSEFORGE_API_KEY
+    // If an environment override returned 401 or 403, fallback to the built-in key.
     if (res.status() == reqwest::StatusCode::FORBIDDEN
         || res.status() == reqwest::StatusCode::UNAUTHORIZED)
         && api_key != DEFAULT_CURSEFORGE_API_KEY
     {
         log::warn!(
-            "Кастомный API-ключ CurseForge вернул {}. Пробуем встроенный ключ лаунчера...",
+            "Переопределение API-ключа CurseForge вернуло {}. Пробуем встроенный ключ лаунчера...",
             res.status()
         );
         if let Ok(fallback_res) = send(DEFAULT_CURSEFORGE_API_KEY).await {
@@ -262,46 +262,15 @@ pub async fn download_curseforge_version(
     project_type: String,
     expected_sha1: Option<String>,
 ) -> Result<(), String> {
-    const MAX_DOWNLOAD_BYTES: usize = 500 * 1024 * 1024; // 500 MB
     let instance_dir = crate::security::instance_dir(&instance_id)?;
     if !is_trusted_download_url(&download_url) {
         return Err("Untrusted CurseForge download URL".to_string());
     }
-    let client = crate::downloads::trusted_download_client("RedPandaLauncher/1.0.0")?;
-
-    let file_res = client
-        .get(&download_url)
-        .send()
-        .await
-        .map_err(|e| format!("Ошибка скачивания: {}", e))?;
-
-    if !file_res.status().is_success() {
-        return Err(format!("Ошибка скачивания: HTTP {}", file_res.status()));
-    }
-
-    if let Some(cl) = file_res.content_length() {
-        if cl > (MAX_DOWNLOAD_BYTES as u64) {
-            return Err(format!(
-                "Размер файла превышает лимит 500 МБ: {} МБ",
-                cl / (1024 * 1024)
-            ));
-        }
-    }
-
-    let bytes = file_res.bytes().await.map_err(|e| e.to_string())?;
-    if bytes.len() > MAX_DOWNLOAD_BYTES {
-        return Err("Размер загруженных данных превысил лимит 500 МБ".to_string());
-    }
-
     let expected_sha1 = expected_sha1
         .filter(|value| !value.trim().is_empty())
         .ok_or_else(|| "У файла CurseForge отсутствует SHA-1 checksum".to_string())?;
-    crate::downloads::verify_sha1(&bytes, &expected_sha1)?;
-
     let clean_filename = crate::security::sanitize_filename(&file_name);
-
     let mut path = instance_dir;
-
     match project_type.as_str() {
         "resourcepack" => path.push("resourcepacks"),
         "shader" => path.push("shaderpacks"),
@@ -312,7 +281,9 @@ pub async fn download_curseforge_version(
         .map_err(|e| format!("Не удалось создать директорию {:?}: {}", path, e))?;
 
     path.push(clean_filename);
-    crate::storage::atomic_write(&path, &bytes)?;
+    let client = crate::downloads::trusted_download_client("RedPandaLauncher/1.0.0")?;
+    crate::downloads::download_to_file_with_sha1(&client, &download_url, &path, &expected_sha1)
+        .await?;
 
     Ok(())
 }
@@ -324,46 +295,13 @@ pub async fn download_curseforge_modpack(
     file_name: String,
     expected_sha1: Option<String>,
 ) -> Result<(), String> {
-    const MAX_DOWNLOAD_BYTES: usize = 500 * 1024 * 1024; // 500 MB
     if !is_trusted_download_url(&download_url) {
         return Err("Untrusted CurseForge download URL".to_string());
     }
-    let client = crate::downloads::trusted_download_client("RedPandaLauncher/1.0.0")?;
-
-    let file_res = client
-        .get(&download_url)
-        .send()
-        .await
-        .map_err(|e| format!("Ошибка скачивания модпака: {}", e))?;
-
-    if !file_res.status().is_success() {
-        return Err(format!(
-            "Ошибка скачивания модпака: HTTP {}",
-            file_res.status()
-        ));
-    }
-
-    if let Some(cl) = file_res.content_length() {
-        if cl > (MAX_DOWNLOAD_BYTES as u64) {
-            return Err(format!(
-                "Размер модпака превышает лимит 500 МБ: {} МБ",
-                cl / (1024 * 1024)
-            ));
-        }
-    }
-
-    let bytes = file_res.bytes().await.map_err(|e| e.to_string())?;
-    if bytes.len() > MAX_DOWNLOAD_BYTES {
-        return Err("Размер загруженных данных модпака превысил лимит 500 МБ".to_string());
-    }
-
     let expected_sha1 = expected_sha1
         .filter(|value| !value.trim().is_empty())
         .ok_or_else(|| "У модпака CurseForge отсутствует SHA-1 checksum".to_string())?;
-    crate::downloads::verify_sha1(&bytes, &expected_sha1)?;
-
     let clean_filename = crate::security::sanitize_filename(&file_name);
-
     let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
     path.push("RedPandaLauncher");
     path.push("temp_downloads");
@@ -372,7 +310,9 @@ pub async fn download_curseforge_modpack(
         .map_err(|e| format!("Не удалось создать директорию {:?}: {}", path, e))?;
 
     path.push(clean_filename);
-    crate::storage::atomic_write(&path, &bytes)?;
+    let client = crate::downloads::trusted_download_client("RedPandaLauncher/1.0.0")?;
+    crate::downloads::download_to_file_with_sha1(&client, &download_url, &path, &expected_sha1)
+        .await?;
 
     Ok(())
 }

@@ -3,6 +3,7 @@ name: CI Pipeline
 on:
   push:
     branches: [ main ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
 
@@ -77,6 +78,9 @@ jobs:
 
       - name: Audit Launcher Dependencies
         run: npm audit --omit=dev --audit-level=high
+
+      - name: Install Installer Dependencies
+        run: npm --prefix installer ci
 
       - name: Build Installer Frontend
         run: npm --prefix installer run build

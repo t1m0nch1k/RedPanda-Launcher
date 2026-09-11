@@ -41,7 +41,10 @@ pub async fn get_minecraft_versions(
             if id.starts_with("1.") {
                 // Remove versions older than 1.7 for stability/support reasons
                 let minor_part = id.strip_prefix("1.").unwrap_or("");
-                let minor_str = minor_part.split(|c: char| !c.is_ascii_digit()).next().unwrap_or("");
+                let minor_str = minor_part
+                    .split(|c: char| !c.is_ascii_digit())
+                    .next()
+                    .unwrap_or("");
                 if let Ok(minor) = minor_str.parse::<u32>() {
                     return minor >= 7;
                 }

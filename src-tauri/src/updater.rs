@@ -222,14 +222,31 @@ pub async fn download_and_install_update(
     let expected_manifest = expected_manifest
         .ok_or_else(|| "Для обновления отсутствует подписанный manifest".to_string())?;
     verify_manifest_signature(expected_manifest.as_bytes(), &expected_signature)?;
-    if let Some(asset_name) = expected_asset_name {
-        let actual_asset_name = Url::parse(&download_url)
-            .ok()
-            .and_then(|url| url.path_segments()?.next_back().map(str::to_string))
-            .unwrap_or_default();
-        if actual_asset_name != asset_name {
-            return Err("Имя asset обновления не совпадает с подписанным manifest".to_string());
-        }
+    let manifest: UpdateManifest = serde_json::from_str(&expected_manifest)
+        .map_err(|e| format!("Некорректный подписанный manifest обновления: {e}"))?;
+    let expected_asset_name = expected_asset_name
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| "Для обновления отсутствует имя installer asset".to_string())?;
+    let expected_sha256 = expected_sha256
+        .filter(|value| value.len() == 64 && value.chars().all(|c| c.is_ascii_hexdigit()))
+        .ok_or_else(|| "Для обновления отсутствует корректный SHA-256 checksum".to_string())?;
+    let expected_size = expected_size
+        .filter(|size| *size > 0)
+        .ok_or_else(|| "Для обновления отсутствует размер installer".to_string())?;
+    if manifest.download_url != download_url
+        || manifest.asset_name != expected_asset_name
+        || !manifest.sha256.eq_ignore_ascii_case(&expected_sha256)
+        || manifest.size != expected_size
+    {
+        return Err("Параметры обновления не совпадают с подписанным manifest".to_string());
+    }
+
+    let actual_asset_name = Url::parse(&download_url)
+        .ok()
+        .and_then(|url| url.path_segments()?.next_back().map(str::to_string))
+        .unwrap_or_default();
+    if actual_asset_name != expected_asset_name {
+        return Err("Имя asset обновления не совпадает с подписанным manifest".to_string());
     }
 
     let parsed_url = Url::parse(&download_url).map_err(|_| "Invalid update URL".to_string())?;
@@ -249,10 +266,6 @@ pub async fn download_and_install_update(
     if !is_valid_source {
         return Err("Untrusted update source URL. Updates are only permitted from official GitHub releases.".to_string());
     }
-    let expected_sha256 = expected_sha256
-        .filter(|value| value.len() == 64 && value.chars().all(|c| c.is_ascii_hexdigit()))
-        .ok_or_else(|| "Для обновления отсутствует корректный SHA-256 checksum".to_string())?;
-
     log::info!("Downloading update from: {}", download_url);
 
     let client = crate::downloads::trusted_download_client(&format!(
@@ -277,11 +290,9 @@ pub async fn download_and_install_update(
     let downloaded_size = std::fs::metadata(&installer_path)
         .map_err(|e| format!("Не удалось проверить размер installer: {e}"))?
         .len();
-    if let Some(expected_size) = expected_size {
-        if downloaded_size != expected_size {
-            let _ = std::fs::remove_file(&installer_path);
-            return Err("Размер обновления не совпадает с подписанным manifest".to_string());
-        }
+    if downloaded_size != expected_size {
+        let _ = std::fs::remove_file(&installer_path);
+        return Err("Размер обновления не совпадает с подписанным manifest".to_string());
     }
 
     let mut header = [0u8; 4];
@@ -347,24 +358,49 @@ fn verify_manifest_signature(manifest: &[u8], encoded_signature: &str) -> Result
         .map_err(|_| "Подпись update manifest не прошла проверку".to_string())
 }
 
-fn is_version_newer(latest: &str, current: &str) -> bool {
-    let parse_ver =
-        |v: &str| -> Vec<u32> { v.split('.').filter_map(|p| p.parse::<u32>().ok()).collect() };
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct ReleaseVersion {
+    major: u64,
+    minor: u64,
+    patch: u64,
+    fix: u64,
+}
 
-    let l_parts = parse_ver(latest);
-    let c_parts = parse_ver(current);
-
-    for i in 0..std::cmp::max(l_parts.len(), c_parts.len()) {
-        let l = l_parts.get(i).cloned().unwrap_or(0);
-        let c = c_parts.get(i).cloned().unwrap_or(0);
-        if l > c {
-            return true;
+/// Parses the release format used by this project: `vMAJOR.MINOR.PATCH` with
+/// an optional `_fixN` suffix. GitHub tags such as `v0.3.0_fix2` are not
+/// SemVer, so silently dropping their suffix makes a hotfix invisible.
+fn parse_release_version(value: &str) -> Option<ReleaseVersion> {
+    let value = value.trim().trim_start_matches('v');
+    let (core, fix) = match value.split_once('_') {
+        Some((core, suffix)) => {
+            let fix = suffix.strip_prefix("fix")?.parse::<u64>().ok()?;
+            (core, fix)
         }
-        if l < c {
-            return false;
-        }
+        None => (value, 0),
+    };
+    let mut parts = core.split('.');
+    let major = parts.next()?.parse::<u64>().ok()?;
+    let minor = parts.next()?.parse::<u64>().ok()?;
+    let patch = parts.next()?.parse::<u64>().ok()?;
+    if parts.next().is_some() {
+        return None;
     }
-    false
+    Some(ReleaseVersion {
+        major,
+        minor,
+        patch,
+        fix,
+    })
+}
+
+fn is_version_newer(latest: &str, current: &str) -> bool {
+    match (
+        parse_release_version(latest),
+        parse_release_version(current),
+    ) {
+        (Some(latest), Some(current)) => latest > current,
+        _ => false,
+    }
 }
 
 #[cfg(test)]
@@ -376,6 +412,11 @@ mod tests {
         assert!(is_version_newer("0.3.0", "0.2.2"));
         assert!(!is_version_newer("0.2.2", "0.2.2"));
         assert!(!is_version_newer("0.2.1", "0.2.2"));
+        assert!(is_version_newer("0.3.0_fix1", "0.3.0"));
+        assert!(is_version_newer("v0.3.0_fix10", "v0.3.0_fix2"));
+        assert!(is_version_newer("0.3.1", "0.3.0_fix99"));
+        assert!(!is_version_newer("0.3.0", "0.3.0_fix1"));
+        assert!(!is_version_newer("not-a-version", "0.3.0"));
     }
 
     #[test]

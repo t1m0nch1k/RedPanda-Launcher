@@ -1,5 +1,7 @@
+#[cfg(not(windows))]
+use aes_gcm::aead::{rand_core::RngCore, OsRng};
 use aes_gcm::{
-    aead::{rand_core::RngCore, Aead, KeyInit, OsRng},
+    aead::{Aead, KeyInit},
     Aes256Gcm, Nonce,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
@@ -126,86 +128,108 @@ fn dpapi_unprotect(value: &[u8]) -> Option<Vec<u8>> {
     Some(result)
 }
 
-pub(crate) fn encrypt_secret(plain: &str) -> String {
+/// Encrypts a secret for a new write. On Windows we only write DPAPI-protected
+/// data: falling back to a deterministic key or plaintext would silently reduce
+/// the protection of fresh credentials.
+pub(crate) fn encrypt_secret_checked(plain: &str) -> Result<String, String> {
     if plain.is_empty() {
-        return String::new();
+        return Ok(String::new());
     }
 
     #[cfg(windows)]
-    if let Some(ciphertext) = dpapi_protect(plain.as_bytes()) {
-        return format!("enc:dpapi:{}", BASE64.encode(ciphertext));
+    {
+        let ciphertext = dpapi_protect(plain.as_bytes())
+            .ok_or_else(|| "Windows DPAPI could not protect the secret".to_string())?;
+        Ok(format!("enc:dpapi:{}", BASE64.encode(ciphertext)))
     }
 
-    let key = get_encryption_key();
-    if let Ok(cipher) = Aes256Gcm::new_from_slice(&key) {
+    #[cfg(not(windows))]
+    {
+        // This format is retained for non-Windows builds and for reading old
+        // Windows data. The production Windows application never selects it
+        // for a new credential write.
+        let key = get_encryption_key();
+        let cipher = Aes256Gcm::new_from_slice(&key)
+            .map_err(|_| "Could not initialize local secret encryption".to_string())?;
         let mut nonce_bytes = [0u8; 12];
         OsRng.fill_bytes(&mut nonce_bytes);
         let nonce = Nonce::from_slice(&nonce_bytes);
-        if let Ok(ciphertext) = cipher.encrypt(nonce, plain.as_bytes()) {
-            let mut payload = Vec::with_capacity(12 + ciphertext.len());
-            payload.extend_from_slice(&nonce_bytes);
-            payload.extend_from_slice(&ciphertext);
-            return format!("enc:v2:{}", BASE64.encode(payload));
-        }
+        let ciphertext = cipher
+            .encrypt(nonce, plain.as_bytes())
+            .map_err(|_| "Could not encrypt secret".to_string())?;
+        let mut payload = Vec::with_capacity(12 + ciphertext.len());
+        payload.extend_from_slice(&nonce_bytes);
+        payload.extend_from_slice(&ciphertext);
+        Ok(format!("enc:v2:{}", BASE64.encode(payload)))
     }
-    plain.to_string()
 }
 
-pub(crate) fn decrypt_secret(enc: &str) -> String {
+/// Decrypts the current format and both historic AES formats. A corrupt or
+/// inaccessible ciphertext is an error, never an apparent access token.
+pub(crate) fn decrypt_secret_checked(enc: &str) -> Result<String, String> {
     #[cfg(windows)]
     if let Some(stripped) = enc.strip_prefix("enc:dpapi:") {
-        if let Ok(decoded) = BASE64.decode(stripped) {
-            if let Some(plaintext) = dpapi_unprotect(&decoded) {
-                if let Ok(value) = String::from_utf8(plaintext) {
-                    return value;
-                }
-            }
-        }
+        let decoded = BASE64
+            .decode(stripped)
+            .map_err(|_| "DPAPI ciphertext is not valid base64".to_string())?;
+        let plaintext = dpapi_unprotect(&decoded)
+            .ok_or_else(|| "Windows DPAPI could not decrypt the secret".to_string())?;
+        return String::from_utf8(plaintext)
+            .map_err(|_| "Decrypted secret is not valid UTF-8".to_string());
+    }
+
+    #[cfg(not(windows))]
+    if enc.starts_with("enc:dpapi:") {
+        return Err(
+            "This secret is protected by Windows DPAPI and cannot be read here".to_string(),
+        );
     }
 
     if let Some(stripped) = enc.strip_prefix("enc:v2:") {
-        return decrypt_aes_v2(stripped, enc);
+        return decrypt_aes_v2_checked(stripped);
     }
     if let Some(stripped) = enc.strip_prefix("enc:") {
-        return decrypt_legacy(stripped, enc);
+        return decrypt_legacy_checked(stripped);
     }
-    enc.to_string()
+
+    // Plaintext was used by early versions. It remains readable so that the
+    // next successful save can migrate it to the current protected format.
+    Ok(enc.to_string())
 }
 
-fn decrypt_aes_v2(stripped: &str, original: &str) -> String {
-    if let Ok(decoded) = BASE64.decode(stripped) {
-        if decoded.len() > 12 {
-            let (nonce_bytes, ciphertext) = decoded.split_at(12);
-            let key = get_encryption_key();
-            if let Ok(cipher) = Aes256Gcm::new_from_slice(&key) {
-                let nonce = Nonce::from_slice(nonce_bytes);
-                if let Ok(plaintext) = cipher.decrypt(nonce, ciphertext) {
-                    if let Ok(s) = String::from_utf8(plaintext) {
-                        return s;
-                    }
-                }
-            }
-        }
+fn decrypt_aes_v2_checked(stripped: &str) -> Result<String, String> {
+    let decoded = BASE64
+        .decode(stripped)
+        .map_err(|_| "AES ciphertext is not valid base64".to_string())?;
+    if decoded.len() <= 12 {
+        return Err("AES ciphertext is missing a nonce or authentication tag".to_string());
     }
-    original.to_string()
+    let (nonce_bytes, ciphertext) = decoded.split_at(12);
+    let key = get_encryption_key();
+    let cipher = Aes256Gcm::new_from_slice(&key)
+        .map_err(|_| "Could not initialize legacy secret encryption".to_string())?;
+    let nonce = Nonce::from_slice(nonce_bytes);
+    let plaintext = cipher
+        .decrypt(nonce, ciphertext)
+        .map_err(|_| "AES secret authentication failed".to_string())?;
+    String::from_utf8(plaintext).map_err(|_| "Decrypted secret is not valid UTF-8".to_string())
 }
 
-fn decrypt_legacy(stripped: &str, original: &str) -> String {
-    if let Ok(decoded) = BASE64.decode(stripped) {
-        let key = get_encryption_key();
-        if let Ok(cipher) = Aes256Gcm::new_from_slice(&key) {
-            let nonce_bytes = [
-                0x52, 0x65, 0x64, 0x50, 0x61, 0x6E, 0x64, 0x61, 0x53, 0x65, 0x63, 0x31,
-            ];
-            let nonce = Nonce::from_slice(&nonce_bytes);
-            if let Ok(plaintext) = cipher.decrypt(nonce, decoded.as_ref()) {
-                if let Ok(s) = String::from_utf8(plaintext) {
-                    return s;
-                }
-            }
-        }
-    }
-    original.to_string()
+fn decrypt_legacy_checked(stripped: &str) -> Result<String, String> {
+    let decoded = BASE64
+        .decode(stripped)
+        .map_err(|_| "Legacy ciphertext is not valid base64".to_string())?;
+    let key = get_encryption_key();
+    let cipher = Aes256Gcm::new_from_slice(&key)
+        .map_err(|_| "Could not initialize legacy secret encryption".to_string())?;
+    let nonce_bytes = [
+        0x52, 0x65, 0x64, 0x50, 0x61, 0x6E, 0x64, 0x61, 0x53, 0x65, 0x63, 0x31,
+    ];
+    let nonce = Nonce::from_slice(&nonce_bytes);
+    let plaintext = cipher
+        .decrypt(nonce, decoded.as_ref())
+        .map_err(|_| "Legacy secret authentication failed".to_string())?;
+    String::from_utf8(plaintext).map_err(|_| "Decrypted secret is not valid UTF-8".to_string())
 }
 
 fn get_accounts_file_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -237,24 +261,43 @@ pub(crate) fn load_accounts_data(app: &AppHandle) -> Result<AccountsData, String
 
     let mut needs_migration = false;
     // Decrypt sensitive tokens transparently and migrate legacy encryption.
+    // A bad ciphertext is surfaced to the caller instead of being used as an
+    // access token, which would otherwise produce misleading login failures.
     for acc in &mut data.accounts {
         if let Some(token) = &acc.access_token {
             #[cfg(windows)]
             {
                 needs_migration |= !token.starts_with("enc:dpapi:");
             }
-            acc.access_token = Some(decrypt_secret(token));
+            #[cfg(not(windows))]
+            {
+                needs_migration |= !token.starts_with("enc:v2:");
+            }
+            acc.access_token = Some(decrypt_secret_checked(token).map_err(|error| {
+                format!(
+                    "Could not decrypt access token for account '{}': {error}",
+                    acc.username
+                )
+            })?);
         }
         if let Some(token) = &acc.refresh_token {
             #[cfg(windows)]
             {
                 needs_migration |= !token.starts_with("enc:dpapi:");
             }
-            acc.refresh_token = Some(decrypt_secret(token));
+            #[cfg(not(windows))]
+            {
+                needs_migration |= !token.starts_with("enc:v2:");
+            }
+            acc.refresh_token = Some(decrypt_secret_checked(token).map_err(|error| {
+                format!(
+                    "Could not decrypt refresh token for account '{}': {error}",
+                    acc.username
+                )
+            })?);
         }
     }
 
-    #[cfg(windows)]
     if needs_migration {
         drop(_guard);
         save_accounts_data(app, &data)?;
@@ -263,7 +306,7 @@ pub(crate) fn load_accounts_data(app: &AppHandle) -> Result<AccountsData, String
     Ok(data)
 }
 
-fn save_accounts_data(app: &AppHandle, data: &AccountsData) -> Result<(), String> {
+pub(crate) fn save_accounts_data(app: &AppHandle, data: &AccountsData) -> Result<(), String> {
     let _guard = ACCOUNTS_MUTEX
         .lock()
         .map_err(|_| "Failed to acquire accounts mutex lock".to_string())?;
@@ -274,10 +317,20 @@ fn save_accounts_data(app: &AppHandle, data: &AccountsData) -> Result<(), String
     let mut to_save = data.clone();
     for acc in &mut to_save.accounts {
         if let Some(token) = &acc.access_token {
-            acc.access_token = Some(encrypt_secret(token));
+            acc.access_token = Some(encrypt_secret_checked(token).map_err(|error| {
+                format!(
+                    "Could not protect access token for account '{}': {error}",
+                    acc.username
+                )
+            })?);
         }
         if let Some(token) = &acc.refresh_token {
-            acc.refresh_token = Some(encrypt_secret(token));
+            acc.refresh_token = Some(encrypt_secret_checked(token).map_err(|error| {
+                format!(
+                    "Could not protect refresh token for account '{}': {error}",
+                    acc.username
+                )
+            })?);
         }
     }
 
@@ -867,104 +920,201 @@ pub async fn add_microsoft_account_oauth(app: AppHandle) -> Result<Account, Stri
     Ok(public_account(new_account))
 }
 
+const TOKEN_REFRESH_SKEW_SECONDS: i64 = 5 * 60;
+
+fn refresh_is_due(expires_at: Option<i64>, now: i64) -> bool {
+    expires_at
+        .is_some_and(|expires_at| now >= expires_at.saturating_sub(TOKEN_REFRESH_SKEW_SECONDS))
+}
+
+fn refresh_token_required(account: &Account) -> Result<&str, String> {
+    account.refresh_token.as_deref().ok_or_else(|| {
+        format!(
+            "The {} session has expired and cannot be renewed. Please sign in again.",
+            account.account_type
+        )
+    })
+}
+
+/// Refreshes an expiring online account in memory. The account is updated only
+/// after every provider step succeeds, so a rotated refresh token is not left
+/// half-applied when Xbox or Minecraft authentication subsequently fails.
 pub async fn refresh_account_tokens(
     _app: &AppHandle,
     account: &mut Account,
 ) -> Result<bool, String> {
     let now = chrono::Utc::now().timestamp();
-    // Only refresh if expired or about to expire in next 5 minutes
-    if let Some(exp) = account.expires_at {
-        if now < (exp - 300) {
-            return Ok(false);
-        }
+    if !refresh_is_due(account.expires_at, now) {
+        return Ok(false);
     }
 
-    let client = crate::downloads::trusted_download_client("RedPandaLauncher/accounts")?;
+    if !matches!(account.account_type.as_str(), "ElyBy" | "Microsoft") {
+        // Offline and unknown account types have no provider refresh protocol.
+        return Ok(false);
+    }
 
-    if account.account_type == "ElyBy" {
-        if let Some(ref_tok) = &account.refresh_token {
-            let client_id = "elyprism-launcher";
+    let refresh_token = refresh_token_required(account)?.to_string();
+    let client = crate::downloads::trusted_download_client("RedPandaLauncher/accounts")?;
+    let mut refreshed_account = account.clone();
+
+    match account.account_type.as_str() {
+        "ElyBy" => {
             let res = client
                 .post("https://account.ely.by/api/oauth2/v1/token")
                 .form(&[
-                    ("client_id", client_id),
+                    ("client_id", "elyprism-launcher"),
                     ("grant_type", "refresh_token"),
-                    ("refresh_token", ref_tok),
+                    ("refresh_token", &refresh_token),
                 ])
                 .send()
                 .await
-                .map_err(|e| format!("Ely.by refresh error: {}", e))?;
-
-            if res.status().is_success() {
-                let token_data: serde_json::Value = res.json().await.unwrap_or_default();
-                if let Some(acc_tok) = token_data["access_token"].as_str() {
-                    account.access_token = Some(acc_tok.to_string());
-                    if let Some(new_ref) = token_data["refresh_token"].as_str() {
-                        account.refresh_token = Some(new_ref.to_string());
-                    }
-                    let expires_in = token_data["expires_in"].as_i64().unwrap_or(86400 * 30);
-                    account.expires_at = Some(now + expires_in);
-                    return Ok(true);
-                }
+                .map_err(|error| format!("Ely.by token refresh failed: {error}"))?;
+            if !res.status().is_success() {
+                return Err(format!(
+                    "Ely.by rejected the token refresh (HTTP {}). Please sign in again.",
+                    res.status()
+                ));
             }
+
+            let token_data: serde_json::Value = res
+                .json()
+                .await
+                .map_err(|error| format!("Invalid Ely.by token refresh response: {error}"))?;
+            let access_token = token_data["access_token"]
+                .as_str()
+                .ok_or("Ely.by token refresh response has no access token")?;
+            refreshed_account.access_token = Some(access_token.to_string());
+            if let Some(new_refresh_token) = token_data["refresh_token"].as_str() {
+                refreshed_account.refresh_token = Some(new_refresh_token.to_string());
+            }
+            let expires_in = token_data["expires_in"].as_i64().unwrap_or(86400 * 30);
+            refreshed_account.expires_at = Some(now + expires_in);
         }
-    } else if account.account_type == "Microsoft" {
-        if let Some(ref_tok) = &account.refresh_token {
-            let client_id = "00000000402b5328";
+        "Microsoft" => {
             let res = client
                 .post("https://login.live.com/oauth20_token.srf")
                 .form(&[
-                    ("client_id", client_id),
+                    ("client_id", "00000000402b5328"),
                     ("grant_type", "refresh_token"),
-                    ("refresh_token", ref_tok),
+                    ("refresh_token", &refresh_token),
                 ])
                 .send()
                 .await
-                .map_err(|e| format!("MS refresh error: {}", e))?;
-
-            if res.status().is_success() {
-                let token_data: serde_json::Value = res.json().await.unwrap_or_default();
-                if let Some(ms_acc_tok) = token_data["access_token"].as_str() {
-                    if let Some(new_ref) = token_data["refresh_token"].as_str() {
-                        account.refresh_token = Some(new_ref.to_string());
-                    }
-                    let (xbl_token, uhs) = authenticate_xbox_live(&client, ms_acc_tok).await?;
-                    let xsts_token = authenticate_xsts(&client, &xbl_token).await?;
-                    let (mc_access_token, expires_in) =
-                        authenticate_minecraft(&client, &uhs, &xsts_token).await?;
-                    account.access_token = Some(mc_access_token);
-                    account.expires_at = Some(now + expires_in);
-                    return Ok(true);
-                }
+                .map_err(|error| format!("Microsoft token refresh failed: {error}"))?;
+            if !res.status().is_success() {
+                return Err(format!(
+                    "Microsoft rejected the token refresh (HTTP {}). Please sign in again.",
+                    res.status()
+                ));
             }
+
+            let token_data: serde_json::Value = res
+                .json()
+                .await
+                .map_err(|error| format!("Invalid Microsoft token refresh response: {error}"))?;
+            let microsoft_access_token = token_data["access_token"]
+                .as_str()
+                .ok_or("Microsoft token refresh response has no access token")?;
+            let rotated_refresh_token = token_data["refresh_token"].as_str().map(str::to_string);
+
+            let (xbl_token, uhs) = authenticate_xbox_live(&client, microsoft_access_token).await?;
+            let xsts_token = authenticate_xsts(&client, &xbl_token).await?;
+            let (minecraft_access_token, expires_in) =
+                authenticate_minecraft(&client, &uhs, &xsts_token).await?;
+
+            refreshed_account.access_token = Some(minecraft_access_token);
+            if let Some(rotated_refresh_token) = rotated_refresh_token {
+                refreshed_account.refresh_token = Some(rotated_refresh_token);
+            }
+            refreshed_account.expires_at = Some(now + expires_in);
         }
+        _ => unreachable!("online account types were checked before refreshing"),
     }
 
-    Ok(false)
+    *account = refreshed_account;
+    Ok(true)
+}
+
+fn persist_refreshed_credentials(app: &AppHandle, refreshed: &Account) -> Result<(), String> {
+    let mut data = load_accounts_data(app)?;
+    let stored = data
+        .accounts
+        .iter_mut()
+        .find(|account| account.id == refreshed.id)
+        .ok_or_else(|| "Account was removed while its session was being refreshed".to_string())?;
+
+    // Only replace values obtained from the refresh flow. This avoids clobbering
+    // a concurrent profile or active-account change with an older in-memory copy.
+    stored.access_token = refreshed.access_token.clone();
+    stored.refresh_token = refreshed.refresh_token.clone();
+    stored.expires_at = refreshed.expires_at;
+    save_accounts_data(app, &data)
+}
+
+/// Refreshes an account and persists the new credentials before the launcher
+/// uses them. Launcher code should call this instead of `refresh_account_tokens`
+/// so a rotated refresh token survives the current game launch.
+pub async fn refresh_account_tokens_and_persist(
+    app: &AppHandle,
+    account: &mut Account,
+) -> Result<bool, String> {
+    let changed = refresh_account_tokens(app, account).await?;
+    if changed {
+        persist_refreshed_credentials(app, account)?;
+    }
+    Ok(changed)
 }
 
 #[tauri::command]
 pub async fn validate_and_refresh_account(app: AppHandle, id: String) -> Result<Account, String> {
-    let mut data = load_accounts_data(&app)?;
-    let mut updated_account = None;
-    let mut needs_save = false;
+    let mut account = load_accounts_data(&app)?
+        .accounts
+        .into_iter()
+        .find(|account| account.id == id)
+        .ok_or_else(|| "Account not found".to_string())?;
+    refresh_account_tokens_and_persist(&app, &mut account).await?;
 
-    for acc in &mut data.accounts {
-        if acc.id == id {
-            let changed = refresh_account_tokens(&app, acc).await?;
-            if changed {
-                needs_save = true;
-            }
-            updated_account = Some(acc.clone());
-            break;
-        }
+    Ok(public_account(account))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn refresh_is_due_only_near_the_expiry_deadline() {
+        let now = 10_000;
+        assert!(!refresh_is_due(None, now));
+        assert!(!refresh_is_due(
+            Some(now + TOKEN_REFRESH_SKEW_SECONDS + 1),
+            now
+        ));
+        assert!(refresh_is_due(Some(now + TOKEN_REFRESH_SKEW_SECONDS), now));
+        assert!(refresh_is_due(Some(now - 1), now));
     }
 
-    if needs_save {
-        save_accounts_data(&app, &data)?;
+    #[test]
+    fn corrupt_ciphertext_is_an_error_not_an_access_token() {
+        assert!(decrypt_secret_checked("enc:v2:not-base64").is_err());
+        assert!(decrypt_secret_checked("enc:also-not-base64").is_err());
     }
 
-    updated_account
-        .map(public_account)
-        .ok_or_else(|| "Account not found".to_string())
+    #[test]
+    fn legacy_plaintext_remains_readable_for_migration() {
+        assert_eq!(
+            decrypt_secret_checked("legacy-access-token").expect("legacy plaintext"),
+            "legacy-access-token"
+        );
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn checked_secret_encryption_round_trips_on_non_windows() {
+        let encrypted = encrypt_secret_checked("secret value").expect("encrypt secret");
+        assert!(encrypted.starts_with("enc:v2:"));
+        assert_eq!(
+            decrypt_secret_checked(&encrypted).expect("decrypt secret"),
+            "secret value"
+        );
+    }
 }

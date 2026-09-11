@@ -7,6 +7,9 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
 
+const CUSTOM_ASSETS_DIR: &str = "assets";
+const MAX_CUSTOM_ASSET_BYTES: u64 = 20 * 1024 * 1024;
+
 lazy_static! {
     static ref SETTINGS_MUTEX: Mutex<()> = Mutex::new(());
 }
@@ -33,7 +36,10 @@ pub struct AppSettings {
     pub custom_mascot_path: String,
     pub mascot_preset: String,
     pub accent_color: String,
-    pub curseforge_api_key: String,
+    /// Legacy field kept only long enough to remove keys written by older
+    /// launcher versions. It is never serialized or used for requests.
+    #[serde(rename = "curseforge_api_key", default, skip_serializing)]
+    pub legacy_curseforge_api_key: String,
     pub discord_rpc: bool,
     pub auto_backup_worlds: bool,
     pub telegram_url: String,
@@ -64,7 +70,7 @@ impl Default for AppSettings {
             custom_mascot_path: "".to_string(),
             mascot_preset: "default".to_string(),
             accent_color: "#F55E1D".to_string(),
-            curseforge_api_key: "".to_string(),
+            legacy_curseforge_api_key: String::new(),
             discord_rpc: true,
             auto_backup_worlds: false,
             telegram_url: "https://t.me/redpanda_launcher".to_string(),
@@ -89,6 +95,98 @@ fn get_settings_file_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(path)
 }
 
+fn custom_assets_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    let base = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| format!("Could not get app local data dir: {e}"))?;
+    fs::create_dir_all(&base).map_err(|e| format!("Could not create app local data dir: {e}"))?;
+    let assets = crate::security::safe_join(&base, CUSTOM_ASSETS_DIR)?;
+    fs::create_dir_all(&assets).map_err(|e| format!("Could not create custom assets dir: {e}"))?;
+    Ok(assets)
+}
+
+fn is_supported_custom_asset(path: &Path) -> bool {
+    matches!(
+        path.extension()
+            .and_then(|extension| extension.to_str())
+            .map(|extension| extension.to_ascii_lowercase()),
+        Some(extension) if matches!(extension.as_str(), "png" | "jpg" | "jpeg" | "webp")
+    )
+}
+
+/// Copies a user-selected image into the application data directory before it
+/// is exposed through Tauri's asset protocol. This lets the CSP grant access
+/// only to launcher-owned paths instead of every local file on the computer.
+fn store_custom_asset(app: &AppHandle, source: &str, kind: &str) -> Result<String, String> {
+    if source.trim().is_empty() {
+        return Ok(String::new());
+    }
+    if !matches!(kind, "background" | "mascot") {
+        return Err("Unknown custom asset type".to_string());
+    }
+
+    let source_path = PathBuf::from(source);
+    if !source_path.is_absolute() {
+        return Err("Custom image path must be absolute".to_string());
+    }
+    let source_path = fs::canonicalize(&source_path)
+        .map_err(|e| format!("Could not resolve custom image path: {e}"))?;
+    let metadata =
+        fs::metadata(&source_path).map_err(|e| format!("Could not inspect custom image: {e}"))?;
+    if !metadata.is_file() {
+        return Err("Custom image must be a file".to_string());
+    }
+    if metadata.len() == 0 || metadata.len() > MAX_CUSTOM_ASSET_BYTES {
+        return Err("Custom image must be between 1 byte and 20 MB".to_string());
+    }
+    if !is_supported_custom_asset(&source_path) {
+        return Err("Custom image must be PNG, JPG, JPEG, or WebP".to_string());
+    }
+
+    let assets = custom_assets_dir(app)?;
+    let canonical_assets = fs::canonicalize(&assets)
+        .map_err(|e| format!("Could not resolve custom assets dir: {e}"))?;
+    if source_path.starts_with(&canonical_assets) {
+        return Ok(source_path.to_string_lossy().into_owned());
+    }
+
+    let extension = source_path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .ok_or_else(|| "Custom image has no extension".to_string())?
+        .to_ascii_lowercase();
+    let file_name = format!("{kind}-{}.{}", uuid::Uuid::new_v4(), extension);
+    let destination = crate::security::safe_join(&assets, &file_name)?;
+    let temporary =
+        crate::security::safe_join(&assets, &format!(".{kind}-{}.tmp", uuid::Uuid::new_v4()))?;
+    fs::copy(&source_path, &temporary)
+        .map_err(|e| format!("Could not copy custom image into launcher data: {e}"))?;
+    if let Err(error) = fs::rename(&temporary, &destination) {
+        let _ = fs::remove_file(&temporary);
+        return Err(format!("Could not publish custom image: {error}"));
+    }
+    Ok(destination.to_string_lossy().into_owned())
+}
+
+fn migrate_custom_asset(app: &AppHandle, source: &mut String, kind: &str) -> bool {
+    if source.trim().is_empty() {
+        return false;
+    }
+    match store_custom_asset(app, source, kind) {
+        Ok(stored) if stored != *source => {
+            *source = stored;
+            true
+        }
+        Ok(_) => false,
+        Err(error) => {
+            log::warn!("Removing unavailable custom {kind} image from settings: {error}");
+            source.clear();
+            true
+        }
+    }
+}
+
 #[tauri::command]
 pub fn get_settings(app: AppHandle) -> Result<AppSettings, String> {
     let _guard = SETTINGS_MUTEX
@@ -103,30 +201,18 @@ pub fn get_settings(app: AppHandle) -> Result<AppSettings, String> {
 
     let mut data: AppSettings = crate::storage::read_json_with_backup(&path)?;
     validate_settings(&data)?;
-    let decrypted_key = crate::accounts::decrypt_secret(&data.curseforge_api_key);
-    #[cfg(windows)]
-    let needs_key_migration =
-        !data.curseforge_api_key.is_empty() && !data.curseforge_api_key.starts_with("enc:dpapi:");
-    #[cfg(not(windows))]
-    let needs_key_migration = false;
-    #[cfg(windows)]
-    if needs_key_migration {
-        data.curseforge_api_key = decrypted_key.clone();
+    let has_legacy_curseforge_key = !data.legacy_curseforge_api_key.trim().is_empty();
+    data.legacy_curseforge_api_key.clear();
+    let mut needs_save = has_legacy_curseforge_key;
+    needs_save |= migrate_custom_asset(&app, &mut data.custom_bg_path, "background");
+    needs_save |= migrate_custom_asset(&app, &mut data.custom_mascot_path, "mascot");
+    if needs_save {
+        let data_to_save = data.clone();
         drop(_guard);
-        save_settings(app.clone(), data.clone())?;
+        save_settings(app.clone(), data_to_save)?;
     }
-    data.curseforge_api_key = decrypted_key;
 
     Ok(data)
-}
-
-pub(crate) fn get_curseforge_api_key(app: &AppHandle) -> Result<String, String> {
-    let path = get_settings_file_path(app)?;
-    if !path.exists() {
-        return Ok(String::new());
-    }
-    let data: AppSettings = crate::storage::read_json_with_backup(&path)?;
-    Ok(crate::accounts::decrypt_secret(&data.curseforge_api_key))
 }
 
 #[tauri::command]
@@ -137,12 +223,8 @@ pub fn save_settings(app: AppHandle, settings: AppSettings) -> Result<(), String
 
     validate_settings(&settings)?;
     let mut settings = settings;
-    let trimmed_key = settings.curseforge_api_key.trim();
-    if !trimmed_key.is_empty() {
-        settings.curseforge_api_key = crate::accounts::encrypt_secret(trimmed_key);
-    } else {
-        settings.curseforge_api_key = String::new();
-    }
+    settings.custom_bg_path = store_custom_asset(&app, &settings.custom_bg_path, "background")?;
+    settings.custom_mascot_path = store_custom_asset(&app, &settings.custom_mascot_path, "mascot")?;
     let path = get_settings_file_path(&app)?;
     let contents = serde_json::to_string_pretty(&settings)
         .map_err(|e| format!("Failed to serialize settings: {}", e))?;

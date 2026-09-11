@@ -61,7 +61,6 @@ export interface AppSettings {
   custom_bg_blur: number;
   custom_mascot_path: string;
   mascot_preset: string;
-  curseforge_api_key: string;
   discord_rpc: boolean;
   telegram_url?: string;
   github_url?: string;

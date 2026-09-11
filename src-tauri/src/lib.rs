@@ -36,7 +36,8 @@ pub fn run() {
     let args: Vec<String> = std::env::args().collect();
     let mut direct_instance: Option<String> = None;
     for (i, arg) in args.iter().enumerate() {
-        if (arg == "--launch-instance" || arg == "--instance" || arg == "-i") && i + 1 < args.len() {
+        if (arg == "--launch-instance" || arg == "--instance" || arg == "-i") && i + 1 < args.len()
+        {
             direct_instance = Some(args[i + 1].clone());
             break;
         }
@@ -65,7 +66,9 @@ pub fn run() {
 
                 let app_handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
-                    if let Err(e) = crate::launcher::launch_game_direct(app_handle.clone(), instance_id).await {
+                    if let Err(e) =
+                        crate::launcher::launch_game_direct(app_handle.clone(), instance_id).await
+                    {
                         log::error!("Direct launch failed: {}", e);
                         use tauri_plugin_dialog::DialogExt;
                         let _ = app_handle
@@ -106,6 +109,7 @@ pub fn run() {
             settings::save_settings,
             settings::find_java_installations,
             instances::get_instances,
+            instances::migrate_legacy_instance_ids,
             instances::add_instance,
             instances::remove_instance,
             instances::clone_instance,

@@ -24,7 +24,6 @@ interface AppSettings {
   custom_mascot_path: string;
   mascot_preset: string;
   accent_color: string;
-  curseforge_api_key: string;
   discord_rpc: boolean;
   auto_backup_worlds: boolean;
   telegram_url?: string;
@@ -731,33 +730,6 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
                         </p>
                       </div>
                     </div>
-                  </div>
-                </section>
-
-                <hr className="border-border" />
-
-                {/* CurseForge API */}
-                <section>
-                  <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <Code size={16} /> CurseForge API
-                  </h3>
-
-                  <div className="bg-background brutalist-border p-4 flex flex-col gap-2">
-                    <label htmlFor="curseforge_api_key" className="text-xs font-semibold text-muted">
-                      API-ключ CurseForge
-                    </label>
-                    <input
-                      id="curseforge_api_key"
-                      type="password"
-                      autoComplete="off"
-                      value={settings.curseforge_api_key ?? ""}
-                      onChange={(e) => updateSetting("curseforge_api_key", e.target.value)}
-                      placeholder="Встроенный ключ активен (или введите свой)"
-                      className="w-full bg-card brutalist-border px-3 py-2 text-xs text-white focus:outline-none focus:border-primary font-mono"
-                    />
-                    <p className="text-[10px] text-muted">
-                      По умолчанию используется встроенный ключ лаунчера. Вы можете указать свой личный ключ (или через CURSEFORGE_API_KEY).
-                    </p>
                   </div>
                 </section>
 

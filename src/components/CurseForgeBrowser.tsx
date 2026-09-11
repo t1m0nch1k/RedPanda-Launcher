@@ -34,6 +34,7 @@ interface CurseForgeFile {
     fileLength: number;
     downloadUrl?: string;
     gameVersions: string[];
+    hashes?: Array<{ value: string; algo: number }>;
 }
 
 interface CurseForgeBrowserProps {
@@ -118,6 +119,7 @@ export default function CurseForgeBrowser({ instance, onClose, projectType = "mo
     };
 
     const handleInstallVersion = async (file: CurseForgeFile) => {
+        const expectedSha1 = file.hashes?.find((hash) => hash.algo === 1)?.value;
         let downloadUrl = file.downloadUrl;
         if (!downloadUrl && selectedMod) {
             try {
@@ -140,7 +142,8 @@ export default function CurseForgeBrowser({ instance, onClose, projectType = "mo
             if (projectType === "modpack") {
                 await invoke("download_curseforge_modpack", { 
                     downloadUrl,
-                    fileName: file.fileName 
+                    fileName: file.fileName,
+                    expectedSha1,
                 });
                 toast.success(t("modrinth.install_success_modpack"));
             } else if (instance) {
@@ -175,7 +178,8 @@ export default function CurseForgeBrowser({ instance, onClose, projectType = "mo
                             instanceId: instance.id,
                             downloadUrl: task.url,
                             fileName: task.filename,
-                            projectType
+                            projectType,
+                            expectedSha1: task.sha1,
                         });
                     }
                 }
@@ -279,7 +283,7 @@ export default function CurseForgeBrowser({ instance, onClose, projectType = "mo
                                 </div>
                             </div>
                             <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
-                                <h3 className="font-semibold text-white mb-4">{t("modrinth.versions")}</h3>
+                                <h3 className="font-semibold text-white mb-4">{t("modrinth.available_versions")}</h3>
                                 {isLoadingVersions ? (
                                     <div className="flex justify-center py-10">
                                         <Loader2 size={32} className="animate-spin text-primary" />

@@ -33,8 +33,13 @@
     "download_action": {
       "game": "下载游戏...",
       "java": "下载 Java...",
+      "java_extract": "解压 Java...",
       "loader": "下载加载器...",
       "extract": "解压中...",
+      "mods": "检查模组...",
+      "checking": "检查文件...",
+      "completed": "文件已下载",
+      "running": "游戏已启动",
       "launch": "启动中...",
       "import_prep": "准备导入..."
     },

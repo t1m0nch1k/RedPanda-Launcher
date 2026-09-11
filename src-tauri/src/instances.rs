@@ -1,6 +1,7 @@
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -47,6 +48,10 @@ pub async fn get_instances(app: AppHandle) -> Result<Vec<Instance>, String> {
         .lock()
         .map_err(|_| "Failed to lock instances mutex".to_string())?;
 
+    // Preserve the launcher’s previous automatic upgrade behaviour, but make
+    // it transactional: filesystem moves complete before instances.json is
+    // changed, and a metadata-write failure rolls those moves back.
+    migrate_legacy_instance_ids_unlocked(&app)?;
     read_instances_unlocked(&app)
 }
 
@@ -56,45 +61,9 @@ fn read_instances_unlocked(app: &AppHandle) -> Result<Vec<Instance>, String> {
         return Ok(Vec::new());
     }
 
-    let instances_raw: Vec<Instance> = crate::storage::read_json_with_backup(&path)?;
-
+    let mut instances: Vec<Instance> = crate::storage::read_json_with_backup(&path)?;
     let mut needs_save = false;
-    let mut migrated_instances = Vec::new();
-
-    for mut instance in instances_raw {
-        // If the ID is a valid UUID or contains non-ASCII characters, migrate it to a clean ASCII folder name
-        if Uuid::parse_str(&instance.id).is_ok() || !instance.id.is_ascii() {
-            let new_id = generate_instance_id(&instance.name, &migrated_instances);
-            if new_id != instance.id {
-                let mut old_dir = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-                old_dir.push("RedPandaLauncher");
-                old_dir.push(&instance.id);
-
-                let mut new_dir = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-                new_dir.push("RedPandaLauncher");
-                new_dir.push(&new_id);
-
-                if old_dir.exists() && !new_dir.exists() {
-                    if let Err(e) = fs::rename(&old_dir, &new_dir) {
-                        log::warn!(
-                            "Failed to rename instance directory from {} to {}: {e}",
-                            old_dir.display(),
-                            new_dir.display()
-                        );
-                    }
-                }
-
-                if let Some(ref icon) = instance.icon_path {
-                    if icon.contains(&instance.id) {
-                        instance.icon_path = Some(icon.replace(&instance.id, &new_id));
-                    }
-                }
-
-                instance.id = new_id;
-                needs_save = true;
-            }
-        }
-
+    for instance in &mut instances {
         // Auto-heal missing or blank loader_version
         if instance.loader_type != "Vanilla" && instance.loader_version.trim().is_empty() {
             instance.loader_version = match instance.loader_type.as_str() {
@@ -130,11 +99,7 @@ fn read_instances_unlocked(app: &AppHandle) -> Result<Vec<Instance>, String> {
                 needs_save = true;
             }
         }
-
-        migrated_instances.push(instance);
     }
-
-    let mut instances = migrated_instances;
 
     if needs_save {
         if let Ok(new_data) = serde_json::to_string_pretty(&instances) {
@@ -155,45 +120,215 @@ fn read_instances_unlocked(app: &AppHandle) -> Result<Vec<Instance>, String> {
     Ok(instances)
 }
 
+/// Migrates legacy UUID and non-ASCII instance IDs in a separate transaction.
+///
+/// Retries the safe, transactional migration used while loading instances.
+/// A failed filesystem move never changes `instances.json`.
+#[tauri::command]
+pub async fn migrate_legacy_instance_ids(app: AppHandle) -> Result<Vec<Instance>, String> {
+    let _guard = INSTANCES_MUTEX
+        .lock()
+        .map_err(|_| "Failed to lock instances mutex".to_string())?;
+
+    migrate_legacy_instance_ids_unlocked(&app)
+}
+
+#[derive(Debug)]
+struct AppliedInstanceIdMigration {
+    old_dir: PathBuf,
+    new_dir: PathBuf,
+}
+
+fn migrate_legacy_instance_ids_unlocked(app: &AppHandle) -> Result<Vec<Instance>, String> {
+    let metadata_path = get_instances_file(app)?;
+    if !metadata_path.exists() {
+        return Ok(Vec::new());
+    }
+
+    let original_instances: Vec<Instance> = crate::storage::read_json_with_backup(&metadata_path)?;
+    let mut migrated_instances = original_instances.clone();
+    let instances_dir = crate::security::launcher_data_dir()?;
+
+    // Reserve every ID before considering a target. This prevents a UUID entry
+    // encountered first from taking an ID that belongs to an entry encountered
+    // later. The lower-case key also matches Windows' case-insensitive paths.
+    let mut reserved_ids: HashSet<String> = original_instances
+        .iter()
+        .map(|instance| instance_id_key(&instance.id))
+        .collect();
+    let mut applied = Vec::new();
+
+    for instance in &mut migrated_instances {
+        if !needs_legacy_id_migration(&instance.id) {
+            continue;
+        }
+
+        let new_id = generate_instance_id_with_reservations(
+            &instance.name,
+            &reserved_ids,
+            Some(&instances_dir),
+        );
+        if new_id == instance.id {
+            continue;
+        }
+
+        match try_apply_instance_id_migration(instance, &new_id, &instances_dir)? {
+            Some(migration) => {
+                reserved_ids.insert(instance_id_key(&new_id));
+                applied.push(migration);
+            }
+            None => {
+                // The old ID is intentionally retained in metadata. A future
+                // migration can retry once the filesystem problem is resolved.
+            }
+        }
+    }
+
+    if applied.is_empty() {
+        return Ok(original_instances);
+    }
+
+    let migrated_data = serde_json::to_string_pretty(&migrated_instances)
+        .map_err(|e| format!("Failed to serialize migrated instances: {e}"))?;
+    if let Err(write_error) = crate::storage::atomic_write(&metadata_path, migrated_data.as_bytes())
+    {
+        let rollback_errors = rollback_instance_id_migrations(&applied);
+        if rollback_errors.is_empty() {
+            return Err(format!(
+                "Failed to save migrated instance IDs; directory changes were rolled back: {write_error}"
+            ));
+        }
+        return Err(format!(
+            "Failed to save migrated instance IDs ({write_error}); failed to roll back directories: {}",
+            rollback_errors.join("; ")
+        ));
+    }
+
+    Ok(migrated_instances)
+}
+
+fn needs_legacy_id_migration(id: &str) -> bool {
+    Uuid::parse_str(id).is_ok() || !id.is_ascii()
+}
+
+fn instance_id_key(id: &str) -> String {
+    id.to_ascii_lowercase()
+}
+
+fn is_single_path_component(value: &str) -> bool {
+    let mut components = Path::new(value).components();
+    matches!(
+        (components.next(), components.next()),
+        (Some(std::path::Component::Normal(component)), None) if !component.is_empty()
+    )
+}
+
+fn legacy_instance_dir(instances_dir: &Path, id: &str) -> Result<PathBuf, String> {
+    if !is_single_path_component(id) {
+        return Err(format!(
+            "Legacy instance ID is not a single directory name: {id:?}"
+        ));
+    }
+    crate::security::safe_join(instances_dir, id)
+}
+
+fn try_apply_instance_id_migration(
+    instance: &mut Instance,
+    new_id: &str,
+    instances_dir: &Path,
+) -> Result<Option<AppliedInstanceIdMigration>, String> {
+    let old_dir = legacy_instance_dir(instances_dir, &instance.id)?;
+    let new_dir = crate::security::safe_join(instances_dir, new_id)?;
+
+    if !old_dir.exists() {
+        log::warn!(
+            "Skipping migration of instance ID {}: directory {} does not exist",
+            instance.id,
+            old_dir.display()
+        );
+        return Ok(None);
+    }
+    if new_dir.exists() {
+        log::warn!(
+            "Skipping migration of instance ID {}: destination {} already exists",
+            instance.id,
+            new_dir.display()
+        );
+        return Ok(None);
+    }
+
+    if let Err(error) = fs::rename(&old_dir, &new_dir) {
+        log::warn!(
+            "Failed to rename instance directory from {} to {}: {error}",
+            old_dir.display(),
+            new_dir.display()
+        );
+        return Ok(None);
+    }
+
+    let old_id = std::mem::replace(&mut instance.id, new_id.to_string());
+    if let Some(icon_path) = &instance.icon_path {
+        if icon_path.contains(&old_id) {
+            instance.icon_path = Some(icon_path.replace(&old_id, new_id));
+        }
+    }
+
+    Ok(Some(AppliedInstanceIdMigration { old_dir, new_dir }))
+}
+
+fn rollback_instance_id_migrations(migrations: &[AppliedInstanceIdMigration]) -> Vec<String> {
+    let mut errors = Vec::new();
+    for migration in migrations.iter().rev() {
+        if let Err(error) = fs::rename(&migration.new_dir, &migration.old_dir) {
+            errors.push(format!(
+                "{} -> {}: {error}",
+                migration.new_dir.display(),
+                migration.old_dir.display()
+            ));
+        }
+    }
+    errors
+}
+
 fn transliterate_to_ascii(s: &str) -> String {
     let mut out = String::with_capacity(s.len() * 2);
     for c in s.chars() {
         match c {
-            'а' | 'А' => out.push_str("a"),
-            'б' | 'Б' => out.push_str("b"),
-            'в' | 'В' => out.push_str("v"),
-            'г' | 'Г' => out.push_str("g"),
-            'д' | 'Д' => out.push_str("d"),
-            'е' | 'Е' | 'ё' | 'Ё' => out.push_str("e"),
+            'а' | 'А' => out.push('a'),
+            'б' | 'Б' => out.push('b'),
+            'в' | 'В' => out.push('v'),
+            'г' | 'Г' => out.push('g'),
+            'д' | 'Д' => out.push('d'),
+            'е' | 'Е' | 'ё' | 'Ё' => out.push('e'),
             'ж' | 'Ж' => out.push_str("zh"),
-            'з' | 'З' => out.push_str("z"),
-            'и' | 'И' => out.push_str("i"),
-            'й' | 'Й' => out.push_str("y"),
-            'к' | 'К' => out.push_str("k"),
-            'л' | 'Л' => out.push_str("l"),
-            'м' | 'М' => out.push_str("m"),
-            'н' | 'Н' => out.push_str("n"),
-            'о' | 'О' => out.push_str("o"),
-            'п' | 'П' => out.push_str("p"),
-            'р' | 'Р' => out.push_str("r"),
-            'с' | 'С' => out.push_str("s"),
-            'т' | 'Т' => out.push_str("t"),
-            'у' | 'У' => out.push_str("u"),
-            'ф' | 'Ф' => out.push_str("f"),
+            'з' | 'З' => out.push('z'),
+            'и' | 'И' => out.push('i'),
+            'й' | 'Й' => out.push('y'),
+            'к' | 'К' => out.push('k'),
+            'л' | 'Л' => out.push('l'),
+            'м' | 'М' => out.push('m'),
+            'н' | 'Н' => out.push('n'),
+            'о' | 'О' => out.push('o'),
+            'п' | 'П' => out.push('p'),
+            'р' | 'Р' => out.push('r'),
+            'с' | 'С' => out.push('s'),
+            'т' | 'Т' => out.push('t'),
+            'у' | 'У' => out.push('u'),
+            'ф' | 'Ф' => out.push('f'),
             'х' | 'Х' => out.push_str("kh"),
             'ц' | 'Ц' => out.push_str("ts"),
             'ч' | 'Ч' => out.push_str("ch"),
             'ш' | 'Ш' => out.push_str("sh"),
             'щ' | 'Щ' => out.push_str("shch"),
-            'ъ' | 'Ъ' | 'ь' | 'Ь' => {},
-            'ы' | 'Ы' => out.push_str("y"),
-            'э' | 'Э' => out.push_str("e"),
+            'ъ' | 'Ъ' | 'ь' | 'Ь' => {}
+            'ы' | 'Ы' => out.push('y'),
+            'э' | 'Э' => out.push('e'),
             'ю' | 'Ю' => out.push_str("yu"),
             'я' | 'Я' => out.push_str("ya"),
             c if c.is_ascii_alphanumeric() => out.push(c.to_ascii_lowercase()),
             '.' => out.push('.'),
             '-' | '_' | ' ' => out.push('-'),
-            _ => {},
+            _ => {}
         }
     }
     let mut clean = String::new();
@@ -212,22 +347,58 @@ fn transliterate_to_ascii(s: &str) -> String {
     clean.trim_end_matches('-').to_string()
 }
 
-pub fn generate_instance_id(name: &str, existing_instances: &[Instance]) -> String {
+fn instance_id_base(name: &str) -> String {
     let mut base_id = transliterate_to_ascii(name);
+    while base_id.contains("..") {
+        base_id = base_id.replace("..", "-");
+    }
+    base_id = base_id
+        .trim_matches(|character| matches!(character, '.' | '-' | ' '))
+        .to_string();
 
     if base_id.is_empty() {
         base_id = "instance".to_string();
     }
 
-    let mut final_id = base_id.clone();
-    let mut counter = 1;
+    // Leave enough room for a numeric collision suffix and keep generated IDs
+    // inside the validated 64-character directory-name limit.
+    base_id = base_id.chars().take(48).collect();
+    if crate::security::validate_instance_id(&base_id).is_err() {
+        base_id = format!("instance-{base_id}").chars().take(48).collect();
+    }
+    base_id
+}
 
-    while existing_instances.iter().any(|i| i.id == final_id) {
-        final_id = format!("{}-{}", base_id, counter);
-        counter += 1;
+fn generate_instance_id_with_reservations(
+    name: &str,
+    reserved_ids: &HashSet<String>,
+    instances_dir: Option<&Path>,
+) -> String {
+    let base_id = instance_id_base(name);
+
+    for counter in 0_u64.. {
+        let candidate = if counter == 0 {
+            base_id.clone()
+        } else {
+            format!("{base_id}-{counter}")
+        };
+        let is_reserved = reserved_ids.contains(&instance_id_key(&candidate));
+        let exists_on_disk = instances_dir.is_some_and(|dir| dir.join(&candidate).exists());
+        if !is_reserved && !exists_on_disk {
+            debug_assert!(crate::security::validate_instance_id(&candidate).is_ok());
+            return candidate;
+        }
     }
 
-    final_id
+    unreachable!("u64 instance ID suffixes cannot be exhausted")
+}
+
+pub fn generate_instance_id(name: &str, existing_instances: &[Instance]) -> String {
+    let reserved_ids = existing_instances
+        .iter()
+        .map(|instance| instance_id_key(&instance.id))
+        .collect();
+    generate_instance_id_with_reservations(name, &reserved_ids, None)
 }
 
 #[tauri::command]
@@ -243,7 +414,12 @@ pub async fn add_instance(
         .map_err(|_| "Failed to lock instances mutex".to_string())?;
     let mut instances = read_instances_unlocked(&app)?;
 
-    let new_id = generate_instance_id(&name, &instances);
+    let instances_dir = crate::security::launcher_data_dir()?;
+    let reserved_ids = instances
+        .iter()
+        .map(|instance| instance_id_key(&instance.id))
+        .collect();
+    let new_id = generate_instance_id_with_reservations(&name, &reserved_ids, Some(&instances_dir));
     crate::security::validate_instance_id(&new_id)?;
 
     let new_instance = Instance {
@@ -385,7 +561,13 @@ pub async fn clone_instance(app: AppHandle, id: String) -> Result<Instance, Stri
         .clone();
 
     let new_name = format!("{} (Копия)", original.name);
-    let new_id = generate_instance_id(&new_name, &instances);
+    let instances_dir = crate::security::launcher_data_dir()?;
+    let reserved_ids = instances
+        .iter()
+        .map(|instance| instance_id_key(&instance.id))
+        .collect();
+    let new_id =
+        generate_instance_id_with_reservations(&new_name, &reserved_ids, Some(&instances_dir));
 
     // Copy folders
     let old_dir = crate::security::instance_dir(&id)?;
@@ -1197,6 +1379,19 @@ pub async fn set_instance_icon(
     Ok(())
 }
 
+fn mrpack_loader_dependency_key(loader_type: &str) -> Result<Option<&'static str>, String> {
+    match loader_type {
+        "Vanilla" => Ok(None),
+        "Fabric" => Ok(Some("fabric-loader")),
+        "Forge" => Ok(Some("forge")),
+        "NeoForge" => Ok(Some("neoforge")),
+        "Quilt" => Ok(Some("quilt-loader")),
+        _ => Err(format!(
+            "Unsupported loader type for .mrpack export: {loader_type}"
+        )),
+    }
+}
+
 #[tauri::command]
 pub async fn export_instance(app: AppHandle, id: String, dest_path: String) -> Result<(), String> {
     let inst_dir = crate::security::instance_dir(&id)?;
@@ -1237,9 +1432,11 @@ pub async fn export_instance(app: AppHandle, id: String, dest_path: String) -> R
             serde_json::Value::String(game_version),
         );
 
-        if loader_type != "Vanilla" {
-            let loader_key = format!("{}-loader", loader_type.to_lowercase());
-            deps.insert(loader_key, serde_json::Value::String(loader_version));
+        if let Some(loader_key) = mrpack_loader_dependency_key(&loader_type)? {
+            deps.insert(
+                loader_key.to_string(),
+                serde_json::Value::String(loader_version),
+            );
         }
 
         let index = serde_json::json!({
@@ -1387,7 +1584,9 @@ pub async fn create_instance_shortcut(app: AppHandle, id: String) -> Result<Stri
 
     #[cfg(not(target_os = "windows"))]
     {
-        return Err("Создание ярлыков на рабочем столе поддерживается только на Windows".to_string());
+        return Err(
+            "Создание ярлыков на рабочем столе поддерживается только на Windows".to_string(),
+        );
     }
 
     log::info!(
@@ -1402,9 +1601,31 @@ pub async fn create_instance_shortcut(app: AppHandle, id: String) -> Result<Stri
 mod tests {
     use super::*;
 
+    fn instance(id: &str, name: &str) -> Instance {
+        Instance {
+            id: id.to_string(),
+            name: name.to_string(),
+            game_version: "1.20.1".to_string(),
+            loader_type: "Vanilla".to_string(),
+            loader_version: String::new(),
+            last_played: None,
+            min_memory: None,
+            max_memory: None,
+            icon_path: None,
+            java_path: None,
+            jvm_args: None,
+            window_width: None,
+            window_height: None,
+            total_play_time_seconds: None,
+        }
+    }
+
     #[test]
     fn test_transliterate_to_ascii() {
-        assert_eq!(transliterate_to_ascii("Сборка: Магия & Приключения"), "sborka-magiya-priklyucheniya");
+        assert_eq!(
+            transliterate_to_ascii("Сборка: Магия & Приключения"),
+            "sborka-magiya-priklyucheniya"
+        );
         assert_eq!(transliterate_to_ascii("Мой Сервер 1.20"), "moy-server-1.20");
         assert_eq!(transliterate_to_ascii("Vanilla Fabric"), "vanilla-fabric");
     }
@@ -1415,5 +1636,104 @@ mod tests {
         let id = generate_instance_id("Сборка: Магия & Приключения", &existing);
         assert_eq!(id, "sborka-magiya-priklyucheniya");
         assert!(id.is_ascii());
+    }
+
+    #[test]
+    fn generated_ids_avoid_case_insensitive_metadata_collisions() {
+        let existing = vec![instance("Pack", "Existing")];
+        assert_eq!(generate_instance_id("Pack", &existing), "pack-1");
+    }
+
+    #[test]
+    fn migration_reserves_ids_from_the_entire_metadata_file() {
+        let legacy = instance(&Uuid::new_v4().to_string(), "Pack");
+        let canonical = instance("pack", "Current Pack");
+        let instances = [legacy, canonical];
+        let reserved_ids = instances
+            .iter()
+            .map(|instance| instance_id_key(&instance.id))
+            .collect();
+        let directory = tempfile::tempdir().expect("temporary instance directory");
+
+        assert_eq!(
+            generate_instance_id_with_reservations("Pack", &reserved_ids, Some(directory.path())),
+            "pack-1"
+        );
+    }
+
+    #[test]
+    fn migration_avoids_an_orphaned_directory_collision() {
+        let legacy = instance(&Uuid::new_v4().to_string(), "Pack");
+        let reserved_ids = [instance_id_key(&legacy.id)].into_iter().collect();
+        let directory = tempfile::tempdir().expect("temporary instance directory");
+        fs::create_dir(directory.path().join("pack")).expect("orphaned target directory");
+
+        assert_eq!(
+            generate_instance_id_with_reservations("Pack", &reserved_ids, Some(directory.path())),
+            "pack-1"
+        );
+    }
+
+    #[test]
+    fn failed_migration_keeps_metadata_and_source_directory_unchanged() {
+        let old_id = Uuid::new_v4().to_string();
+        let mut legacy = instance(&old_id, "Pack");
+        let directory = tempfile::tempdir().expect("temporary instance directory");
+        let source = directory.path().join(&old_id);
+        let target = directory.path().join("pack");
+        fs::create_dir(&source).expect("source directory");
+        fs::create_dir(&target).expect("occupied target directory");
+
+        let result = try_apply_instance_id_migration(&mut legacy, "pack", directory.path())
+            .expect("migration attempt");
+
+        assert!(result.is_none());
+        assert_eq!(legacy.id, old_id);
+        assert!(source.exists());
+        assert!(target.exists());
+    }
+
+    #[test]
+    fn successful_migration_updates_metadata_only_after_directory_move() {
+        let old_id = Uuid::new_v4().to_string();
+        let mut legacy = instance(&old_id, "Pack");
+        legacy.icon_path = Some(format!("C:/instances/{old_id}/icon.png"));
+        let directory = tempfile::tempdir().expect("temporary instance directory");
+        let source = directory.path().join(&old_id);
+        fs::create_dir(&source).expect("source directory");
+
+        let result = try_apply_instance_id_migration(&mut legacy, "pack", directory.path())
+            .expect("migration attempt");
+
+        assert!(result.is_some());
+        assert_eq!(legacy.id, "pack");
+        assert_eq!(
+            legacy.icon_path.as_deref(),
+            Some("C:/instances/pack/icon.png")
+        );
+        assert!(!source.exists());
+        assert!(directory.path().join("pack").exists());
+    }
+
+    #[test]
+    fn mrpack_loader_keys_match_the_importer_contract() {
+        assert_eq!(mrpack_loader_dependency_key("Vanilla").unwrap(), None);
+        assert_eq!(
+            mrpack_loader_dependency_key("Fabric").unwrap(),
+            Some("fabric-loader")
+        );
+        assert_eq!(
+            mrpack_loader_dependency_key("Forge").unwrap(),
+            Some("forge")
+        );
+        assert_eq!(
+            mrpack_loader_dependency_key("NeoForge").unwrap(),
+            Some("neoforge")
+        );
+        assert_eq!(
+            mrpack_loader_dependency_key("Quilt").unwrap(),
+            Some("quilt-loader")
+        );
+        assert!(mrpack_loader_dependency_key("Unknown").is_err());
     }
 }

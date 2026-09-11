@@ -113,7 +113,7 @@
 - **Возвращает**: `Promise<ModrinthSearchResult>`
 
 ### `search_curseforge({ query, gameVersion, classId, index, pageSize })`
-- **Описание**: Поиск в каталоге CurseForge API. Ключ берётся из настроек приложения или переменной `CURSEFORGE_API_KEY`.
+- **Описание**: Поиск в каталоге CurseForge API. Используется встроенный ключ лаунчера; для развёртываний с собственным ключом можно задать переменную окружения `CURSEFORGE_API_KEY`.
 - **Возвращает**: `Promise<CurseForgeSearchResult[]>`
 
 ### `resolve_dependencies({ instanceId, source, id, gameVersion, loader })`

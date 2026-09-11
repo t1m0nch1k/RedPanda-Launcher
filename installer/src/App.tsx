@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { command as invoke } from "./lib/ipc";
+import { command as invoke, getErrorMessage } from "./lib/ipc";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-dialog";
 import { 
@@ -154,8 +154,9 @@ export default function App() {
 
     } catch (err: unknown) {
       console.error("Installation failed", err);
-      setErrorMessage(err instanceof Error ? err.message : String(err));
-      addLog(`[ERROR] Ошибка установки: ${err}`);
+      const message = getErrorMessage(err);
+      setErrorMessage(message);
+      addLog(`[ERROR] Ошибка установки: ${message}`);
     }
   };
 
@@ -168,11 +169,11 @@ export default function App() {
       addLog("[00:00:02] Удаление ярлыков с Рабочего стола и меню Пуск...");
       await invoke("remove_shortcuts");
 
-      addLog("[00:00:03] Удаление записей из реестра Windows...");
-      await invoke("unregister_uninstaller");
-
-      addLog("[00:00:04] Удаление программных файлов лаунчера...");
+      addLog("[00:00:03] Проверка и удаление программных файлов лаунчера...");
       await invoke("uninstall_files", { cleanUserData: cleanUserDataOnUninstall });
+
+      addLog("[00:00:04] Удаление записей из реестра Windows...");
+      await invoke("unregister_uninstaller");
 
       if (cleanUserDataOnUninstall) {
         addLog("[00:00:05] Очистка пользовательских данных и кэша в AppData...");
@@ -182,8 +183,9 @@ export default function App() {
       setStep("uninstalled");
     } catch (err: unknown) {
       console.error("Uninstall failed", err);
-      setErrorMessage(err instanceof Error ? err.message : String(err));
-      addLog(`[ERROR] Ошибка удаления: ${err}`);
+      const message = getErrorMessage(err);
+      setErrorMessage(message);
+      addLog(`[ERROR] Ошибка удаления: ${message}`);
     }
   };
 
@@ -352,6 +354,9 @@ export default function App() {
                     <HardDrive size={13} className="text-primary" />
                     Требуется свободного места: <span className="text-white font-bold">~40 МБ</span>
                   </div>
+                  <p className="mt-2 text-[11px] text-muted leading-relaxed">
+                    Выберите отдельную пустую папку. Обновление разрешено только для ранее установленного RedPanda Launcher.
+                  </p>
                 </div>
 
                 {/* Shortcuts & Options */}

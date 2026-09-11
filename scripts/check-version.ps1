@@ -20,7 +20,11 @@ foreach ($relative in $files) {
   }
   if ($actual -ne $version) { throw "$relative has version '$actual', expected '$version'" }
 }
-if ($env:GITHUB_REF_NAME -and $env:GITHUB_REF_NAME -match '^v(.+)$' -and $Matches[1] -ne $version) {
-  throw "Git tag version does not match VERSION"
+if ($env:GITHUB_REF_NAME -and $env:GITHUB_REF_NAME -match '^v(.+)$') {
+  $tagVersion = $Matches[1]
+  $baseTagVersion = $tagVersion -replace '_fix\d+$', ''
+  if ($baseTagVersion -ne $version) {
+    throw "Git tag version does not match VERSION"
+  }
 }
 Write-Host "Version $version is consistent across release manifests."

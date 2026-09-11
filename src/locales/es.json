@@ -33,8 +33,13 @@
     "download_action": {
       "game": "Descargando juego...",
       "java": "Descargando Java...",
+      "java_extract": "Extrayendo Java...",
       "loader": "Descargando cargador...",
       "extract": "Extrayendo...",
+      "mods": "Comprobando mods...",
+      "checking": "Comprobando archivos...",
+      "completed": "Archivos descargados",
+      "running": "Juego en ejecución",
       "launch": "Iniciando...",
       "import_prep": "Preparando importación..."
     },

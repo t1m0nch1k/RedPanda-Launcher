@@ -5,7 +5,6 @@ use std::fs;
 use std::io::{self, Read, Seek};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::sync::Mutex;
 use tauri::{AppHandle, Emitter};
 
 use crate::instances::add_instance;
@@ -30,6 +29,38 @@ struct MrpackFile {
 const MAX_ARCHIVE_FILES: usize = 10_000;
 const MAX_ARCHIVE_UNCOMPRESSED_BYTES: u64 = 8 * 1024 * 1024 * 1024;
 const MAX_ARCHIVE_FILE_BYTES: u64 = 1024 * 1024 * 1024;
+const MAX_IMPORT_CONCURRENT_DOWNLOADS: usize = 4;
+
+fn mrpack_loader(dependencies: &HashMap<String, String>) -> Result<(String, String), String> {
+    let loaders = [
+        ("fabric-loader", "Fabric"),
+        ("forge", "Forge"),
+        // Older RedPanda exports used these two aliases. Accepting them keeps
+        // existing exported packs importable without changing the canonical
+        // Modrinth dependency keys.
+        ("forge-loader", "Forge"),
+        ("neoforge", "NeoForge"),
+        ("neoforge-loader", "NeoForge"),
+        ("quilt-loader", "Quilt"),
+    ];
+    let mut resolved = Vec::new();
+    for (key, loader_type) in loaders {
+        if let Some(version) = dependencies.get(key) {
+            resolved.push((loader_type, version.as_str(), key));
+        }
+    }
+
+    let Some((loader_type, loader_version, _)) = resolved.first() else {
+        return Ok(("Vanilla".to_string(), String::new()));
+    };
+    if resolved
+        .iter()
+        .any(|(type_name, version, _)| type_name != loader_type || version != loader_version)
+    {
+        return Err("В modrinth.index.json указаны конфликтующие загрузчики".to_string());
+    }
+    Ok(((*loader_type).to_string(), (*loader_version).to_string()))
+}
 
 fn validate_archive<R: Read + Seek>(archive: &mut zip::ZipArchive<R>) -> Result<(), String> {
     if archive.len() > MAX_ARCHIVE_FILES {
@@ -93,7 +124,6 @@ impl Drop for ImportMetadataGuard {
 
 #[tauri::command]
 pub async fn import_mrpack(app: AppHandle, path: String) -> Result<(), String> {
-    const MAX_DOWNLOAD_BYTES: u64 = 500 * 1024 * 1024;
     log::info!("Starting import of .mrpack from {}", path);
 
     // 1. Read ZIP
@@ -131,19 +161,7 @@ pub async fn import_mrpack(app: AppHandle, path: String) -> Result<(), String> {
         .ok_or("No minecraft version in dependencies")?
         .clone();
 
-    // Determine loader type
-    let (loader_type, loader_version) = if let Some(v) = manifest.dependencies.get("fabric-loader")
-    {
-        ("Fabric", v.clone())
-    } else if let Some(v) = manifest.dependencies.get("forge") {
-        ("Forge", v.clone())
-    } else if let Some(v) = manifest.dependencies.get("neoforge") {
-        ("NeoForge", v.clone())
-    } else if let Some(v) = manifest.dependencies.get("quilt-loader") {
-        ("Quilt", v.clone())
-    } else {
-        ("Vanilla", "".to_string())
-    };
+    let (loader_type, loader_version) = mrpack_loader(&manifest.dependencies)?;
 
     let _ = app.emit(
         "mrpack-progress",
@@ -159,7 +177,7 @@ pub async fn import_mrpack(app: AppHandle, path: String) -> Result<(), String> {
         app.clone(),
         manifest.name.clone(),
         mc_version,
-        loader_type.to_string(),
+        loader_type,
         loader_version,
     )
     .await?;
@@ -172,6 +190,8 @@ pub async fn import_mrpack(app: AppHandle, path: String) -> Result<(), String> {
     let data_dir = final_instance_dir
         .parent()
         .ok_or_else(|| "Не удалось определить каталог экземпляров".to_string())?;
+    fs::create_dir_all(data_dir)
+        .map_err(|e| format!("Не удалось создать каталог экземпляров: {e}"))?;
     let staging = tempfile::Builder::new()
         .prefix("redpanda-import-")
         .tempdir_in(data_dir)
@@ -219,7 +239,6 @@ pub async fn import_mrpack(app: AppHandle, path: String) -> Result<(), String> {
     let client = crate::downloads::trusted_download_client("RedPandaLauncher/1.0.0")?;
     let total_files = manifest.files.len();
     let downloaded = Arc::new(AtomicUsize::new(0));
-    let failed = Arc::new(Mutex::new(Vec::<String>::new()));
 
     let _ = app.emit(
         "mrpack-progress",
@@ -230,90 +249,41 @@ pub async fn import_mrpack(app: AppHandle, path: String) -> Result<(), String> {
         },
     );
 
-    // Create a stream of downloads
+    // Downloads are streamed directly into staging, so bounded concurrency does
+    // not multiply the response-body memory footprint.
     let mut stream = stream::iter(manifest.files)
         .map(|file_meta| {
             let client = client.clone();
             let instance_dir = instance_dir.clone();
             let app = app.clone();
             let downloaded = downloaded.clone();
-            let failed = failed.clone();
             let total = total_files;
 
             async move {
-                if file_meta.downloads.is_empty() {
-                    failed.lock().unwrap().push(file_meta.path.clone());
-                    return Ok(());
+                let file_path = file_meta.path.clone();
+                let result = async {
+                    let url = file_meta
+                        .downloads
+                        .iter()
+                        .find(|url| crate::modrinth::is_trusted_download_url(url))
+                        .ok_or_else(|| {
+                            format!("Для {} нет доверенного адреса загрузки", file_meta.path)
+                        })?;
+                    let target_path = crate::security::safe_join(&instance_dir, &file_meta.path)
+                        .map_err(|error| {
+                            format!("Некорректный путь {}: {error}", file_meta.path)
+                        })?;
+                    crate::downloads::download_to_file_with_hashes(
+                        &client,
+                        url,
+                        &target_path,
+                        &file_meta.hashes,
+                    )
+                    .await
+                    .map(|_| ())
+                    .map_err(|error| format!("{file_path}: {error}"))
                 }
-
-                let url = &file_meta.downloads[0];
-                if !crate::modrinth::is_trusted_download_url(url) {
-                    log::error!("Skipping untrusted download URL {url}");
-                    failed.lock().unwrap().push(file_meta.path.clone());
-                    return Ok::<(), ()>(());
-                }
-                let target_path = match crate::security::safe_join(&instance_dir, &file_meta.path) {
-                    Ok(p) => p,
-                    Err(e) => {
-                        log::error!("Skipping unsafe file path '{}': {}", file_meta.path, e);
-                        failed.lock().unwrap().push(file_meta.path.clone());
-                        return Ok(());
-                    }
-                };
-
-                if let Some(p) = target_path.parent() {
-                    if let Err(e) = fs::create_dir_all(p) {
-                        log::error!("Failed to create directory for {}: {}", file_meta.path, e);
-                        failed.lock().unwrap().push(file_meta.path.clone());
-                        return Ok(());
-                    }
-                }
-
-                // Retry logic could be added here
-                match client.get(url).send().await {
-                    Ok(resp) => {
-                        if !resp.status().is_success() {
-                            log::error!("Failed to download {}: HTTP {}", url, resp.status());
-                            failed.lock().unwrap().push(file_meta.path.clone());
-                        } else if resp
-                            .content_length()
-                            .is_some_and(|size| size > MAX_DOWNLOAD_BYTES)
-                        {
-                            log::error!("Skipping oversized file {}", url);
-                            failed.lock().unwrap().push(file_meta.path.clone());
-                        } else if let Ok(bytes) = resp.bytes().await {
-                            if bytes.len() as u64 <= MAX_DOWNLOAD_BYTES {
-                                if let Err(error) = crate::downloads::verify_modrinth_hashes(
-                                    &bytes,
-                                    &file_meta.hashes,
-                                ) {
-                                    log::error!(
-                                        "Checksum validation failed for {}: {}",
-                                        file_meta.path,
-                                        error
-                                    );
-                                    failed.lock().unwrap().push(file_meta.path.clone());
-                                } else {
-                                    if let Err(error) =
-                                        crate::storage::atomic_write(&target_path, &bytes)
-                                    {
-                                        log::error!("Failed to save {}: {}", file_meta.path, error);
-                                        failed.lock().unwrap().push(file_meta.path.clone());
-                                    }
-                                }
-                            } else {
-                                log::error!("Skipping oversized file {}", url);
-                                failed.lock().unwrap().push(file_meta.path.clone());
-                            }
-                        } else {
-                            failed.lock().unwrap().push(file_meta.path.clone());
-                        }
-                    }
-                    Err(e) => {
-                        log::error!("Failed to download {}: {}", url, e);
-                        failed.lock().unwrap().push(file_meta.path.clone());
-                    }
-                }
+                .await;
 
                 let curr = downloaded.fetch_add(1, Ordering::SeqCst) + 1;
                 let _ = app.emit(
@@ -325,14 +295,19 @@ pub async fn import_mrpack(app: AppHandle, path: String) -> Result<(), String> {
                     },
                 );
 
-                Ok::<(), ()>(())
+                result
             }
         })
-        .buffer_unordered(10); // Download 10 files at a time
+        .buffer_unordered(MAX_IMPORT_CONCURRENT_DOWNLOADS);
 
-    while stream.next().await.is_some() {}
+    let mut failed_files = Vec::new();
+    while let Some(result) = stream.next().await {
+        if let Err(error) = result {
+            log::error!("{error}");
+            failed_files.push(error);
+        }
+    }
 
-    let failed_files = failed.lock().unwrap().clone();
     if !failed_files.is_empty() {
         return Err(format!(
             "Не удалось импортировать {} файлов: {}",
@@ -346,8 +321,17 @@ pub async fn import_mrpack(app: AppHandle, path: String) -> Result<(), String> {
         ));
     }
 
-    log::info!("Import of .mrpack completed successfully!");
+    if final_instance_dir.exists() {
+        return Err(format!(
+            "Каталог нового экземпляра уже существует: {}",
+            final_instance_dir.display()
+        ));
+    }
+    fs::rename(staging.path(), &final_instance_dir)
+        .map_err(|e| format!("Не удалось применить импорт: {e}"))?;
+    metadata_guard.commit();
 
+    log::info!("Import of .mrpack completed successfully!");
     let _ = app.emit(
         "mrpack-progress",
         ImportProgress {
@@ -356,14 +340,6 @@ pub async fn import_mrpack(app: AppHandle, path: String) -> Result<(), String> {
             message: "Готово!".to_string(),
         },
     );
-
-    if final_instance_dir.exists() {
-        fs::remove_dir_all(&final_instance_dir)
-            .map_err(|e| format!("Не удалось подготовить замену экземпляра: {e}"))?;
-    }
-    fs::rename(staging.path(), &final_instance_dir)
-        .map_err(|e| format!("Не удалось применить импорт: {e}"))?;
-    metadata_guard.commit();
     Ok(())
 }
 
@@ -416,7 +392,6 @@ struct CurseForgeFileData {
 
 #[tauri::command]
 pub async fn import_curseforge_pack(app: AppHandle, path: String) -> Result<(), String> {
-    const MAX_DOWNLOAD_BYTES: u64 = 500 * 1024 * 1024;
     log::info!("Starting import of CurseForge pack from {}", path);
 
     // 1. Read ZIP
@@ -491,6 +466,8 @@ pub async fn import_curseforge_pack(app: AppHandle, path: String) -> Result<(), 
     let data_dir = final_instance_dir
         .parent()
         .ok_or_else(|| "Не удалось определить каталог экземпляров".to_string())?;
+    fs::create_dir_all(data_dir)
+        .map_err(|e| format!("Не удалось создать каталог экземпляров: {e}"))?;
     let staging = tempfile::Builder::new()
         .prefix("redpanda-import-")
         .tempdir_in(data_dir)
@@ -535,7 +512,6 @@ pub async fn import_curseforge_pack(app: AppHandle, path: String) -> Result<(), 
 
     let total_files = manifest.files.len();
     let downloaded = Arc::new(AtomicUsize::new(0));
-    let failed = Arc::new(Mutex::new(Vec::<String>::new()));
 
     let _ = app.emit(
         "mrpack-progress",
@@ -552,150 +528,84 @@ pub async fn import_curseforge_pack(app: AppHandle, path: String) -> Result<(), 
             let instance_dir = instance_dir.clone();
             let app = app.clone();
             let downloaded = downloaded.clone();
-            let failed = failed.clone();
             let total = total_files;
 
             async move {
-                if !file_meta.required {
-                    let curr = downloaded.fetch_add(1, Ordering::SeqCst) + 1;
-                    let _ = app.emit(
-                        "mrpack-progress",
-                        ImportProgress {
-                            total,
-                            current: curr,
-                            message: format!("Скачивание модов ({}/{})", curr, total),
-                        },
+                let result = async {
+                    if !file_meta.required {
+                        return Ok(());
+                    }
+
+                    let api_url = format!(
+                        "https://api.curseforge.com/v1/mods/{}/files/{}",
+                        file_meta.project_id, file_meta.file_id
                     );
-                    return Ok::<(), ()>(());
-                }
-
-                // 1. Fetch file info to get download URL and filename
-                let api_url = format!(
-                    "https://api.curseforge.com/v1/mods/{}/files/{}",
-                    file_meta.project_id, file_meta.file_id
-                );
-                let api_key = get_curseforge_api_key(&app);
-
-                let file_info = match client
-                    .get(&api_url)
-                    .header("x-api-key", &api_key)
-                    .send()
+                    let api_key = get_curseforge_api_key(&app);
+                    let response = client
+                        .get(&api_url)
+                        .header("x-api-key", &api_key)
+                        .send()
+                        .await
+                        .map_err(|error| {
+                            format!(
+                                "{}:{}: ошибка запроса метаданных: {error}",
+                                file_meta.project_id, file_meta.file_id
+                            )
+                        })?;
+                    if !response.status().is_success() {
+                        return Err(format!(
+                            "{}:{}: CurseForge API вернул HTTP {}",
+                            file_meta.project_id,
+                            file_meta.file_id,
+                            response.status()
+                        ));
+                    }
+                    let info = response
+                        .json::<CurseForgeFileResponse>()
+                        .await
+                        .map_err(|error| {
+                            format!(
+                                "{}:{}: некорректный ответ CurseForge: {error}",
+                                file_meta.project_id, file_meta.file_id
+                            )
+                        })?
+                        .data;
+                    let download_url = info.download_url.ok_or_else(|| {
+                        format!(
+                            "{}: CurseForge не предоставил ссылку на скачивание",
+                            info.file_name
+                        )
+                    })?;
+                    if !crate::curseforge::is_trusted_download_url(&download_url) {
+                        return Err(format!(
+                            "{}: указан недоверенный адрес загрузки",
+                            info.file_name
+                        ));
+                    }
+                    let expected_sha1 = info
+                        .hashes
+                        .as_ref()
+                        .and_then(|hashes| {
+                            hashes
+                                .iter()
+                                .find(|hash| hash.algo == crate::curseforge::HASH_ALGO_SHA1)
+                                .map(|hash| hash.value.as_str())
+                        })
+                        .ok_or_else(|| format!("{}: отсутствует SHA-1 checksum", info.file_name))?;
+                    let clean_filename = crate::security::sanitize_filename(&info.file_name);
+                    let mods_dir = instance_dir.join("mods");
+                    let target_path = crate::security::safe_join(&mods_dir, &clean_filename)?;
+                    crate::downloads::download_to_file_with_sha1(
+                        &client,
+                        &download_url,
+                        &target_path,
+                        expected_sha1,
+                    )
                     .await
-                {
-                    Ok(resp) => {
-                        if let Ok(info) = resp.json::<CurseForgeFileResponse>().await {
-                            Some(info.data)
-                        } else {
-                            None
-                        }
-                    }
-                    Err(_) => None,
-                };
-
-                if let Some(info) = file_info {
-                    let url = info.download_url;
-
-                    // Sometimes CurseForge API omits the downloadUrl, we have to construct it
-                    if url.is_none() {
-                        // For simplicity, just ignore if no url
-                    }
-
-                    if let Some(dl_url) = url {
-                        if !crate::curseforge::is_trusted_download_url(&dl_url) {
-                            log::error!("Skipping untrusted CurseForge URL {}", dl_url);
-                            failed.lock().unwrap().push(info.file_name.clone());
-                            return Ok::<(), ()>(());
-                        }
-                        let clean_filename = crate::security::sanitize_filename(&info.file_name);
-                        let target_path = instance_dir.join("mods").join(clean_filename);
-
-                        if let Some(p) = target_path.parent() {
-                            if let Err(e) = fs::create_dir_all(p) {
-                                log::error!(
-                                    "Failed to create directory for {}: {}",
-                                    info.file_name,
-                                    e
-                                );
-                                failed.lock().unwrap().push(info.file_name.clone());
-                                return Ok(());
-                            }
-                        }
-
-                        match client.get(&dl_url).send().await {
-                            Ok(resp) => {
-                                if !resp.status().is_success() {
-                                    log::error!(
-                                        "Failed to download {}: HTTP {}",
-                                        dl_url,
-                                        resp.status()
-                                    );
-                                    failed.lock().unwrap().push(info.file_name.clone());
-                                } else if resp
-                                    .content_length()
-                                    .is_some_and(|size| size > MAX_DOWNLOAD_BYTES)
-                                {
-                                    log::error!("Skipping oversized file {}", dl_url);
-                                    failed.lock().unwrap().push(info.file_name.clone());
-                                } else if let Ok(bytes) = resp.bytes().await {
-                                    if bytes.len() as u64 <= MAX_DOWNLOAD_BYTES {
-                                        let expected_sha1 =
-                                            info.hashes.as_ref().and_then(|hashes| {
-                                                hashes
-                                                    .iter()
-                                                    .find(|hash| hash.algo == 2)
-                                                    .map(|hash| hash.value.clone())
-                                            });
-                                        if let Some(expected_sha1) = expected_sha1 {
-                                            if crate::downloads::verify_sha1(&bytes, &expected_sha1)
-                                                .is_ok()
-                                            {
-                                                if let Err(error) = crate::storage::atomic_write(
-                                                    &target_path,
-                                                    &bytes,
-                                                ) {
-                                                    log::error!(
-                                                        "Failed to save {}: {}",
-                                                        info.file_name,
-                                                        error
-                                                    );
-                                                    failed
-                                                        .lock()
-                                                        .unwrap()
-                                                        .push(info.file_name.clone());
-                                                }
-                                            } else {
-                                                log::error!(
-                                                    "Checksum validation failed for {}",
-                                                    info.file_name
-                                                );
-                                                failed.lock().unwrap().push(info.file_name.clone());
-                                            }
-                                        } else {
-                                            log::error!("Missing checksum for {}", info.file_name);
-                                            failed.lock().unwrap().push(info.file_name.clone());
-                                        }
-                                    } else {
-                                        log::error!("Skipping oversized file {}", dl_url);
-                                        failed.lock().unwrap().push(info.file_name.clone());
-                                    }
-                                } else {
-                                    failed.lock().unwrap().push(info.file_name.clone());
-                                }
-                            }
-                            Err(e) => {
-                                log::error!("Failed to download {}: {}", dl_url, e);
-                                failed.lock().unwrap().push(info.file_name.clone());
-                            }
-                        }
-                    } else {
-                        failed.lock().unwrap().push(info.file_name.clone());
-                    }
-                } else {
-                    failed
-                        .lock()
-                        .unwrap()
-                        .push(format!("{}:{}", file_meta.project_id, file_meta.file_id));
+                    .map(|_| ())
+                    .map_err(|error| format!("{}: {error}", info.file_name))
                 }
+                .await;
 
                 let curr = downloaded.fetch_add(1, Ordering::SeqCst) + 1;
                 let _ = app.emit(
@@ -707,14 +617,19 @@ pub async fn import_curseforge_pack(app: AppHandle, path: String) -> Result<(), 
                     },
                 );
 
-                Ok::<(), ()>(())
+                result
             }
         })
-        .buffer_unordered(10);
+        .buffer_unordered(MAX_IMPORT_CONCURRENT_DOWNLOADS);
 
-    while stream.next().await.is_some() {}
+    let mut failed_files = Vec::new();
+    while let Some(result) = stream.next().await {
+        if let Err(error) = result {
+            log::error!("{error}");
+            failed_files.push(error);
+        }
+    }
 
-    let failed_files = failed.lock().unwrap().clone();
     if !failed_files.is_empty() {
         return Err(format!(
             "Не удалось импортировать {} файлов: {}",
@@ -728,8 +643,17 @@ pub async fn import_curseforge_pack(app: AppHandle, path: String) -> Result<(), 
         ));
     }
 
-    log::info!("Import of CurseForge pack completed successfully!");
+    if final_instance_dir.exists() {
+        return Err(format!(
+            "Каталог нового экземпляра уже существует: {}",
+            final_instance_dir.display()
+        ));
+    }
+    fs::rename(staging.path(), &final_instance_dir)
+        .map_err(|e| format!("Не удалось применить импорт: {e}"))?;
+    metadata_guard.commit();
 
+    log::info!("Import of CurseForge pack completed successfully!");
     let _ = app.emit(
         "mrpack-progress",
         ImportProgress {
@@ -738,14 +662,6 @@ pub async fn import_curseforge_pack(app: AppHandle, path: String) -> Result<(), 
             message: "Готово!".to_string(),
         },
     );
-
-    if final_instance_dir.exists() {
-        fs::remove_dir_all(&final_instance_dir)
-            .map_err(|e| format!("Не удалось подготовить замену экземпляра: {e}"))?;
-    }
-    fs::rename(staging.path(), &final_instance_dir)
-        .map_err(|e| format!("Не удалось применить импорт: {e}"))?;
-    metadata_guard.commit();
     Ok(())
 }
 

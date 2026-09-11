@@ -6,7 +6,86 @@ on:
       - 'v*'
 
 jobs:
+  quality-gate:
+    name: Release quality gate
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            installer/package-lock.json
+            website/package-lock.json
+
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: install app dependencies
+        run: npm ci
+
+      - name: install installer dependencies
+        run: npm --prefix installer ci
+
+      - name: install website dependencies
+        run: npm --prefix website ci
+
+      - name: audit production JavaScript dependencies
+        run: |
+          npm audit --omit=dev --audit-level=high
+          npm --prefix installer audit --omit=dev --audit-level=high
+          npm --prefix website audit --omit=dev --audit-level=high
+
+      - name: check release version consistency
+        shell: pwsh
+        run: .\scripts\check-version.ps1
+
+      - name: check locale parity
+        shell: pwsh
+        run: .\scripts\check-locales.ps1
+
+      - name: build launcher frontend
+        run: npm run build
+
+      - name: build installer frontend
+        run: npm --prefix installer run build
+
+      - name: lint and build website
+        run: |
+          npm --prefix website run lint
+          npm --prefix website run build
+
+      - name: check launcher Rust
+        run: |
+          cargo check --manifest-path src-tauri/Cargo.toml
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+          cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+          cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: check installer Rust
+        run: |
+          cargo check --manifest-path installer/src-tauri/Cargo.toml
+          cargo fmt --manifest-path installer/src-tauri/Cargo.toml --all -- --check
+          cargo clippy --manifest-path installer/src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+          cargo test --manifest-path installer/src-tauri/Cargo.toml
+
+  security-audit:
+    name: Release dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
   publish-custom-installer:
+    needs: [quality-gate, security-audit]
     permissions:
       contents: write
     runs-on: windows-latest
@@ -120,6 +199,9 @@ jobs:
                 repo: context.repo.repo,
                 tag,
               }));
+              if (!release.draft) {
+                throw new Error(`Refusing to replace the already published release ${tag}`);
+              }
             } catch (error) {
               if (error.status !== 404) throw error;
 
@@ -129,35 +211,31 @@ jobs:
                 tag_name: tag,
                 name: `RedPanda Launcher ${tag}`,
                 body: `Автоматический релиз RedPanda Launcher ${tag}`,
-                draft: false,
+                // Keep a newly created release invisible until every signed
+                // artifact has uploaded and has been checked below.
+                draft: true,
                 prerelease: false,
               }));
             }
 
-            for (const asset of release.assets) {
-              await github.rest.repos.deleteReleaseAsset({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                asset_id: asset.id,
-              });
-            }
-
-            const data = fs.readFileSync(installerPath);
-            await github.rest.repos.uploadReleaseAsset({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: release.id,
-              name: installerName,
-              data,
-              headers: {
-                'content-type': 'application/vnd.microsoft.portable-executable',
-                'content-length': data.length,
-              },
-            });
-            for (const [name, filePath, contentType] of [
+            const files = [
+              [installerName, installerPath, 'application/vnd.microsoft.portable-executable'],
               [manifestName, manifestPath, 'application/json'],
               [signatureName, signaturePath, 'text/plain; charset=utf-8'],
-            ]) {
+              [checksumName, checksumPath, 'text/plain; charset=utf-8'],
+            ];
+            const replacementNames = new Set(files.map(([name]) => name));
+            for (const asset of release.assets) {
+              if (replacementNames.has(asset.name)) {
+                await github.rest.repos.deleteReleaseAsset({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  asset_id: asset.id,
+                });
+              }
+            }
+
+            for (const [name, filePath, contentType] of files) {
               const content = fs.readFileSync(filePath);
               await github.rest.repos.uploadReleaseAsset({
                 owner: context.repo.owner,
@@ -168,15 +246,22 @@ jobs:
                 headers: { 'content-type': contentType, 'content-length': content.length },
               });
             }
-            const checksum = fs.readFileSync(checksumPath);
-            await github.rest.repos.uploadReleaseAsset({
+
+            const { data: uploadedRelease } = await github.rest.repos.getRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
               release_id: release.id,
-              name: checksumName,
-              data: checksum,
-              headers: {
-                'content-type': 'text/plain; charset=utf-8',
-                'content-length': checksum.length,
-              },
+            });
+            for (const [name, filePath] of files) {
+              const uploaded = uploadedRelease.assets.find((asset) => asset.name === name);
+              if (!uploaded || uploaded.size !== fs.statSync(filePath).size) {
+                throw new Error(`Release asset verification failed for ${name}`);
+              }
+            }
+
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: release.id,
+              draft: false,
             });
