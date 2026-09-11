@@ -17,7 +17,7 @@ import {
   IconHome
 } from "@tabler/icons-react";
 
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.0";
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.1";
 
 export function Navbar() {
   const pathname = usePathname();

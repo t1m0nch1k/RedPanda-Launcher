@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { IconBrandTelegram, IconBrandGithub, IconArrowUpRight, IconShieldCheck, IconCpu, IconRocket } from "@tabler/icons-react";
 
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.0";
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.1";
 
 export function Footer() {
   return (

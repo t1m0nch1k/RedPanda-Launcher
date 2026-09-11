@@ -4,7 +4,7 @@ import { CookieBanner } from "../components/CookieBanner";
 import { ScrollToTop } from "../components/ScrollToTop";
 import { YandexAds } from "../components/YandexAds";
 
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.0";
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.1";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.redlauncher.ru"),
@@ -99,7 +99,7 @@ const jsonLd = {
         "priceCurrency": "RUB"
       },
       "url": "https://www.redlauncher.ru/",
-      "downloadUrl": `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.3.0_fix2/RedPanda_Setup_${APP_VERSION}.exe`,
+      "downloadUrl": `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.3.1/RedPanda_Setup_${APP_VERSION}.exe`,
       "author": {
         "@type": "Organization",
         "name": "RedPanda Team"
