@@ -1,13 +1,12 @@
 {
-  "checkedAt": "2026-09-12T11:06:33.0596128Z",
   "services": {
     "minecraft-auth": {
       "status": "operational"
     },
-    "modrinth": {
+    "elyby": {
       "status": "outage"
     },
-    "elyby": {
+    "modrinth": {
       "status": "outage"
     },
     "curseforge": {
@@ -19,5 +18,6 @@
     "redpanda-cdn": {
       "status": "unknown"
     }
-  }
+  },
+  "checkedAt": "2026-09-12T14:08:47.0807997Z"
 }
