@@ -1,12 +1,12 @@
 {
   "services": {
-    "modrinth": {
-      "status": "outage"
-    },
     "minecraft-auth": {
       "status": "operational"
     },
     "elyby": {
+      "status": "outage"
+    },
+    "modrinth": {
       "status": "outage"
     },
     "curseforge": {
@@ -19,5 +19,5 @@
       "status": "unknown"
     }
   },
-  "checkedAt": "2026-09-17T18:36:41.6045034Z"
+  "checkedAt": "2026-09-17T21:47:03.1375337Z"
 }
