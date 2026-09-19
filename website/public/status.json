@@ -1,10 +1,10 @@
 {
-  "checkedAt": "2026-09-19T16:05:20.2736443Z",
+  "checkedAt": "2026-09-19T18:37:14.4671666Z",
   "services": {
-    "elyby": {
+    "modrinth": {
       "status": "outage"
     },
-    "modrinth": {
+    "elyby": {
       "status": "outage"
     },
     "minecraft-auth": {
