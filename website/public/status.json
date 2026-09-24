@@ -1,4 +1,5 @@
 {
+  "checkedAt": "2026-09-24T11:14:51.9164495Z",
   "services": {
     "elyby": {
       "status": "outage"
@@ -18,6 +19,5 @@
     "redpanda-cdn": {
       "status": "unknown"
     }
-  },
-  "checkedAt": "2026-09-24T05:54:45.3512200Z"
+  }
 }
