@@ -1,6 +1,7 @@
 import React from "react";
 import {
   AbsoluteFill,
+  Audio,
   Sequence,
   interpolate,
   spring,
@@ -14,6 +15,8 @@ import { CyberBackground } from "./components/CyberBackground";
 interface SilentCyberPromoProps {
   version?: string;
   siteUrl?: string;
+  voiceover?: boolean;
+  includeBeat?: boolean;
 }
 
 const orange = "#F55E1D";
@@ -768,9 +771,15 @@ function SilentCtaScene({ version, siteUrl }: { version: string; siteUrl: string
 export const SilentCyberPromo: React.FC<SilentCyberPromoProps> = ({
   version = "v0.3.2",
   siteUrl = "redlauncher.ru",
+  voiceover = true,
+  includeBeat = true,
 }) => {
   return (
     <AbsoluteFill style={{ backgroundColor: "#0A0B0E" }}>
+      {/* Audio Tracks */}
+      {voiceover && <Audio src={staticFile("voiceover-v0.3.2.mp3")} volume={1} />}
+      {includeBeat && <Audio src={staticFile("five-minutes-beat.wav")} volume={0.07} />}
+
       {/* Dynamic Cyber Background */}
       <CyberBackground version={version} />
 
@@ -784,18 +793,18 @@ export const SilentCyberPromo: React.FC<SilentCyberPromoProps> = ({
         <SmartDiagnosticsScene version={version} />
       </Sequence>
 
-      {/* Sequence 3: Live Server Browser & Builder (210 - 330 frames / 7 - 11s) */}
-      <Sequence from={210} durationInFrames={120}>
+      {/* Sequence 3: Live Server Browser & Builder (210 - 300 frames / 7 - 10s) */}
+      <Sequence from={210} durationInFrames={90}>
         <LiveServerAndBuilderScene />
       </Sequence>
 
-      {/* Sequence 4: Comparison (330 - 410 frames / 11 - 13.6s) */}
-      <Sequence from={330} durationInFrames={80}>
+      {/* Sequence 4: Comparison (300 - 390 frames / 10 - 13s) */}
+      <Sequence from={300} durationInFrames={90}>
         <ComparisonScene />
       </Sequence>
 
-      {/* Sequence 5: CTA (410 - 480 frames / 13.6 - 16s) */}
-      <Sequence from={410} durationInFrames={70}>
+      {/* Sequence 5: CTA (390 - 480 frames / 13 - 16s) */}
+      <Sequence from={390} durationInFrames={90}>
         <SilentCtaScene version={version} siteUrl={siteUrl} />
       </Sequence>
     </AbsoluteFill>

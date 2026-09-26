@@ -107,7 +107,23 @@ export const RemotionRoot: React.FC = () => {
         }}
       />
 
-      {/* Promo Option 7: Silent Cyber Promo v0.3.2 (16s - No Audio for TikTok trends) */}
+      {/* Promo Option 7: Cyber Promo with Voiceover & Beat (16s) */}
+      <Composition
+        id="CyberVoicePromo"
+        component={SilentCyberPromo}
+        durationInFrames={480}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          version: "v0.3.2",
+          siteUrl: "redlauncher.ru",
+          voiceover: true,
+          includeBeat: true,
+        }}
+      />
+
+      {/* Promo Option 8: Silent Cyber Promo v0.3.2 (16s - No Audio for TikTok trends) */}
       <Composition
         id="SilentCyberPromo"
         component={SilentCyberPromo}
@@ -117,7 +133,9 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
         defaultProps={{
           version: "v0.3.2",
-          siteUrl: "redlauncher.ru"
+          siteUrl: "redlauncher.ru",
+          voiceover: false,
+          includeBeat: false,
         }}
       />
     </>
