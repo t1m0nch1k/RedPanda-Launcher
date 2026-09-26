@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { X, Cpu, Monitor, Code, Coffee, ExternalLink, RefreshCw, Settings, Globe, Sun, Moon, Palette, Image, Smile, Trash2 } from "lucide-react";
+import { X, Cpu, Monitor, Code, Coffee, ExternalLink, RefreshCw, Settings, Globe, Sun, Moon, Palette, Image, Smile, Trash2, Heart } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useTranslation } from "react-i18next";
 
@@ -760,6 +761,33 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
                           Авто-сохранение папки saves перед запуском игры.
                         </p>
                       </div>
+                    </div>
+                  </div>
+                </section>
+
+                <hr className="border-border" />
+
+                {/* Support & Donations */}
+                <section>
+                  <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <Heart size={16} className="text-amber-400 fill-amber-400" /> Поддержать разработку
+                  </h3>
+                  <div className="bg-background brutalist-border p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-1">
+                        Развитие RedPanda Launcher
+                      </h4>
+                      <p className="text-xs text-muted leading-relaxed">
+                        Лаунчер развивается без рекламы, спама и скрытых служб. Вы можете поддержать автора на Boosty.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => openUrl("https://boosty.to/redpanda_launcher")}
+                        className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-background text-xs font-bold brutalist-border transition-colors flex items-center gap-1.5 font-mono"
+                      >
+                        <Heart size={13} className="fill-background" /> Boosty
+                      </button>
                     </div>
                   </div>
                 </section>

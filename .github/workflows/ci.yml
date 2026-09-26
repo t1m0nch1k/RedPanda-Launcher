@@ -68,6 +68,9 @@ jobs:
       - name: Build Launcher Frontend
         run: npm run build
 
+      - name: Run Launcher Frontend Unit Tests
+        run: npm test
+
       - name: Check release version consistency
         shell: pwsh
         run: .\scripts\check-version.ps1

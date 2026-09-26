@@ -54,6 +54,7 @@ pub fn run() {
         .manage(DiscordState {
             client: Mutex::new(None),
             is_enabled: Mutex::new(false),
+            start_time: Mutex::new(None),
         })
         .setup(move |app| {
             #[cfg(windows)]
@@ -105,6 +106,7 @@ pub fn run() {
             accounts::add_microsoft_account_oauth,
             accounts::add_elyby_account_oauth,
             launcher::launch_game,
+            launcher::ping_minecraft_server,
             settings::get_settings,
             settings::save_settings,
             settings::find_java_installations,

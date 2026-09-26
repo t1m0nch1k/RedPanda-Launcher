@@ -1461,9 +1461,39 @@ pub async fn export_instance(app: AppHandle, id: String, dest_path: String) -> R
     for entry in it {
         let path = entry.path();
         let name = path.strip_prefix(&inst_dir).unwrap();
-        let mut name_str = name.to_string_lossy().replace("\\", "/");
+        let rel_str = name.to_string_lossy().replace("\\", "/");
 
-        if is_mrpack && !name_str.is_empty() {
+        if rel_str.is_empty() {
+            continue;
+        }
+
+        // Clean up: exclude runtime logs, crash reports, backups, user caches, locks
+        let lower = rel_str.to_lowercase();
+        if lower.starts_with("logs/")
+            || lower == "logs"
+            || lower.starts_with("crash-reports/")
+            || lower == "crash-reports"
+            || lower.starts_with("backups/")
+            || lower == "backups"
+            || lower.starts_with(".cache/")
+            || lower == ".cache"
+            || lower.starts_with(".fabric/")
+            || lower == ".fabric"
+            || lower.starts_with(".quilt/")
+            || lower == ".quilt"
+            || lower.contains(".saves-before-")
+            || lower == "usercache.json"
+            || lower == "usernamecache.json"
+            || lower.ends_with(".lock")
+            || lower.ends_with(".tmp")
+            || lower.ends_with(".log")
+            || lower.ends_with(".log.gz")
+        {
+            continue;
+        }
+
+        let mut name_str = rel_str;
+        if is_mrpack {
             name_str = format!("overrides/{}", name_str);
         }
 

@@ -61,6 +61,7 @@ interface CurseForgeVersionSummary {
 
 interface InstanceManagerModalProps {
   instance: Instance;
+  initialTab?: "mods" | "resources" | "diagnostics" | "settings" | "multiplayer";
   onClose: () => void;
   onDelete: () => void;
 }
@@ -68,9 +69,9 @@ interface InstanceManagerModalProps {
 import { toast } from "./Toast";
 import { useTranslation } from "react-i18next";
 
-export default function InstanceManagerModal({ instance, onClose, onDelete }: InstanceManagerModalProps) {
+export default function InstanceManagerModal({ instance, initialTab = "mods", onClose, onDelete }: InstanceManagerModalProps) {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<"mods" | "resources" | "diagnostics" | "settings" | "multiplayer">("mods");
+  const [activeTab, setActiveTab] = useState<"mods" | "resources" | "diagnostics" | "settings" | "multiplayer">(initialTab);
   const [showModrinth, setShowModrinth] = useState(false);
   const [showCurseForge, setShowCurseForge] = useState(false);
   const [modrinthProjectType, setModrinthProjectType] = useState<"mod" | "resourcepack" | "shader">("mod");

@@ -3,7 +3,7 @@ import Home from "./pages/Home";
 import AccountSelector from "./components/AccountSelector";
 import SettingsModal from "./components/SettingsModal";
 import UpdateModal, { UpdateInfo } from "./components/UpdateModal";
-import { Settings, Folder, FileText, Minus, Square, X, MessageCircle, Music, GitBranch, Sparkles } from "lucide-react";
+import { Settings, Folder, FileText, Minus, Square, X, MessageCircle, GitBranch, Sparkles, Heart, Send } from "lucide-react";
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { openUrl } from '@tauri-apps/plugin-opener';
@@ -164,7 +164,7 @@ export default function App() {
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden relative flex flex-col z-10">
-        <Home selectedInstance={selectedInstance} onSelectInstance={setSelectedInstance} activeUsername={activeUsername} />
+        <Home selectedInstance={selectedInstance} onSelectInstance={setSelectedInstance} activeUsername={activeUsername} onOpenLauncherSettings={() => setIsSettingsOpen(true)} />
       </div>
 
       {/* Bottom status bar */}
@@ -178,14 +178,17 @@ export default function App() {
         </div>
 
         <div className="flex items-center justify-center gap-4 w-1/3 text-muted">
-          <button onClick={() => openUrl("https://discord.gg/minecraft")} className="hover:text-primary transition-colors flex items-center gap-1.5" title="Discord">
+          <button onClick={() => openUrl("https://discord.gg/dFv6YvYy5p")} className="hover:text-primary transition-colors flex items-center gap-1.5" title="Discord">
              <MessageCircle size={14} /> Discord
           </button>
-          <button onClick={() => openUrl("https://tiktok.com")} className="hover:text-primary transition-colors flex items-center gap-1.5" title="TikTok">
-             <Music size={14} /> TikTok
+          <button onClick={() => openUrl("https://t.me/redpanda_launcher")} className="hover:text-primary transition-colors flex items-center gap-1.5" title="Telegram">
+             <Send size={14} /> Telegram
           </button>
           <button onClick={() => openUrl("https://github.com/t1m0nch1k/RedPanda-Launcher")} className="hover:text-primary transition-colors flex items-center gap-1.5" title="GitHub">
              <GitBranch size={14} /> GitHub
+          </button>
+          <button onClick={() => openUrl("https://boosty.to/redpanda_launcher")} className="hover:text-amber-400 text-amber-500/90 transition-colors flex items-center gap-1.5 font-bold" title="Поддержать разработку (Boosty)">
+             <Heart size={14} className="fill-amber-500" /> Поддержать
           </button>
         </div>
 

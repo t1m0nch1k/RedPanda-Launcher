@@ -5,6 +5,7 @@ use tauri::{AppHandle, Manager, State};
 pub struct DiscordState {
     pub client: Mutex<Option<DiscordIpcClient>>,
     pub is_enabled: Mutex<bool>,
+    pub start_time: Mutex<Option<i64>>,
 }
 
 const CLIENT_ID: &str = "1328001712411516958"; // Replace with real Client ID if available
@@ -72,6 +73,17 @@ pub fn set_discord_activity(
             payload = payload.assets(assets);
         }
 
+        let mut timestamps = activity::Timestamps::new();
+        let mut start_guard = state.start_time.lock().unwrap();
+        let start_val = start_guard.get_or_insert_with(|| {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs() as i64
+        });
+        timestamps = timestamps.start(*start_val);
+        payload = payload.timestamps(timestamps);
+
         let _ = client.set_activity(payload);
     }
 
@@ -82,6 +94,7 @@ pub fn set_discord_activity(
 pub fn clear_discord_activity(app: AppHandle) -> Result<(), String> {
     let state: State<'_, DiscordState> = app.state();
 
+    *state.start_time.lock().unwrap() = None;
     let mut client_guard = state.client.lock().unwrap();
     if let Some(client) = client_guard.as_mut() {
         let _ = client.clear_activity();

@@ -504,3 +504,83 @@ fn configure_custom_java(
 
     instance
 }
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct ServerPingResult {
+    pub online: bool,
+    pub host: String,
+    pub port: u16,
+    pub version: Option<String>,
+    pub players_online: Option<u64>,
+    pub players_max: Option<u64>,
+    pub motd_clean: Option<String>,
+    pub icon: Option<String>,
+    pub latency_ms: Option<u64>,
+}
+
+#[tauri::command]
+pub async fn ping_minecraft_server(address: String) -> Result<ServerPingResult, String> {
+    let clean_addr = address.trim();
+    if clean_addr.is_empty() {
+        return Err("Address cannot be empty".to_string());
+    }
+
+    let url = format!("https://api.mcstatus.io/v2/status/java/{}", clean_addr);
+    let start_time = std::time::Instant::now();
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    match client.get(&url).send().await {
+        Ok(res) => {
+            let latency = start_time.elapsed().as_millis() as u64;
+            if let Ok(json) = res.json::<serde_json::Value>().await {
+                let online = json["online"].as_bool().unwrap_or(false);
+                let host = json["host"].as_str().unwrap_or(clean_addr).to_string();
+                let port = json["port"].as_u64().unwrap_or(25565) as u16;
+                let version = json["version"]["name_clean"].as_str().map(|s| s.to_string());
+                let players_online = json["players"]["online"].as_u64();
+                let players_max = json["players"]["max"].as_u64();
+                let motd_clean = json["motd"]["clean"].as_str().map(|s| s.to_string());
+                let icon = json["icon"].as_str().map(|s| s.to_string());
+
+                Ok(ServerPingResult {
+                    online,
+                    host,
+                    port,
+                    version,
+                    players_online,
+                    players_max,
+                    motd_clean,
+                    icon,
+                    latency_ms: if online { Some(latency) } else { None },
+                })
+            } else {
+                Ok(ServerPingResult {
+                    online: false,
+                    host: clean_addr.to_string(),
+                    port: 25565,
+                    version: None,
+                    players_online: None,
+                    players_max: None,
+                    motd_clean: None,
+                    icon: None,
+                    latency_ms: None,
+                })
+            }
+        }
+        Err(_) => Ok(ServerPingResult {
+            online: false,
+            host: clean_addr.to_string(),
+            port: 25565,
+            version: None,
+            players_online: None,
+            players_max: None,
+            motd_clean: None,
+            icon: None,
+            latency_ms: None,
+        }),
+    }
+}

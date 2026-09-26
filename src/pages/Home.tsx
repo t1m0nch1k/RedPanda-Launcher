@@ -13,6 +13,7 @@ const ModrinthBrowser = lazy(() => import("../components/ModrinthBrowser"));
 const CurseForgeBrowser = lazy(() => import("../components/CurseForgeBrowser"));
 const ModpackBuilderModal = lazy(() => import("../components/ModpackBuilderModal"));
 const SkinViewer = lazy(() => import("../components/SkinViewer"));
+const ServerBrowserModal = lazy(() => import("../components/ServerBrowserModal"));
 
 interface Instance {
   id: string;
@@ -29,6 +30,7 @@ interface HomeProps {
   selectedInstance: string | null;
   onSelectInstance: (id: string) => void;
   activeUsername: string | null;
+  onOpenLauncherSettings?: () => void;
 }
 
 const getLoaderIcon = (loader: string) => {
@@ -66,7 +68,7 @@ const InstanceIcon = memo(({ iconPath, loaderType, className }: { iconPath?: str
   );
 });
 
-export default memo(function Home({ selectedInstance, onSelectInstance, activeUsername }: HomeProps) {
+export default memo(function Home({ selectedInstance, onSelectInstance, activeUsername, onOpenLauncherSettings }: HomeProps) {
   const { t } = useTranslation();
   const [showModpackBrowser, setShowModpackBrowser] = useState(false);
   const [showCurseForgeModpackBrowser, setShowCurseForgeModpackBrowser] = useState(false);
@@ -184,9 +186,11 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
   const speedCalcRef = useRef({ lastBytes: 0, lastTime: 0 });
   const gameLogsRef = useRef<{stream: string, line: string}[]>([]);
   const [crashLogs, setCrashLogs] = useState<{stream: string, line: string}[]>([]);
+  const [crashExitCode, setCrashExitCode] = useState<number | null>(null);
   const [showCrashModal, setShowCrashModal] = useState(false);
+  const [managerInitialTab, setManagerInitialTab] = useState<"mods" | "resources" | "diagnostics" | "settings" | "multiplayer">("mods");
   const [quickServer, setQuickServer] = useState("");
-  const [showServerInput, setShowServerInput] = useState(false);
+  const [showServerBrowser, setShowServerBrowser] = useState(false);
 
   const currentInstanceRef = useRef(currentInstance);
   useEffect(() => {
@@ -283,6 +287,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
             setIsLaunching(false);
             setDownloadAction("");
             if (data.exit_code !== 0) {
+                setCrashExitCode(data.exit_code);
                 setCrashLogs([...gameLogsRef.current]);
                 setShowCrashModal(true);
             }
@@ -629,6 +634,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                       </button>
                     <button 
                       onClick={() => {
+                          setCrashExitCode(null);
                           setCrashLogs(gameLogsRef.current);
                           setShowCrashModal(true);
                       }}
@@ -645,9 +651,9 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                       <Settings size={18} />
                     </button>
                     <button 
-                      onClick={() => setShowServerInput(!showServerInput)}
-                      className={`bg-card hover:bg-background brutalist-border text-muted hover:text-white px-3 py-3 rounded-none transition-colors ${showServerInput ? "text-primary border-primary" : ""}`}
-                      title="Быстрое подключение к серверу"
+                      onClick={() => setShowServerBrowser(true)}
+                      className={`bg-card hover:bg-background brutalist-border text-muted hover:text-white px-3 py-3 rounded-none transition-colors ${showServerBrowser ? "text-primary border-primary" : ""}`}
+                      title="Браузер серверов и мониторинг (Live Ping)"
                     >
                       <Globe size={18} />
                     </button>
@@ -668,17 +674,15 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
                   </div>
                 )}
                <div className="flex flex-col items-end gap-2">
-                 {showServerInput && (
-                   <input
-                     type="text"
-                     placeholder="IP сервера (напр. play.hypixel.net)"
-                     value={quickServer}
-                     onChange={(e) => setQuickServer(e.target.value)}
-                     className="bg-background brutalist-border px-3 py-1.5 text-xs text-white placeholder:text-muted focus:outline-none focus:border-primary w-64"
-                   />
+                 {quickServer && (
+                   <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted bg-card px-2 py-0.5 brutalist-border">
+                     <span className="text-primary font-bold">Сервер:</span>
+                     <span className="text-white truncate max-w-[150px]">{quickServer}</span>
+                     <button onClick={() => setQuickServer("")} className="hover:text-white ml-1 text-muted" title="Очистить сервер">×</button>
+                   </div>
                  )}
                  <button 
-                   onClick={() => handleLaunch()}
+                   onClick={() => handleLaunch(quickServer || undefined)}
                    disabled={isLaunching}
                    onMouseEnter={() => !isLaunching && setPandaState("celebration")}
                    onMouseLeave={() => !isLaunching && setPandaState("welcome")}
@@ -842,12 +846,15 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
         <Suspense fallback={null}>
           <InstanceManagerModal
             instance={currentInstance}
+            initialTab={managerInitialTab}
             onClose={() => {
               setManagingInstance(null);
+              setManagerInitialTab("mods");
               loadInstances();
             }}
             onDelete={() => {
               setManagingInstance(null);
+              setManagerInitialTab("mods");
               loadInstances();
             }}
           />
@@ -858,7 +865,41 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
         <Suspense fallback={null}>
           <CrashModal
             logs={crashLogs}
+            exitCode={crashExitCode}
+            instanceId={currentInstance?.id}
             onClose={() => setShowCrashModal(false)}
+            onOpenMods={() => {
+              setShowCrashModal(false);
+              setManagerInitialTab("mods");
+              if (currentInstance) setManagingInstance(currentInstance.id);
+            }}
+            onOpenSettings={() => {
+              setShowCrashModal(false);
+              setManagerInitialTab("settings");
+              if (currentInstance) setManagingInstance(currentInstance.id);
+            }}
+            onOpenLauncherSettings={() => {
+              setShowCrashModal(false);
+              if (onOpenLauncherSettings) {
+                onOpenLauncherSettings();
+              }
+            }}
+          />
+        </Suspense>
+      )}
+
+      {showServerBrowser && (
+        <Suspense fallback={null}>
+          <ServerBrowserModal
+            selectedInstanceName={currentInstance?.name}
+            onClose={() => setShowServerBrowser(false)}
+            onConnectServer={(address) => {
+              setQuickServer(address);
+              setShowServerBrowser(false);
+              setTimeout(() => {
+                handleLaunch(address);
+              }, 100);
+            }}
           />
         </Suspense>
       )}

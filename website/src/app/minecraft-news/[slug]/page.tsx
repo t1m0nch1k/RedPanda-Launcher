@@ -1,4 +1,5 @@
 import React from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navbar } from "../../../components/Navbar";
@@ -13,6 +14,40 @@ export function generateStaticParams() {
   return MINECRAFT_NEWS.map((article) => ({
     slug: article.slug,
   }));
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const article = MINECRAFT_NEWS.find((a) => a.slug === slug);
+  if (!article) return {};
+
+  return {
+    title: `${article.title} — RedPanda Launcher`,
+    description: article.excerpt,
+    keywords: [...article.tags, "майнкрафт", "лаунчер", "redpanda", "ред лаунчер", "redlauncher"],
+    openGraph: {
+      title: article.title,
+      description: article.excerpt,
+      type: "article",
+      url: `https://www.redlauncher.ru/minecraft-news/${article.slug}`,
+      images: [
+        {
+          url: article.image || "https://www.redlauncher.ru/logo.png",
+          width: 512,
+          height: 512,
+          alt: article.title,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: article.title,
+      description: article.excerpt,
+    },
+    alternates: {
+      canonical: `https://www.redlauncher.ru/minecraft-news/${article.slug}`,
+    },
+  };
 }
 
 export default async function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {

@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { 
   Wand2, X, ChevronRight, ChevronLeft, Check, Sparkles, 
-  Play, CheckCircle2, ShieldCheck
+  Play, CheckCircle2, ShieldCheck, Download, Loader2
 } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
+import { save } from "@tauri-apps/plugin-dialog";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { command, getErrorMessage, BuilderProgress } from "../lib/ipc";
 import { 
@@ -26,6 +28,29 @@ interface CreatedInstance {
 
 export default function ModpackBuilderModal({ onClose, onInstanceCreated }: ModpackBuilderModalProps) {
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (!createdInstance) return;
+    try {
+      const savePath = await save({
+        defaultPath: `${createdInstance.name}.mrpack`,
+        filters: [
+          { name: 'Modrinth Modpack', extensions: ['mrpack'] },
+          { name: 'Zip Archive', extensions: ['zip'] }
+        ]
+      });
+      if (savePath) {
+        setIsExporting(true);
+        await invoke("export_instance", { id: createdInstance.id, destPath: savePath });
+        setIsExporting(false);
+        toast.success("Сборка успешно экспортирована!");
+      }
+    } catch (err) {
+      setIsExporting(false);
+      toast.error("Ошибка при экспорте сборки: " + err);
+    }
+  };
 
   // Step 1: Settings
   const [packName, setPackName] = useState("");
@@ -588,7 +613,7 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
                 </p>
               </div>
 
-              <div className="flex items-center gap-3 mt-4">
+              <div className="flex flex-wrap items-center justify-center gap-3 mt-4">
                 <button
                   onClick={() => {
                     onInstanceCreated(createdInstance.id);
@@ -599,8 +624,16 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
                   <Play size={14} /> Выбрать и играть
                 </button>
                 <button
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  className="px-5 py-2.5 bg-card text-white font-bold text-xs uppercase brutalist-border hover:bg-card-hover transition-colors flex items-center gap-2"
+                >
+                  {isExporting ? <Loader2 size={14} className="animate-spin text-primary" /> : <Download size={14} />}
+                  <span>{isExporting ? "Экспорт..." : "Экспорт (.mrpack)"}</span>
+                </button>
+                <button
                   onClick={onClose}
-                  className="px-5 py-2.5 bg-card text-white font-bold text-xs uppercase brutalist-border hover:bg-card-hover transition-colors"
+                  className="px-5 py-2.5 bg-card text-muted hover:text-white font-bold text-xs uppercase brutalist-border hover:bg-card-hover transition-colors"
                 >
                   Закрыть
                 </button>
