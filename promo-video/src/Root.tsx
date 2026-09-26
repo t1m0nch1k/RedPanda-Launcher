@@ -5,6 +5,7 @@ import { TikTokUpdatePromo } from "./TikTokUpdatePromo";
 import { BattlePromo } from "./BattlePromo";
 import { ModpackBuilderPromo } from "./ModpackBuilderPromo";
 import { FiveMinutesPromo } from "./FiveMinutesPromo";
+import { SilentCyberPromo } from "./SilentCyberPromo";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -97,6 +98,20 @@ export const RemotionRoot: React.FC = () => {
         id="FiveMinutesPromo"
         component={FiveMinutesPromo}
         durationInFrames={540}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          version: "v0.3.2",
+          siteUrl: "redlauncher.ru"
+        }}
+      />
+
+      {/* Promo Option 7: Silent Cyber Promo v0.3.2 (16s - No Audio for TikTok trends) */}
+      <Composition
+        id="SilentCyberPromo"
+        component={SilentCyberPromo}
+        durationInFrames={480}
         fps={30}
         width={1080}
         height={1920}

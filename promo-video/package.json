@@ -17,7 +17,9 @@
     "render:builder:17s": "remotion render src/index.ts ModpackBuilderPromo17s out/redpanda-builder-promo-17s.mp4",
     "render:builder:27s": "remotion render src/index.ts ModpackBuilderPromo27s out/redpanda-builder-promo-27s.mp4",
     "render:five-minutes": "remotion render src/index.ts FiveMinutesPromo out/redpanda-five-minutes-v0.3.2.mp4",
-    "render:tiktok": "remotion render src/index.ts FiveMinutesPromo out/redpanda-tiktok-v0.3.2.mp4"
+    "render:tiktok": "remotion render src/index.ts FiveMinutesPromo out/redpanda-tiktok-v0.3.2.mp4",
+    "render:silent": "remotion render src/index.ts SilentCyberPromo out/redpanda-silent-v0.3.2.mp4",
+    "build:silent": "remotion render src/index.ts SilentCyberPromo out/redpanda-silent-v0.3.2.mp4"
   },
   "dependencies": {
     "@remotion/bundler": "^4.0.245",
