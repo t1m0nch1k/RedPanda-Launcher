@@ -10,11 +10,14 @@
     "build:builder": "remotion render src/index.ts ModpackBuilderPromo out/redpanda-builder-promo-17s.mp4",
     "build:builder:17s": "remotion render src/index.ts ModpackBuilderPromo17s out/redpanda-builder-promo-17s.mp4",
     "build:builder:27s": "remotion render src/index.ts ModpackBuilderPromo27s out/redpanda-builder-promo-27s.mp4",
-    "render": "remotion render src/index.ts TikTokPromo out/redpanda-tiktok-promo.mp4",
+    "build:five-minutes": "remotion render src/index.ts FiveMinutesPromo out/redpanda-five-minutes-v0.3.2.mp4",
+    "render": "remotion render src/index.ts FiveMinutesPromo out/redpanda-five-minutes-v0.3.2.mp4",
     "render:battle": "remotion render src/index.ts BattlePromo out/redpanda-battle-promo.mp4",
     "render:builder": "remotion render src/index.ts ModpackBuilderPromo out/redpanda-builder-promo-17s.mp4",
     "render:builder:17s": "remotion render src/index.ts ModpackBuilderPromo17s out/redpanda-builder-promo-17s.mp4",
-    "render:builder:27s": "remotion render src/index.ts ModpackBuilderPromo27s out/redpanda-builder-promo-27s.mp4"
+    "render:builder:27s": "remotion render src/index.ts ModpackBuilderPromo27s out/redpanda-builder-promo-27s.mp4",
+    "render:five-minutes": "remotion render src/index.ts FiveMinutesPromo out/redpanda-five-minutes-v0.3.2.mp4",
+    "render:tiktok": "remotion render src/index.ts FiveMinutesPromo out/redpanda-tiktok-v0.3.2.mp4"
   },
   "dependencies": {
     "@remotion/bundler": "^4.0.245",

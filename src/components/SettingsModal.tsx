@@ -59,7 +59,7 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
       if (info && info.has_update) {
         alert(`Найдено обновление! Доступна версия v${info.latest_version}.`);
       } else {
-        alert(`У вас установлена самая свежая версия (v${info?.current_version || "0.3.1"})`);
+        alert(`У вас установлена самая свежая версия (v${info?.current_version || "0.3.2"})`);
       }
     } catch (e) {
       alert("Ошибка при проверке обновлений: " + e);
@@ -276,7 +276,7 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
 
                   <div className="bg-background brutalist-border p-4 flex items-center justify-between">
                     <div>
-                      <div className="font-bold text-xs text-text">Версия v0.3.1 Stable</div>
+                      <div className="font-bold text-xs text-text">Версия v0.3.2 Stable</div>
                       <div className="text-[10px] text-muted font-mono mt-0.5">Build 2026.09.06</div>
                       <div className="text-[10px] text-muted mt-0.5">Автоматическая проверка релизов с GitHub</div>
                     </div>

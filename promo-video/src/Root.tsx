@@ -4,6 +4,7 @@ import { TikTokPromo } from "./TikTokPromo";
 import { TikTokUpdatePromo } from "./TikTokUpdatePromo";
 import { BattlePromo } from "./BattlePromo";
 import { ModpackBuilderPromo } from "./ModpackBuilderPromo";
+import { FiveMinutesPromo } from "./FiveMinutesPromo";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -87,6 +88,20 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
         defaultProps={{
           version: "v0.3.0",
+          siteUrl: "redlauncher.ru"
+        }}
+      />
+
+      {/* Promo Option 6: "I'll join in five minutes" story (18s) */}
+      <Composition
+        id="FiveMinutesPromo"
+        component={FiveMinutesPromo}
+        durationInFrames={540}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          version: "v0.3.2",
           siteUrl: "redlauncher.ru"
         }}
       />

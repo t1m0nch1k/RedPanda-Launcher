@@ -1,0 +1,22 @@
+{
+  "name": "skinforge-generator",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^4.6.0",
+    "dotenv": "^18.0.1",
+    "lucide-react": "^0.468.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "sharp": "^0.35.4",
+    "skinview3d": "^3.4.2",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.4"
+  }
+}

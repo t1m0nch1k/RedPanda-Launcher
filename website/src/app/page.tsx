@@ -27,20 +27,20 @@ import {
   IconHelp
 } from "@tabler/icons-react";
 
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.1";
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.2";
 
 export default function Home() {
   const [typedIndex, setTypedIndex] = useState(0);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   const typedPhrases = [
-    "[ LIGHTNING_FAST ]",
+    "[ SMART_CRASH_DIAGNOSTICS ]",
+    "[ LIVE_SERVER_BROWSER ]",
     "[ SMART_MODPACK_BUILDER ]",
-    "[ MC_26.X_&_SNAPSHOTS ]",
+    "[ LIGHTNING_FAST ]",
     "[ CUSTOM_GUI_INSTALLER ]",
     "[ WINDOWS_DPAPI_SECURITY ]",
     "[ MODRINTH_&_CURSEFORGE ]",
-    "[ E4MC_&_STEAM_P2P ]",
     "[ ZERO_BLOATWARE ]"
   ];
 

@@ -8,7 +8,7 @@ import { MINECRAFT_NEWS } from "../../../data/minecraftNews";
 import { NewsCard } from "../../../components/NewsCard";
 import { IconArrowLeft, IconCalendar, IconClock, IconUser, IconTag, IconDownload } from "@tabler/icons-react";
 
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.1";
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.2";
 
 export function generateStaticParams() {
   return MINECRAFT_NEWS.map((article) => ({

@@ -16,18 +16,56 @@ export interface LauncherRelease {
   changes: ReleaseChange[];
 }
 
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.1";
-const LATEST_RELEASE_TAG = "v0.3.1";
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.2";
+const LATEST_RELEASE_TAG = "v0.3.2";
 
 export const LAUNCHER_RELEASES: LauncherRelease[] = [
   {
     version: `v${APP_VERSION}`,
+    date: "26 сентября 2026",
+    title: "Smart Crash Diagnostics & Live Server Browser",
+    tagline: "Интеллектуальная расшифровка крашей с готовыми решениями, встроенный мониторинг серверов с живым пингом и онлайном, экспорт модпаков в .mrpack и таймер Discord RPC",
+    downloadUrl: `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/${LATEST_RELEASE_TAG}/RedPanda_Setup_${APP_VERSION}.exe`,
+    fileSize: "См. опубликованные assets",
+    isLatest: true,
+    highlights: [
+      "🧠 Умная диагностика крашей (Smart Diagnostics): лаунчер анализирует логи вылетов Minecraft, определяет нехватку памяти (OOM), несовместимость Java или конфликты модов и подсказывает понятные действия по исправлению",
+      "🌐 Live Server Browser: встроенный мониторинг публичных и партнерских серверов с живым пингом, отображением онлайна, MOTD и прямым подключением в игру в 1 клик",
+      "📦 Экспорт сборок в .mrpack: делитесь своими кастомными сборками с друзьями в один клик с автоматической очисткой логов, кэшей и временных файлов",
+      "⏱ Discord RPC Elapsed Timer: точный счетчик игрового времени сессии в статусе Discord Rich Presence",
+      "🚀 Расширенное SEO и сравнения: запущены страницы независимых сравнений (RedPanda vs TLauncher vs Prism) и динамический sitemap"
+    ],
+    changes: [
+      {
+        type: "feat",
+        title: "Интеллектуальная диагностика крашей",
+        description: "При неожиданном завершении игры лаунчер перехватывает лог, определяет тип ошибки (память, Java, дубликаты модов, поврежденные конфиги) и выводит понятную карточку с кнопкой быстрого исправления."
+      },
+      {
+        type: "feat",
+        title: "Браузер серверов с Live Ping",
+        description: "Новая вкладка серверов: проверяйте статус, задержку (пинг) и текущий онлайн ваших любимых серверов прямо из лаунчера с возможностью запуска сразу в сервер."
+      },
+      {
+        type: "feat",
+        title: "Экспорт сборок в формат .mrpack",
+        description: "Экспортируйте настроенные сборки в стандартный архив Modrinth pack (.mrpack), готовый для отправки друзьям или публикации."
+      },
+      {
+        type: "perf",
+        title: "Таймер сессии в Discord RPC",
+        description: "В статус Discord добавлено реальное время, прошедшее с момента старта игры, а также название текущей запущенной сборки."
+      }
+    ]
+  },
+  {
+    version: "v0.3.1",
     date: "6 сентября 2026",
     title: "Smart Modpack Builder & Modern MC Engine",
     tagline: "Интеллектуальный конструктор сборок под ключ, поддержка новейших версий 26.x и снапшотов, кастомизация палитры и исправление CurseForge API",
     downloadUrl: `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/${LATEST_RELEASE_TAG}/RedPanda_Setup_${APP_VERSION}.exe`,
     fileSize: "См. опубликованные assets",
-    isLatest: true,
+    isLatest: false,
     highlights: [
       "🪄 Конструктор сборок [BETA]: сборка модпака по выбранным тематикам (Магия, Приключения, Технологии, Мир, Декор, RPG) в один клик",
       "Автоматический каскадный поиск и докачивание скрытых библиотек и зависимостей (Fabric API, Curios, Architectury, Cloth Config)",
