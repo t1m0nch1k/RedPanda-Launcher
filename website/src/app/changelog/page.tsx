@@ -40,8 +40,8 @@ export default function ChangelogPage() {
             <div key={rel.version} className="brutalist-card p-6 sm:p-8 relative">
               {/* Бейдж версии */}
               <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-border mb-6">
-                <div className="flex items-center gap-3">
-                  <span className="font-display font-bold text-2xl sm:text-3xl text-primary">
+                <div className="flex min-w-0 max-w-full flex-wrap items-center gap-3">
+                  <span className="min-w-0 max-w-full break-words font-display font-bold text-xl sm:text-3xl text-primary">
                     {rel.version}
                   </span>
                   {rel.isLatest && (
