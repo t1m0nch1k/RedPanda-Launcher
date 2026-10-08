@@ -554,9 +554,12 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
           <div className="lobby-tile__art"><span className="lobby-tile__rays" /><img src="/pandas_png/mining.png" alt="" /><Wand2 className="lobby-tile__symbol" size={27} /><span className="lobby-tile__badge">BETA</span></div>
           <div className="lobby-tile__caption"><strong>{t("home.lobby.build")}</strong><span>{t("home.lobby.build_hint")}</span><ArrowUpRight size={18} /></div>
         </button>
+      </nav>
+
+      <div className="lobby-library-shortcuts">
         <div className="lobby-catalogs"><button onClick={() => setShowModpackBrowser(true)}>Modrinth <Download size={13} /></button><button onClick={() => setShowCurseForgeModpackBrowser(true)}>CurseForge <Download size={13} /></button></div>
         <button className="lobby-manual-create" onClick={() => setShowCreateModal(true)}><Plus size={15} />{t("home.add_instance")}</button>
-      </nav>
+      </div>
 
       <section className="lobby-stage" aria-label={t("home.lobby.character")}>
         <div className="lobby-welcome"><span className="lobby-eyebrow">{t("home.lobby.tagline")}</span><h1>{getGreeting()}, <span>{activeUsername || t("home.player")}</span></h1></div>
