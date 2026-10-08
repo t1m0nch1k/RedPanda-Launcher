@@ -138,59 +138,6 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
   const [renameModal, setRenameModal] = useState<{isOpen: boolean, id: string | null, currentName: string}>({isOpen: false, id: null, currentName: ""});
   const [isExporting, setIsExporting] = useState<Record<string, boolean>>({});
 
-  type PandaState = "welcome" | "greeting" | "celebration" | "thinking" | "searching" | "working" | "loading" | "mining" | "reading";
-  const [pandaState, setPandaState] = useState<PandaState>("welcome");
-  const [customMascotPath, setCustomMascotPath] = useState<string>("");
-
-  useEffect(() => {
-    const checkSettings = () => {
-      invoke<any>("get_settings").then(s => {
-        if (s && s.custom_mascot_path) {
-          setCustomMascotPath(s.custom_mascot_path);
-        } else {
-          setCustomMascotPath("");
-        }
-      }).catch(console.error);
-    };
-    checkSettings();
-    window.addEventListener("focus", checkSettings);
-    return () => window.removeEventListener("focus", checkSettings);
-  }, []);
-
-  const getPandaImage = () => {
-    if (customMascotPath) {
-      return convertFileSrc(customMascotPath);
-    }
-    switch(pandaState) {
-      case "welcome": return "/pandas_png/clasped.png";
-      case "greeting": return "/pandas_png/waving.png";
-      case "celebration": return "/pandas_png/joy.png";
-      case "thinking": return "/pandas_png/thinking.png";
-      case "working": return "/pandas_png/holographic.png";
-      case "searching": return "/pandas_png/standing.png";
-      case "reading": return "/pandas_png/reading.png";
-      // Fallbacks if images are missing
-      case "loading": return "/pandas_png/clasped.png";
-      case "mining": return "/pandas_png/mining.png";
-      default: return "/pandas_png/clasped.png";
-    }
-  };
-
-  const getPandaMessage = () => {
-    switch(pandaState) {
-      case "welcome": return t("home.panda.welcome");
-      case "greeting": return t("home.panda.greeting");
-      case "celebration": return t("home.panda.celebration");
-      case "thinking": return t("home.panda.thinking");
-      case "searching": return t("home.panda.searching");
-      case "working": return t("home.panda.working");
-      case "loading": return t("home.panda.loading");
-      case "mining": return t("home.panda.mining");
-      case "reading": return t("home.panda.reading");
-      default: return t("home.panda.welcome");
-    }
-  };
-
   const currentInstance = useMemo(() => instances.find(i => i.id === selectedInstance) || instances[0], [instances, selectedInstance]);
   const [showLibrary, setShowLibrary] = useState(false);
   const managedInstance = instances.find(instance => instance.id === managingInstance);
@@ -486,19 +433,10 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
     };
   }, []);
 
-  // Revert back to welcome after some time if left alone
-  useEffect(() => {
-    if (isLaunching) return;
-    if (pandaState !== "welcome" && pandaState !== "loading") {
-      const timeout = setTimeout(() => setPandaState("welcome"), 4000);
-      return () => clearTimeout(timeout);
-    }
-  }, [pandaState, isLaunching]);
-
   const handleLaunch = async (serverUrl?: string, instanceId = currentInstance?.id) => {
     if (isLaunching || !instanceId) return;
     setIsLaunching(true);
-    setPandaState("working");
+
     setDownloadAction(t("home.download_action.checking"));
     setDownloadTotal(0);
     downloadedBytesRef.current = 0;
@@ -512,7 +450,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
       if (!activeAccount) {
         toast.error(t("home.lobby.choose_account"));
         setIsLaunching(false);
-        setPandaState("welcome");
+
         return;
       }
       
@@ -526,11 +464,11 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
       
       await invoke("update_instance_played", { id: instanceId });
       loadInstances();
-      setPandaState("celebration");
+
     } catch (e) {
       console.error(e);
       toast.error("Ошибка запуска: " + e);
-      setPandaState("thinking");
+
     }
     
     setIsLaunching(false);
@@ -566,7 +504,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
         <div className="lobby-character-shadow" aria-hidden="true" />
         <div className="lobby-character"><Suspense fallback={<div className="lobby-character-loading"><Loader2 size={28} className="animate-spin" /></div>}><SkinViewer skinUrl={getSkinUrl()} model={savedSkin?.model} responsive width={420} height={430} /></Suspense></div>
         <button className="lobby-character-label" disabled={!activeAccountObj} onClick={() => setShowWardrobe(true)}><Shirt size={15} />{t("wardrobe.title")}<ArrowUpRight size={14} /></button>
-        <div className="lobby-mascot"><span>{getPandaMessage()}</span><img src={getPandaImage()} alt="RedPanda" /></div>
+
       </section>
 
       <section className="lobby-launch-dock" aria-label={t("home.selected_instance")}>
