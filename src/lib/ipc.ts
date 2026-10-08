@@ -96,3 +96,19 @@ export function command<T>(name: string, args?: Record<string, unknown>): Promis
     } satisfies AppError;
   });
 }
+
+export interface InstallPlan {
+  id: string;
+  instance_id: string;
+  title: string;
+  items: Array<{ task: InstallTask; action: "install" | "replace" | "installed" }>;
+  optional: string[];
+  conflicts: string[];
+  warnings: string[];
+}
+export interface SkinPreview { data_url: string; sha256: string; width: number; height: number; model?: "classic" | "slim" }
+export const previewModInstall = (instanceId: string, source: string, id: string, projectType: string) =>
+  command<InstallPlan>("preview_mod_install", { instanceId, source, id, projectType });
+export const executeModInstall = (planId: string) => command<void>("execute_mod_install", { planId });
+
+export const discardModInstall = (planId: string) => command<void>("discard_mod_install", { planId });

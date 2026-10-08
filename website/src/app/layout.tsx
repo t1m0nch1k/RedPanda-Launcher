@@ -4,7 +4,7 @@ import { CookieBanner } from "../components/CookieBanner";
 import { ScrollToTop } from "../components/ScrollToTop";
 import { YandexAds } from "../components/YandexAds";
 
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.2";
+const APP_VERSION = "0.3.1";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.redlauncher.ru"),

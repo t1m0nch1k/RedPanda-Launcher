@@ -10,9 +10,8 @@ import {
   IconArrowUpRight
 } from "@tabler/icons-react";
 
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.2";
-
-const RELEASE_TAG = "v0.3.2";
+const RELEASE_VERSION = "0.3.1";
+const RELEASE_TAG = `v${RELEASE_VERSION}`;
 
 export const metadata = {
   title: "Скачать RedPanda Launcher для Windows",
@@ -20,7 +19,7 @@ export const metadata = {
 };
 
 export default function DownloadPage() {
-  const downloadUrl = `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/${RELEASE_TAG}/RedPanda_Setup_${APP_VERSION}.exe`;
+  const downloadUrl = `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/${RELEASE_TAG}/RedPanda_Setup_${RELEASE_VERSION}.exe`;
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
@@ -37,7 +36,7 @@ export default function DownloadPage() {
             Скачать RedPanda Launcher
           </h1>
           <p className="text-muted text-sm sm:text-base max-w-2xl mx-auto leading-relaxed font-mono">
-            Новейшая стабильная версия <span className="text-primary font-bold">v{APP_VERSION}</span> с диагностикой сборок, управлением модами, кастомным автономным инсталлятором и встроенным P2P мультиплеером.
+            Последняя опубликованная версия <span className="text-primary font-bold">v{RELEASE_VERSION}</span> с управлением модами и автономным установщиком. Версия 0.3.3 с гардеробом и предпросмотром установки модов готовится к публичному выпуску.
           </p>
         </div>
 
@@ -46,7 +45,7 @@ export default function DownloadPage() {
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3">
               <span className="font-display font-bold text-xl sm:text-3xl text-foreground break-all">
-                RedPanda_Setup_{APP_VERSION}.exe
+                RedPanda_Setup_{RELEASE_VERSION}.exe
               </span>
               <span className="bg-primary text-black font-bold font-mono text-[10px] uppercase px-2 py-0.5 tracking-wider">
                 Official Release

@@ -3,12 +3,13 @@ import { SkinViewer as SkinViewer3D, IdleAnimation } from 'skinview3d';
 
 interface SkinViewerProps {
     skinUrl?: string | null;
+    model?: "classic" | "slim";
     capeUrl?: string | null;
     width?: number;
     height?: number;
 }
 
-const SkinViewer: React.FC<SkinViewerProps> = ({ skinUrl, capeUrl, width = 300, height = 400 }) => {
+const SkinViewer: React.FC<SkinViewerProps> = ({ skinUrl, capeUrl, model, width = 300, height = 400 }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const viewerRef = useRef<SkinViewer3D | null>(null);
 
@@ -18,9 +19,7 @@ const SkinViewer: React.FC<SkinViewerProps> = ({ skinUrl, capeUrl, width = 300, 
         viewerRef.current = new SkinViewer3D({
             canvas: canvasRef.current,
             width,
-            height,
-            skin: skinUrl || undefined,
-            cape: capeUrl || undefined
+            height
         });
 
         // Add idle animation
@@ -32,19 +31,30 @@ const SkinViewer: React.FC<SkinViewerProps> = ({ skinUrl, capeUrl, width = 300, 
                 viewerRef.current = null;
             }
         };
-    }, []);
+    }, [width, height]);
 
     const FALLBACK_SKIN = "https://minotar.net/skin/MHF_Steve";
 
     useEffect(() => {
-        if (!viewerRef.current) return;
-        
-        const url = skinUrl || FALLBACK_SKIN;
-        viewerRef.current.loadSkin(url).catch(() => {
-            // If skin URL fails (e.g. 404 from ely.by with no custom skin), fallback to Steve
-            viewerRef.current?.loadSkin(FALLBACK_SKIN).catch(console.error);
-        });
-    }, [skinUrl]);
+        const viewer = viewerRef.current;
+        if (!viewer) return;
+        let disposed = false;
+        // Load the texture before handing it to the viewer, so an earlier
+        // network response cannot replace a more recently selected PNG.
+        const load = (url: string, fallback: boolean) => {
+            const texture = new Image();
+            texture.crossOrigin = "anonymous";
+            texture.onload = () => {
+                if (disposed) return;
+                try { viewer.loadSkin(texture, { model: model === "classic" ? "default" : model || "auto-detect" }); }
+                catch { if (!fallback) load(FALLBACK_SKIN, true); }
+            };
+            texture.onerror = () => { if (!disposed && !fallback) load(FALLBACK_SKIN, true); };
+            texture.src = url;
+        };
+        load(skinUrl || FALLBACK_SKIN, false);
+        return () => { disposed = true; };
+    }, [skinUrl, model, width, height]);
 
     useEffect(() => {
         if (!viewerRef.current) return;
@@ -54,7 +64,7 @@ const SkinViewer: React.FC<SkinViewerProps> = ({ skinUrl, capeUrl, width = 300, 
         } else {
             viewerRef.current.resetCape();
         }
-    }, [capeUrl]);
+    }, [capeUrl, width, height]);
 
     return (
         <canvas ref={canvasRef} style={{ width: `${width}px`, height: `${height}px`, display: 'block', margin: '0 auto' }} />

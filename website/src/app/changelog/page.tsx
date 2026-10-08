@@ -46,7 +46,7 @@ export default function ChangelogPage() {
                   </span>
                   {rel.isLatest && (
                     <span className="bg-primary text-black font-bold font-mono text-[10px] uppercase px-2 py-0.5 tracking-wider">
-                      LATEST STABLE
+                      НОВОЕ В РАЗРАБОТКЕ
                     </span>
                   )}
                   <span className="text-muted font-mono text-xs">

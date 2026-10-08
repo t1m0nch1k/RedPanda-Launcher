@@ -540,7 +540,9 @@ pub async fn ping_minecraft_server(address: String) -> Result<ServerPingResult, 
                 let online = json["online"].as_bool().unwrap_or(false);
                 let host = json["host"].as_str().unwrap_or(clean_addr).to_string();
                 let port = json["port"].as_u64().unwrap_or(25565) as u16;
-                let version = json["version"]["name_clean"].as_str().map(|s| s.to_string());
+                let version = json["version"]["name_clean"]
+                    .as_str()
+                    .map(|s| s.to_string());
                 let players_online = json["players"]["online"].as_u64();
                 let players_max = json["players"]["max"].as_u64();
                 let motd_clean = json["motd"]["clean"].as_str().map(|s| s.to_string());

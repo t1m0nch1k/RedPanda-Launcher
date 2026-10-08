@@ -1,7 +1,7 @@
 import { useState, useEffect, memo } from "react";
 import { Search, Download, Loader2, ArrowLeft } from "lucide-react";
-import { ask } from "@tauri-apps/plugin-dialog";
-import { InstallTask, command } from "../lib/ipc";
+import InstallPreviewModal from "./InstallPreviewModal";
+import { InstallPlan, previewModInstall, command, getErrorMessage } from "../lib/ipc";
 
 const invoke = command;
 
@@ -118,6 +118,7 @@ const SHADER_CATEGORIES = [
 export default function ModrinthBrowser({ instance, onClose, projectType = "mod" }: ModrinthBrowserProps) {
     const { t } = useTranslation();
     const [query, setQuery] = useState("");
+    const [installPlan, setInstallPlan] = useState<InstallPlan | null>(null);
     const [results, setResults] = useState<ModrinthSearchResult[]>([]);
     const [loading, setLoading] = useState(false);
     const [page, setPage] = useState(0);
@@ -152,7 +153,7 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
             setResults(data);
         } catch (e) {
             console.error(e);
-            toast.error(t("common.error") + ": " + e);
+            toast.error(t("common.error") + ": " + getErrorMessage(e));
         }
         setLoading(false);
     };
@@ -178,7 +179,7 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
             setVersions(data);
         } catch (e) {
             console.error(e);
-            toast.error(t("common.error") + ": " + e);
+            toast.error(t("common.error") + ": " + getErrorMessage(e));
         }
         setLoadingVersions(false);
     };
@@ -191,55 +192,14 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
                 toast.success(t("modrinth.install_success_modpack"));
                 onClose();
             } else {
-                const tasks: InstallTask[] = await invoke("resolve_dependencies", {
-                    instanceId: instance?.id || "",
-                    source: "modrinth",
-                    id: versionId,
-                    gameVersion: instance?.game_version || "",
-                    loader: instance?.loader_type || "",
-                });
+                const plan = await previewModInstall(instance?.id || "", "modrinth", versionId, projectType);
+                setInstallPlan(plan);
 
-                if (tasks.length > 1) {
-                    const confirm = await ask(`Установка ${selectedMod?.title} потребует загрузки ещё ${tasks.length - 1} зависимостей. Продолжить?`, {
-                        title: "Установка зависимостей",
-                        kind: "info"
-                    });
-                    if (!confirm) {
-                        setInstallingVersion(null);
-                        return;
-                    }
-                }
-
-                for (const task of tasks) {
-                    if (task.source === "modrinth") {
-                        await invoke("download_modrinth_version", {
-                            instanceId: instance?.id,
-                            versionId: task.id,
-                            projectType
-                        });
-                    } else if (task.source === "curseforge") {
-                        await invoke("download_curseforge_version", {
-                            instanceId: instance?.id,
-                            downloadUrl: task.url,
-                            fileName: task.filename,
-                            projectType,
-                            expectedSha1: task.sha1,
-                        });
-                    }
-                }
-                
-                if (projectType === "resourcepack") {
-                    toast.success(t("modrinth.install_success_resourcepack"));
-                } else if (projectType === "shader") {
-                    toast.success(t("modrinth.install_success_shader"));
-                } else {
-                    toast.success(t("modrinth.install_success_mod"));
-                }
             }
             // Optionally, we could go back or show a checkmark
         } catch(e) {
             console.error(e);
-            toast.error(t("common.error") + ": " + e);
+            toast.error(t("common.error") + ": " + getErrorMessage(e));
         }
         setInstallingVersion(null);
     }
@@ -248,6 +208,11 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
 
     return (
         <div className="fixed inset-0 bg-black/80  flex items-center justify-center z-50 p-6">
+            {installPlan && <InstallPreviewModal plan={installPlan} title={selectedMod?.title || installPlan.title} onClose={() => setInstallPlan(null)} onInstalled={() => {
+                setInstallPlan(null);
+                toast.success(t(projectType === "resourcepack" ? "modrinth.install_success_resourcepack" : projectType === "shader" ? "modrinth.install_success_shader" : "modrinth.install_success_mod"));
+            }} />}
+
             <div className="bg-card brutalist-border rounded-none w-full max-w-4xl h-[80vh]  flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                 
                 {/* Header */}

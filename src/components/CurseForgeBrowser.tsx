@@ -1,7 +1,7 @@
 import { useState, useEffect, memo } from "react";
 import { Search, Download, Loader2, ArrowLeft } from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
-import { ask } from "@tauri-apps/plugin-dialog";
+import { InstallPlan, previewModInstall, command as invoke, getErrorMessage } from "../lib/ipc";
+import InstallPreviewModal from "./InstallPreviewModal";
 import { toast } from "./Toast";
 import { useTranslation } from "react-i18next";
 
@@ -63,6 +63,7 @@ const ModItem = memo(({ mod, isSelected, onClick }: { mod: CurseForgeSearchResul
 export default function CurseForgeBrowser({ instance, onClose, projectType = "mod" }: CurseForgeBrowserProps) {
     const { t } = useTranslation();
     const [query, setQuery] = useState("");
+    const [installPlan, setInstallPlan] = useState<InstallPlan | null>(null);
     const [results, setResults] = useState<CurseForgeSearchResult[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [page, setPage] = useState(0);
@@ -87,7 +88,7 @@ export default function CurseForgeBrowser({ instance, onClose, projectType = "mo
             if (p === 0) setResults(data);
             else setResults(prev => [...prev, ...data]);
         } catch (e: any) {
-            toast.error(e.toString());
+            toast.error(getErrorMessage(e));
         } finally {
             setIsLoading(false);
         }
@@ -112,7 +113,7 @@ export default function CurseForgeBrowser({ instance, onClose, projectType = "mo
             });
             setVersions(data);
         } catch (e: any) {
-            toast.error(e.toString());
+            toast.error(getErrorMessage(e));
         } finally {
             setIsLoadingVersions(false);
         }
@@ -147,53 +148,12 @@ export default function CurseForgeBrowser({ instance, onClose, projectType = "mo
                 });
                 toast.success(t("modrinth.install_success_modpack"));
             } else if (instance) {
-                const tasks: any[] = await invoke("resolve_dependencies", {
-                    instanceId: instance.id,
-                    source: "curseforge",
-                    id: file.id.toString(),
-                    gameVersion: instance?.game_version || "",
-                    loader: instance?.loader_type || "",
-                });
+                const plan = await previewModInstall(instance?.id || "", "curseforge", file.id.toString(), projectType);
+                setInstallPlan(plan);
 
-                if (tasks.length > 1) {
-                    const confirm = await ask(`Установка ${selectedMod?.name} потребует загрузки ещё ${tasks.length - 1} зависимостей. Продолжить?`, {
-                        title: "Установка зависимостей",
-                        kind: "info"
-                    });
-                    if (!confirm) {
-                        setInstallingVersionId(null);
-                        return;
-                    }
-                }
-
-                for (const task of tasks) {
-                    if (task.source === "modrinth") {
-                        await invoke("download_modrinth_version", {
-                            instanceId: instance?.id,
-                            versionId: task.id,
-                            projectType
-                        });
-                    } else if (task.source === "curseforge") {
-                        await invoke("download_curseforge_version", {
-                            instanceId: instance.id,
-                            downloadUrl: task.url,
-                            fileName: task.filename,
-                            projectType,
-                            expectedSha1: task.sha1,
-                        });
-                    }
-                }
-
-                if (projectType === "resourcepack") {
-                    toast.success(t("modrinth.install_success_resourcepack"));
-                } else if (projectType === "shader") {
-                    toast.success(t("modrinth.install_success_shader"));
-                } else {
-                    toast.success(t("modrinth.install_success_mod"));
-                }
             }
         } catch (e: any) {
-            toast.error(e.toString());
+            toast.error(getErrorMessage(e));
         } finally {
             setInstallingVersionId(null);
         }
@@ -203,6 +163,11 @@ export default function CurseForgeBrowser({ instance, onClose, projectType = "mo
 
     return (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6">
+            {installPlan && <InstallPreviewModal plan={installPlan} title={selectedMod?.name || installPlan.title} onClose={() => setInstallPlan(null)} onInstalled={() => {
+                setInstallPlan(null);
+                toast.success(t(projectType === "resourcepack" ? "modrinth.install_success_resourcepack" : projectType === "shader" ? "modrinth.install_success_shader" : "modrinth.install_success_mod"));
+            }} />}
+
             <div className="bg-card brutalist-border rounded-none w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                 {/* Header */}
                 <div className="flex items-center gap-4 p-4 border-b border-border bg-background/50">
@@ -305,9 +270,10 @@ export default function CurseForgeBrowser({ instance, onClose, projectType = "mo
                                                 </div>
                                                 <button 
                                                     onClick={() => handleInstallVersion(v)}
-                                                    disabled={installingVersionId === v.id || !v.downloadUrl}
+                                                    disabled={installingVersionId === v.id}
                                                     className="p-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 transition-colors disabled:opacity-50"
-                                                    title={!v.downloadUrl ? "Автор запретил скачивание сторонними приложениями" : "Скачать"}
+                                                    title={t("modrinth.install")}
+                                                    aria-label={t("modrinth.install")}
                                                 >
                                                     {installingVersionId === v.id ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
                                                 </button>

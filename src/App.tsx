@@ -14,6 +14,7 @@ export default function App() {
   const { t } = useTranslation();
   const [selectedInstance, setSelectedInstance] = useState<string | null>("forge-1.20");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [activeUsername, setActiveUsername] = useState<string | null>(null);
   const [bgStyle, setBgStyle] = useState<{ url?: string; opacity?: number; blur?: number }>({});
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
@@ -164,7 +165,7 @@ export default function App() {
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden relative flex flex-col z-10">
-        <Home selectedInstance={selectedInstance} onSelectInstance={setSelectedInstance} activeUsername={activeUsername} onOpenLauncherSettings={() => setIsSettingsOpen(true)} />
+        <Home selectedInstance={selectedInstance} onSelectInstance={setSelectedInstance} activeUsername={activeUsername} activeAccountId={activeAccountId} onOpenLauncherSettings={() => setIsSettingsOpen(true)} />
       </div>
 
       {/* Bottom status bar */}
@@ -172,9 +173,9 @@ export default function App() {
         <div className="flex items-center gap-3 text-muted shrink-0">
           <span className="flex items-center gap-1.5 text-text/80 whitespace-nowrap font-medium">
             <span className="w-2 h-2 rounded-none bg-emerald-500 inline-block shrink-0"></span>
-            v0.3.2 Stable
+            v0.3.3
           </span>
-          <AccountSelector onAccountChange={(username) => setActiveUsername(username)} />
+          <AccountSelector onAccountChange={(username, id) => { setActiveUsername(username); setActiveAccountId(id); }} />
         </div>
 
         <div className="flex items-center justify-center gap-4 w-1/3 text-muted">

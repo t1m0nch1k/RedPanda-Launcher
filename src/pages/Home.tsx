@@ -1,3 +1,4 @@
+import { Account, SkinPreview, command } from "../lib/ipc";
 import { Plus, Play, Anvil, Feather, TreePine, Hammer, Settings, Loader2, Folder, FileText, Trash2, Download, Globe, Copy, Wand2, ExternalLink } from "lucide-react";
 import { useState, useEffect, useLayoutEffect, useMemo, memo, useRef, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
@@ -12,6 +13,7 @@ const CrashModal = lazy(() => import("../components/CrashModal"));
 const ModrinthBrowser = lazy(() => import("../components/ModrinthBrowser"));
 const CurseForgeBrowser = lazy(() => import("../components/CurseForgeBrowser"));
 const ModpackBuilderModal = lazy(() => import("../components/ModpackBuilderModal"));
+const WardrobeModal = lazy(() => import("../components/WardrobeModal"));
 const SkinViewer = lazy(() => import("../components/SkinViewer"));
 const ServerBrowserModal = lazy(() => import("../components/ServerBrowserModal"));
 
@@ -30,6 +32,7 @@ interface HomeProps {
   selectedInstance: string | null;
   onSelectInstance: (id: string) => void;
   activeUsername: string | null;
+  activeAccountId: string | null;
   onOpenLauncherSettings?: () => void;
 }
 
@@ -68,21 +71,33 @@ const InstanceIcon = memo(({ iconPath, loaderType, className }: { iconPath?: str
   );
 });
 
-export default memo(function Home({ selectedInstance, onSelectInstance, activeUsername, onOpenLauncherSettings }: HomeProps) {
+export default memo(function Home({ selectedInstance, onSelectInstance, activeUsername, activeAccountId, onOpenLauncherSettings }: HomeProps) {
   const { t } = useTranslation();
   const [showModpackBrowser, setShowModpackBrowser] = useState(false);
   const [showCurseForgeModpackBrowser, setShowCurseForgeModpackBrowser] = useState(false);
   const [showModpackBuilder, setShowModpackBuilder] = useState(false);
-  const [activeAccountObj, setActiveAccountObj] = useState<any>(null);
+  const [activeAccountObj, setActiveAccountObj] = useState<Account | null>(null);
+
+  const [showWardrobe, setShowWardrobe] = useState(false);
+  const [savedSkin, setSavedSkin] = useState<SkinPreview | null>(null);
 
   useEffect(() => {
-    invoke<any[]>("get_accounts").then(accs => {
-      const active = accs.find(a => a.is_active);
-      setActiveAccountObj(active || null);
+    let disposed = false;
+    invoke<Account[]>("get_accounts").then(accs => {
+      if (!disposed) setActiveAccountObj(accs.find(a => a.is_active) || null);
     }).catch(console.error);
-  }, [activeUsername]);
+    return () => { disposed = true; };
+  }, [activeUsername, activeAccountId]);
+
+  useEffect(() => {
+    let disposed = false;
+    setSavedSkin(null);
+    if (activeAccountObj) command<SkinPreview | null>("get_account_skin", { accountId: activeAccountObj.id }).then(skin => { if (!disposed) setSavedSkin(skin); }).catch(console.error);
+    return () => { disposed = true; };
+  }, [activeAccountObj?.id]);
 
   const getSkinUrl = () => {
+    if (savedSkin) return savedSkin.data_url;
     if (!activeAccountObj) return "https://minotar.net/skin/MHF_Steve";
     if (activeAccountObj.account_type === "ElyBy") {
       return `https://skinsystem.ely.by/skins/${activeAccountObj.username}.png`;
@@ -521,7 +536,8 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
 
   return (
     <div className="flex flex-col h-full gap-10 pb-8 max-w-5xl mx-auto w-full overflow-y-auto custom-scrollbar pr-4">
-      
+
+      {showWardrobe && activeAccountObj && <Suspense fallback={null}><WardrobeModal key={activeAccountObj.id} account={activeAccountObj} selectedInstance={selectedInstance} onClose={() => setShowWardrobe(false)} onApplied={setSavedSkin} /></Suspense>}
       <div className="flex justify-between items-end">
         <div className="mb-2">
           <h1 className="text-3xl font-bold tracking-tight text-white">
@@ -530,11 +546,12 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
         </div>
         {/* Panda Personality & SkinViewer */}
         <div className="flex items-center transition-all duration-300">
-          <div className="mr-6 pointer-events-none opacity-80 hover:opacity-100 transition-opacity">
+          <button disabled={!activeAccountObj} onClick={() => setShowWardrobe(true)} aria-label={t("wardrobe.title")} title={t("wardrobe.title")} className="mr-6 opacity-80 hover:opacity-100 transition-opacity disabled:opacity-40 border border-transparent hover:border-primary/40">
               <Suspense fallback={<div className="w-[90px] h-[120px] bg-card animate-pulse" />}>
-                <SkinViewer skinUrl={getSkinUrl()} width={90} height={120} />
+                <SkinViewer skinUrl={getSkinUrl()} model={savedSkin?.model} width={90} height={120} />
               </Suspense>
-          </div>
+            <span className="text-[10px] text-muted uppercase tracking-wider">{t("wardrobe.title")}</span>
+          </button>
           {/* Speech Bubble */}
           <div className="relative bg-card brutalist-border px-4 py-2.5 rounded-none  flex items-center justify-center mr-5 mb-3">
             <span className="text-[13px] text-white/90 font-medium transition-all duration-300 leading-none">{getPandaMessage()}</span>

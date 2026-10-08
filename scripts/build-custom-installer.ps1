@@ -21,6 +21,10 @@ Write-Host "==================================================" -ForegroundColor
 $PayloadDir = Join-Path $RootDir "installer\src-tauri\payload_staging"
 $PayloadZip = Join-Path $RootDir "installer\src-tauri\payload.zip"
 $OutDir = Join-Path $RootDir "release_output"
+$ResolvedRoot = [System.IO.Path]::GetFullPath($RootDir).TrimEnd('\') + '\'
+if (-not [System.IO.Path]::GetFullPath($PayloadDir).StartsWith($ResolvedRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Payload staging must remain inside the workspace"
+}
 
 # 1. Clean previous staging
 if (Test-Path $PayloadDir) {
@@ -32,6 +36,7 @@ New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 # 2. Build RedPanda Launcher
 Write-Host "`n[1/4] Building RedPanda Launcher Release Binary..." -ForegroundColor Yellow
 npm run tauri build -- --no-bundle
+if ($LASTEXITCODE -ne 0) { throw "Launcher build failed with exit code $LASTEXITCODE" }
 
 $LauncherExe = Join-Path $RootDir "src-tauri\target\release\redpanda-launcher.exe"
 if (-not (Test-Path $LauncherExe)) {
@@ -62,6 +67,7 @@ Remove-Item -Recurse -Force $PayloadDir
 # 4. Build Custom GUI Installer
 Write-Host "`n[3/4] Building Custom GUI Installer Frontend & Binary with Embedded UI..." -ForegroundColor Yellow
 npm --prefix installer run tauri build -- --no-bundle
+if ($LASTEXITCODE -ne 0) { throw "Installer build failed with exit code $LASTEXITCODE" }
 
 $InstallerExe = Join-Path $RootDir "installer\src-tauri\target\release\redpanda-installer.exe"
 if (-not (Test-Path $InstallerExe)) {

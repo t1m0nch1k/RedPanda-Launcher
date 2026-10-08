@@ -16,18 +16,39 @@ export interface LauncherRelease {
   changes: ReleaseChange[];
 }
 
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.2";
-const LATEST_RELEASE_TAG = "v0.3.2";
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.3";
+const LATEST_RELEASE_TAG = "v0.3.1";
+const RELEASE_VERSION = "0.3.1";
 
 export const LAUNCHER_RELEASES: LauncherRelease[] = [
   {
-    version: `v${APP_VERSION}`,
+    version: `v${APP_VERSION} (предварительная версия)`,
+    date: "8 октября 2026",
+    title: "Предпросмотр модов и гардероб скинов",
+    tagline: "Новые возможности готовы в исходном коде. Публичный подписанный установщик пока не опубликован.",
+    downloadUrl: `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/${LATEST_RELEASE_TAG}/RedPanda_Setup_${RELEASE_VERSION}.exe`,
+    fileSize: "Скачать опубликованную 0.3.1",
+    isLatest: true,
+    highlights: [
+      "План установки Modrinth и CurseForge: файлы, обязательные зависимости и конфликты до подтверждения",
+      "Гардероб: выбор PNG, модели Classic / Slim и интерактивный 3D-просмотр",
+      "Microsoft: загрузка скина в профиль Minecraft Java Edition",
+      "Локальные сборки с модами: установка скина через CustomSkinLoader; видимость только на этом компьютере",
+      "Отдельные слои команд и движка для установки контента и работы со скинами"
+    ],
+    changes: [
+      { type: "feat", title: "Предпросмотр установки", description: "Согласованный план установки, проверка SHA-1 и защита от изменения файлов сборки между просмотром и установкой." },
+      { type: "feat", title: "Скины внутри лаунчера", description: "Проверка PNG до применения, предпросмотр в 3D и выбор профиля Microsoft или локальной сборки. Онлайн-профиль Ely.by не изменяется." }
+    ]
+  },
+  {
+    version: "v0.3.2 (не опубликована)",
     date: "26 сентября 2026",
     title: "Smart Crash Diagnostics & Live Server Browser",
     tagline: "Интеллектуальная расшифровка крашей с готовыми решениями, встроенный мониторинг серверов с живым пингом и онлайном, экспорт модпаков в .mrpack и таймер Discord RPC",
-    downloadUrl: `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/${LATEST_RELEASE_TAG}/RedPanda_Setup_${APP_VERSION}.exe`,
+    downloadUrl: `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/${LATEST_RELEASE_TAG}/RedPanda_Setup_${RELEASE_VERSION}.exe`,
     fileSize: "См. опубликованные assets",
-    isLatest: true,
+    isLatest: false,
     highlights: [
       "🧠 Умная диагностика крашей (Smart Diagnostics): лаунчер анализирует логи вылетов Minecraft, определяет нехватку памяти (OOM), несовместимость Java или конфликты модов и подсказывает понятные действия по исправлению",
       "🌐 Live Server Browser: встроенный мониторинг публичных и партнерских серверов с живым пингом, отображением онлайна, MOTD и прямым подключением в игру в 1 клик",
@@ -63,7 +84,7 @@ export const LAUNCHER_RELEASES: LauncherRelease[] = [
     date: "6 сентября 2026",
     title: "Smart Modpack Builder & Modern MC Engine",
     tagline: "Интеллектуальный конструктор сборок под ключ, поддержка новейших версий 26.x и снапшотов, кастомизация палитры и исправление CurseForge API",
-    downloadUrl: `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/${LATEST_RELEASE_TAG}/RedPanda_Setup_${APP_VERSION}.exe`,
+    downloadUrl: `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/${LATEST_RELEASE_TAG}/RedPanda_Setup_${RELEASE_VERSION}.exe`,
     fileSize: "См. опубликованные assets",
     isLatest: false,
     highlights: [

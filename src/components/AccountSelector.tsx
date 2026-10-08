@@ -5,7 +5,7 @@ import { Account, command } from "../lib/ipc";
 const invoke = command;
 
 interface AccountSelectorProps {
-  onAccountChange?: (username: string | null) => void;
+  onAccountChange?: (username: string | null, accountId: string | null) => void;
 }
 
 import { toast } from "./Toast";
@@ -41,7 +41,7 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
       setAccounts(data);
       const active = data.find(a => a.is_active);
       if (onAccountChange) {
-        onAccountChange(active ? active.username : null);
+        onAccountChange(active ? active.username : null, active?.id || null);
       }
     } catch (e) {
       console.error("Failed to load accounts", e);

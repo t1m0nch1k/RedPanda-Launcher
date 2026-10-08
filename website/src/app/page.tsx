@@ -27,13 +27,15 @@ import {
   IconHelp
 } from "@tabler/icons-react";
 
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.2";
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.3";
 
 export default function Home() {
   const [typedIndex, setTypedIndex] = useState(0);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   const typedPhrases = [
+    "[ MOD_INSTALL_PREVIEW ]",
+    "[ SKIN_WARDROBE ]",
     "[ SMART_CRASH_DIAGNOSTICS ]",
     "[ LIVE_SERVER_BROWSER ]",
     "[ SMART_MODPACK_BUILDER ]",
@@ -53,11 +55,11 @@ export default function Home() {
 
   const features = [
     { icon: <IconBolt size={24} />, title: "LIGHTWEIGHT_CORE", desc: "{ built_with: 'Rust & Tauri',\n  memory_footprint: 'optimized',\n  startup: 'native' }" },
-    { icon: <IconPuzzle size={24} />, title: "SMART_MODPACK_BUILDER", desc: "{ mode: 'one_click_curation',\n  genres: ['Magic', 'Adventure', 'Tech', 'RPG'],\n  dependencies: 'auto_cascade_resolved' }" },
-    { icon: <IconLayoutGrid size={24} />, title: "CUSTOM_GUI_INSTALLER", desc: `{ type: 'cyber_brutalist_gui',\n  setup: 'RedPanda_Setup_${APP_VERSION}.exe',\n  registry_integration: true }` },
+    { icon: <IconPuzzle size={24} />, title: "ПРЕДПРОСМОТР МОДОВ", desc: "До установки проверьте список файлов, обязательные зависимости и конфликты. Доступно в разработке 0.3.3 для Modrinth и CurseForge." },
+    { icon: <IconLayoutGrid size={24} />, title: "CUSTOM_GUI_INSTALLER", desc: "Автономный установщик для Windows. Публичная загрузка: 0.3.1. Сохраняет ваши аккаунты и сборки при переустановке." },
     { icon: <IconShieldLock size={24} />, title: "SECURE_STORAGE_&_UPDATES", desc: "{ storage: 'Windows DPAPI',\n  updates: 'signed_manifest + SHA-256',\n  path_traversal: 'protected' }" },
     { icon: <IconGlobe size={24} />, title: "E4MC_&_STEAM_P2P", desc: "{ modes: ['e4mc.link', 'e4steam'],\n  p2p_hosting: 'built-in',\n  ports_required: false }" },
-    { icon: <IconRocket size={24} />, title: "3D_SKIN_PREVIEWER", desc: "{ engine: 'skinview3d',\n  sources: ['Ely.by', 'Mojang', 'Fallback'],\n  interactivity: 'rotate & animate' }" },
+    { icon: <IconRocket size={24} />, title: "ГАРДЕРОБ СКИНОВ", desc: "Выберите PNG и модель Classic или Slim, посмотрите скин в 3D. В 0.3.3: загрузка в профиль Microsoft или локальная установка через CustomSkinLoader." },
   ];
 
   const metrics = [
@@ -85,7 +87,7 @@ export default function Home() {
           </div>
           <div className="space-y-1">
             <div>STATUS: <span className="text-white">ONLINE</span></div>
-            <div>VERSION: <span className="text-white">v{APP_VERSION}_RELEASE</span></div>
+            <div>VERSION: <span className="text-white">v{APP_VERSION}_PREVIEW</span></div>
             <div>SECURITY: <span className="text-white">DPAPI_SIGNED_UPDATES</span></div>
             <div>INSTALLER: <span className="text-white">STANDALONE_GUI</span></div>
             <div>MULTIPLAYER: <span className="text-white">E4MC_&_STEAM</span></div>
@@ -112,7 +114,7 @@ export default function Home() {
 
           <p className="text-sm sm:text-base md:text-lg text-muted mb-10 max-w-2xl font-mono leading-relaxed bg-card/40 p-4 border-l-2 border-primary">
             {"// Современный лаунчер Майнкрафт на Rust & Tauri."}<br/>
-            {"// GUI установщик, защищённое хранилище, Modrinth & CurseForge, e4mc/e4steam и 3D скины."}
+            {"// В разработке 0.3.3: предпросмотр установки модов и гардероб со скинами прямо в лаунчере."}
           </p>
 
           <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
@@ -120,7 +122,7 @@ export default function Home() {
               href="/download" 
             className="w-full sm:w-auto flex items-center justify-center gap-2 sm:gap-3 bg-primary hover:bg-primary-hover text-black px-4 sm:px-8 py-4 font-bold text-sm sm:text-base leading-tight transition-all cursor-pointer uppercase brutalist-button"
             >
-              <IconDownload size={22} /> СКАЧАТЬ_SETUP_v{APP_VERSION}.EXE
+              <IconDownload size={22} /> СКАЧАТЬ ЛАУНЧЕР
             </Link>
             <Link 
               href="/minecraft-news" 
@@ -200,7 +202,7 @@ export default function Home() {
               <div className="flex flex-wrap items-center gap-3">
                 <span className="font-display font-bold text-3xl text-primary">{latestRelease.version}</span>
                 <span className="bg-primary text-black font-bold font-mono text-[10px] uppercase px-2 py-0.5 tracking-wider">
-                  STABLE RELEASE
+                  ПРЕДВАРИТЕЛЬНАЯ ВЕРСИЯ
                 </span>
                 <span className="text-muted font-mono text-xs">{latestRelease.date}</span>
               </div>
@@ -209,7 +211,7 @@ export default function Home() {
                 className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-black px-4 py-2 font-display font-bold text-xs uppercase brutalist-button"
               >
                 <IconDownload size={16} />
-                <span>Установить v{APP_VERSION}</span>
+                <span>Опубликованные загрузки</span>
               </Link>
             </div>
 

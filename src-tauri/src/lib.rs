@@ -1,10 +1,12 @@
 mod accounts;
 pub mod backup;
 pub mod builder;
+mod commands;
 pub mod curseforge;
 pub mod dependencies;
 pub mod discord;
 pub mod downloads;
+pub mod engine;
 pub mod errors;
 pub mod import;
 pub mod instances;
@@ -163,6 +165,12 @@ pub fn run() {
             updater::check_for_updates,
             updater::download_and_install_update,
             dependencies::resolve_dependencies,
+            commands::content::preview_mod_install,
+            commands::content::execute_mod_install,
+            commands::content::discard_mod_install,
+            commands::skins::preview_skin,
+            commands::skins::get_account_skin,
+            commands::skins::apply_skin,
             builder::build_custom_modpack,
         ])
         .run(tauri::generate_context!())
