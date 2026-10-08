@@ -8,6 +8,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { openUrl } from '@tauri-apps/plugin-opener';
 import ToastContainer, { toast } from "./components/Toast";
+import packageInfo from "../package.json";
 import { useTranslation } from "react-i18next";
 
 export default function App() {
@@ -80,7 +81,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-background text-text font-sans overflow-hidden rounded-none brutalist-border relative">
+    <div className={`launcher-shell flex flex-col h-screen w-screen bg-background text-text font-sans overflow-hidden relative ${bgStyle.url ? "has-custom-background" : ""}`}>
       {bgStyle.url && (
         <div 
           className="absolute inset-0 z-0 bg-cover bg-center pointer-events-none transition-all duration-300"
@@ -92,53 +93,21 @@ export default function App() {
         />
       )}
       <ToastContainer />
-      {/* Topbar / Toolbar (Prism style) */}
-      <div 
-        className="h-12 bg-background border-b border-border flex items-center justify-between px-4 shrink-0 select-none cursor-default"
-        onMouseDown={(e) => {
-          if (!(e.target as HTMLElement).closest('button')) {
-            appWindow.startDragging();
-          }
-        }}
-      >
-        <div className="flex items-center gap-2.5 pointer-events-none pl-1">
-          <img src="/logo.png" alt="RedPanda" className="w-5 h-5 object-contain" />
-          <span className="font-semibold text-[13px] tracking-wide text-text/80">RedPanda Launcher</span>
+      <header className="lobby-header" onMouseDown={event => { if (!(event.target as HTMLElement).closest('button, a')) appWindow.startDragging(); }}>
+        <div className="lobby-brand"><img src="/logo.png" alt="" /><div><strong>REDPANDA</strong><span>LAUNCHER</span></div></div>
+        <div className="lobby-header__actions">
+          <AccountSelector variant="lobby" onAccountChange={(username, id) => { setActiveUsername(username); setActiveAccountId(id); }} />
+          {updateInfo?.has_update && <button className="lobby-icon-button lobby-update-button" onClick={() => setShowUpdateModal(true)} title={t("home.lobby.update")} aria-label={t("home.lobby.update")}><Sparkles size={21} /></button>}
+          <button className="lobby-icon-button" onClick={handleOpenFolder} title={t("app.launcher_folder")} aria-label={t("app.launcher_folder")}><Folder size={21} /></button>
+          <button className="lobby-icon-button" onClick={handleOpenLogs} title={t("app.logs_folder")} aria-label={t("app.logs_folder")}><FileText size={21} /></button>
+          <button className="lobby-icon-button lobby-header-settings" onClick={() => setIsSettingsOpen(true)} title={t("app.launcher_settings")} aria-label={t("app.launcher_settings")}><Settings size={23} /></button>
         </div>
-        
-        <div className="flex items-center gap-2 z-10 text-muted" data-tauri-drag-region="false">
-          {updateInfo && updateInfo.has_update && (
-            <button
-              onClick={() => setShowUpdateModal(true)}
-              className="mr-2 px-2.5 py-1 bg-primary text-background text-xs font-bold brutalist-border hover:bg-primary-hover transition-colors flex items-center gap-1.5 animate-pulse"
-              title="Доступно новое обновление"
-            >
-              <Sparkles size={13} /> v{updateInfo.latest_version}
-            </button>
-          )}
-          <button 
-            onClick={() => appWindow.minimize()}
-            className="p-2 hover:bg-card-hover hover:text-text rounded-none transition-colors"
-            data-tauri-drag-region="false"
-          >
-            <Minus size={16} data-tauri-drag-region="false" />
-          </button>
-          <button 
-            onClick={() => appWindow.toggleMaximize()}
-            className="p-2 hover:bg-card-hover hover:text-text rounded-none transition-colors"
-            data-tauri-drag-region="false"
-          >
-            <Square size={14} data-tauri-drag-region="false" />
-          </button>
-          <button 
-            onClick={() => appWindow.close()}
-            className="p-2 hover:bg-red-500 hover:text-white rounded-none transition-colors"
-            data-tauri-drag-region="false"
-          >
-            <X size={16} data-tauri-drag-region="false" />
-          </button>
+        <div className="lobby-window-controls">
+          <button onClick={() => appWindow.minimize()} aria-label={t("home.lobby.minimize")}><Minus size={15} /></button>
+          <button onClick={() => appWindow.toggleMaximize()} aria-label={t("home.lobby.maximize")}><Square size={13} /></button>
+          <button onClick={() => appWindow.close()} aria-label={t("common.close")}><X size={16} /></button>
         </div>
-      </div>
+      </header>
 
       {showUpdateBanner && updateInfo && (
         <div className="bg-primary text-background px-4 py-2 flex items-center justify-between text-xs font-bold shrink-0 z-20 brutalist-border-b">
@@ -164,59 +133,16 @@ export default function App() {
       )}
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-hidden relative flex flex-col z-10">
+      <div className="flex-1 overflow-hidden relative flex flex-col">
         <Home selectedInstance={selectedInstance} onSelectInstance={setSelectedInstance} activeUsername={activeUsername} activeAccountId={activeAccountId} onOpenLauncherSettings={() => setIsSettingsOpen(true)} />
       </div>
 
-      {/* Bottom status bar */}
-      <div className="h-11 bg-background border-t border-border flex items-center justify-between px-4 text-xs font-mono shrink-0 z-20">
-        <div className="flex items-center gap-3 text-muted shrink-0">
-          <span className="flex items-center gap-1.5 text-text/80 whitespace-nowrap font-medium">
-            <span className="w-2 h-2 rounded-none bg-emerald-500 inline-block shrink-0"></span>
-            v0.3.3
-          </span>
-          <AccountSelector onAccountChange={(username, id) => { setActiveUsername(username); setActiveAccountId(id); }} />
-        </div>
-
-        <div className="flex items-center justify-center gap-4 w-1/3 text-muted">
-          <button onClick={() => openUrl("https://discord.gg/dFv6YvYy5p")} className="hover:text-primary transition-colors flex items-center gap-1.5" title="Discord">
-             <MessageCircle size={14} /> Discord
-          </button>
-          <button onClick={() => openUrl("https://t.me/redpanda_launcher")} className="hover:text-primary transition-colors flex items-center gap-1.5" title="Telegram">
-             <Send size={14} /> Telegram
-          </button>
-          <button onClick={() => openUrl("https://github.com/t1m0nch1k/RedPanda-Launcher")} className="hover:text-primary transition-colors flex items-center gap-1.5" title="GitHub">
-             <GitBranch size={14} /> GitHub
-          </button>
-          <button onClick={() => openUrl("https://boosty.to/redpanda_launcher")} className="hover:text-amber-400 text-amber-500/90 transition-colors flex items-center gap-1.5 font-bold" title="Поддержать разработку (Boosty)">
-             <Heart size={14} className="fill-amber-500" /> Поддержать
-          </button>
-        </div>
-
-        <div className="flex items-center justify-end gap-3 w-1/3 text-muted">
-          <button 
-            className="p-2 hover:text-text hover:bg-card-hover rounded-none transition-colors" 
-            title={t("app.launcher_settings", "Launcher Settings")}
-            onClick={() => setIsSettingsOpen(true)}
-          >
-            <Settings size={18} />
-          </button>
-          <button 
-            className="p-2 hover:text-text hover:bg-card-hover rounded-none transition-colors" 
-            title={t("app.launcher_folder", "Launcher Folder")}
-            onClick={handleOpenFolder}
-          >
-            <Folder size={18} />
-          </button>
-          <button 
-            className="p-2 hover:text-text hover:bg-card-hover rounded-none transition-colors" 
-            title={t("app.logs_folder", "Logs Folder")}
-            onClick={handleOpenLogs}
-          >
-            <FileText size={18} />
-          </button>
-        </div>
-      </div>
+      <footer className="lobby-footer"><span><i className="lobby-status-dot" />v{packageInfo.version}</span><div>
+        <button onClick={() => openUrl("https://discord.gg/dFv6YvYy5p")}><MessageCircle size={13} />Discord</button>
+        <button onClick={() => openUrl("https://t.me/redpanda_launcher")}><Send size={13} />Telegram</button>
+        <button onClick={() => openUrl("https://github.com/t1m0nch1k/RedPanda-Launcher")}><GitBranch size={13} />GitHub</button>
+        <button onClick={() => openUrl("https://boosty.to/redpanda_launcher")} className="lobby-support"><Heart size={13} />{t("home.lobby.support")}</button>
+      </div><span>REDPANDA / MINECRAFT JAVA</span></footer>
 
       {isSettingsOpen && (
         <SettingsModal 

@@ -7,9 +7,10 @@ interface SkinViewerProps {
     capeUrl?: string | null;
     width?: number;
     height?: number;
+    responsive?: boolean;
 }
 
-const SkinViewer: React.FC<SkinViewerProps> = ({ skinUrl, capeUrl, model, width = 300, height = 400 }) => {
+const SkinViewer: React.FC<SkinViewerProps> = ({ skinUrl, capeUrl, model, width = 300, height = 400, responsive = false }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const viewerRef = useRef<SkinViewer3D | null>(null);
 
@@ -23,15 +24,29 @@ const SkinViewer: React.FC<SkinViewerProps> = ({ skinUrl, capeUrl, model, width 
         });
 
         // Add idle animation
-        viewerRef.current.animation = new IdleAnimation();
+        if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            viewerRef.current.animation = new IdleAnimation();
+        }
+        const viewer = viewerRef.current;
+        const parent = canvasRef.current.parentElement;
+        const observer = responsive && parent ? new ResizeObserver(entries => {
+            const { width: w, height: h } = entries[0].contentRect;
+            if (w > 0 && h > 0) viewer.setSize(w, h);
+        }) : null;
+        if (observer && parent) {
+            observer.observe(parent);
+            viewer.controls.enableZoom = false;
+            viewer.playerObject.rotation.y = 0.25;
+        }
         
         return () => {
+            observer?.disconnect();
             if (viewerRef.current) {
                 viewerRef.current.dispose();
                 viewerRef.current = null;
             }
         };
-    }, [width, height]);
+    }, [width, height, responsive]);
 
     const FALLBACK_SKIN = "https://minotar.net/skin/MHF_Steve";
 
@@ -67,7 +82,7 @@ const SkinViewer: React.FC<SkinViewerProps> = ({ skinUrl, capeUrl, model, width 
     }, [capeUrl, width, height]);
 
     return (
-        <canvas ref={canvasRef} style={{ width: `${width}px`, height: `${height}px`, display: 'block', margin: '0 auto' }} />
+        <canvas ref={canvasRef} aria-label="3D skin" style={{ width: responsive ? '100%' : `${width}px`, height: responsive ? '100%' : `${height}px`, display: 'block', margin: '0 auto' }} />
     );
 };
 

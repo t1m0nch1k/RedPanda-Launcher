@@ -55,6 +55,31 @@
       "desktop_shortcut": "Crear acceso directo en el escritorio",
       "export": "Exportar...",
       "delete": "Eliminar"
+    },
+    "lobby": {
+      "library": "Mis instancias",
+      "empty": "Crea una instancia para empezar",
+      "quick_actions": "Acciones rápidas",
+      "my_skin": "Mi skin",
+      "skin_hint": "Crea tu estilo",
+      "choose_account": "Elige una cuenta primero",
+      "friends": "Jugar con amigos",
+      "friends_hint": "Servidores y multijugador",
+      "build": "Crea tu mundo",
+      "build_hint": "Constructor de modpacks",
+      "character": "Tu personaje",
+      "tagline": "Tu mundo. Tus reglas.",
+      "choose_instance": "Elegir instancia",
+      "manage": "Mods y ajustes de instancia",
+      "folder": "Abrir carpeta de instancia",
+      "logs": "Ver registros",
+      "play_time": "{{hours}} h {{minutes}} min jugados",
+      "clear_server": "Borrar servidor",
+      "ready": "Listo para la aventura",
+      "update": "Actualización disponible",
+      "minimize": "Minimizar",
+      "maximize": "Maximizar",
+      "support": "Apoyar"
     }
   },
   "settings": {

@@ -1,11 +1,13 @@
 import { Account, SkinPreview, command } from "../lib/ipc";
-import { Plus, Play, Anvil, Feather, TreePine, Hammer, Settings, Loader2, Folder, FileText, Trash2, Download, Globe, Copy, Wand2, ExternalLink } from "lucide-react";
+import { Plus, Play, Anvil, Feather, TreePine, Hammer, Settings, Loader2, Folder, FileText, Trash2, Download, Copy, Wand2, ExternalLink, ChevronDown, Layers, Users, ArrowUpRight, Shirt } from "lucide-react";
 import { useState, useEffect, useLayoutEffect, useMemo, memo, useRef, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { toast } from "../components/Toast";
 import { open, save } from "@tauri-apps/plugin-dialog";
+
+import InstanceLibrary from "../components/InstanceLibrary";
 
 const CreateInstanceModal = lazy(() => import("../components/CreateInstanceModal"));
 const InstanceManagerModal = lazy(() => import("../components/InstanceManagerModal"));
@@ -190,7 +192,8 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
   };
 
   const currentInstance = useMemo(() => instances.find(i => i.id === selectedInstance) || instances[0], [instances, selectedInstance]);
-  const otherInstances = useMemo(() => instances.filter(i => currentInstance && i.id !== currentInstance.id), [instances, currentInstance]);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const managedInstance = instances.find(instance => instance.id === managingInstance);
 
   const [isLaunching, setIsLaunching] = useState(false);
   const [downloadTotal, setDownloadTotal] = useState<number>(0);
@@ -492,8 +495,8 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
     }
   }, [pandaState, isLaunching]);
 
-  const handleLaunch = async (serverUrl?: string) => {
-    if (isLaunching) return;
+  const handleLaunch = async (serverUrl?: string, instanceId = currentInstance?.id) => {
+    if (isLaunching || !instanceId) return;
     setIsLaunching(true);
     setPandaState("working");
     setDownloadAction(t("home.download_action.checking"));
@@ -507,7 +510,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
       const activeAccount = accounts.find(a => a.is_active);
       
       if (!activeAccount) {
-        toast.error("Пожалуйста, выберите или создайте аккаунт в левом нижнем углу перед запуском!");
+        toast.error(t("home.lobby.choose_account"));
         setIsLaunching(false);
         setPandaState("welcome");
         return;
@@ -517,11 +520,11 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
 
       await invoke("launch_game", { 
         accountId: activeAccount.id,
-        instanceId: currentInstance.id,
+        instanceId,
         server: targetServer || null
       });
       
-      await invoke("update_instance_played", { id: currentInstance.id });
+      await invoke("update_instance_played", { id: instanceId });
       loadInstances();
       setPandaState("celebration");
     } catch (e) {
@@ -535,282 +538,55 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
   };
 
   return (
-    <div className="flex flex-col h-full gap-10 pb-8 max-w-5xl mx-auto w-full overflow-y-auto custom-scrollbar pr-4">
+    <div className="home-lobby">
+      <div className="lobby-backdrop" aria-hidden="true"><div className="lobby-sunbeams" /><div className="lobby-hills lobby-hills--far" /><div className="lobby-hills lobby-hills--near" />{Array.from({length: 20}, (_, index) => <i key={index} className="lobby-pixel" style={{left: `${12 + (index * 37) % 83}%`, top: `${8 + (index * 23) % 77}%`, width: index % 3 === 0 ? 10 : 5, height: index % 3 === 0 ? 10 : 5, animationDelay: `${index * -0.7}s`}} />)}</div>
 
+      <nav className="lobby-actions" aria-label={t("home.lobby.quick_actions")}>
+        <button className="lobby-tile lobby-tile--skin" disabled={!activeAccountObj} onClick={() => setShowWardrobe(true)}>
+          <div className="lobby-tile__art"><span className="lobby-tile__rays" /><img src="/pandas_png/holographic.png" alt="" /><Shirt className="lobby-tile__symbol" size={27} /><span className="lobby-tile__badge">PNG</span></div>
+          <div className="lobby-tile__caption"><strong>{t("home.lobby.my_skin")}</strong><span>{activeAccountObj ? t("home.lobby.skin_hint") : t("home.lobby.choose_account")}</span><ArrowUpRight size={18} /></div>
+        </button>
+        <button className="lobby-tile lobby-tile--friends" onClick={() => setShowServerBrowser(true)}>
+          <div className="lobby-tile__art"><span className="lobby-tile__rays" /><img src="/pandas_png/waving.png" alt="" /><Users className="lobby-tile__symbol" size={27} /><span className="lobby-tile__badge">ONLINE</span></div>
+          <div className="lobby-tile__caption"><strong>{t("home.lobby.friends")}</strong><span>{t("home.lobby.friends_hint")}</span><ArrowUpRight size={18} /></div>
+        </button>
+        <button className="lobby-tile lobby-tile--builder" onClick={() => setShowModpackBuilder(true)}>
+          <div className="lobby-tile__art"><span className="lobby-tile__rays" /><img src="/pandas_png/mining.png" alt="" /><Wand2 className="lobby-tile__symbol" size={27} /><span className="lobby-tile__badge">BETA</span></div>
+          <div className="lobby-tile__caption"><strong>{t("home.lobby.build")}</strong><span>{t("home.lobby.build_hint")}</span><ArrowUpRight size={18} /></div>
+        </button>
+        <div className="lobby-catalogs"><button onClick={() => setShowModpackBrowser(true)}>Modrinth <Download size={13} /></button><button onClick={() => setShowCurseForgeModpackBrowser(true)}>CurseForge <Download size={13} /></button></div>
+        <button className="lobby-manual-create" onClick={() => setShowCreateModal(true)}><Plus size={15} />{t("home.add_instance")}</button>
+      </nav>
+
+      <section className="lobby-stage" aria-label={t("home.lobby.character")}>
+        <div className="lobby-welcome"><span className="lobby-eyebrow">{t("home.lobby.tagline")}</span><h1>{getGreeting()}, <span>{activeUsername || t("home.player")}</span></h1></div>
+        <div className="lobby-character-shadow" aria-hidden="true" />
+        <div className="lobby-character"><Suspense fallback={<div className="lobby-character-loading"><Loader2 size={28} className="animate-spin" /></div>}><SkinViewer skinUrl={getSkinUrl()} model={savedSkin?.model} responsive width={420} height={430} /></Suspense></div>
+        <button className="lobby-character-label" disabled={!activeAccountObj} onClick={() => setShowWardrobe(true)}><Shirt size={15} />{t("wardrobe.title")}<ArrowUpRight size={14} /></button>
+        <div className="lobby-mascot"><span>{getPandaMessage()}</span><img src={getPandaImage()} alt="RedPanda" /></div>
+      </section>
+
+      <section className="lobby-launch-dock" aria-label={t("home.selected_instance")}>
+        <button className="lobby-selected" onClick={() => setShowLibrary(true)} onContextMenu={event => { if (currentInstance) handleOpenContextMenu(event, currentInstance.id); }} disabled={isLaunching} aria-haspopup="dialog">
+          <span className="lobby-selected__icon">{currentInstance ? <InstanceIcon iconPath={currentInstance.icon_path} loaderType={currentInstance.loader_type} /> : <Layers size={32} />}</span>
+          <span className="lobby-selected__info"><small>{t("home.selected_instance")}</small><strong>{currentInstance?.name || t("home.lobby.choose_instance")}</strong><span>{currentInstance ? `${currentInstance.game_version} · ${currentInstance.loader_type}` : t("home.lobby.empty")}</span></span><ChevronDown size={21} />
+        </button>
+        <div className="lobby-instance-tools">
+          <button className="lobby-icon-button" disabled={!currentInstance || isLaunching} onClick={() => currentInstance && setManagingInstance(currentInstance.id)} aria-label={t("home.lobby.manage")} title={t("home.lobby.manage")}><Settings size={19} /></button>
+          <button className="lobby-icon-button" disabled={!currentInstance} onClick={() => currentInstance && invoke("open_instance_folder", {id:currentInstance.id}).catch(console.error)} aria-label={t("home.lobby.folder")} title={t("home.lobby.folder")}><Folder size={19} /></button>
+          <button className="lobby-icon-button" onClick={() => { setCrashExitCode(null); setCrashLogs(gameLogsRef.current); setShowCrashModal(true); }} aria-label={t("home.lobby.logs")} title={t("home.lobby.logs")}><FileText size={19} /></button>
+        </div>
+        <div className="lobby-play-panel">
+          <button className="lobby-play" onClick={() => handleLaunch(quickServer || undefined)} disabled={isLaunching || !currentInstance}>
+            {isLaunching ? <Loader2 size={27} className="animate-spin" /> : <Play size={29} fill="currentColor" />}<span>{isLaunching ? t("home.launching") : t("home.play")}<small>{isLaunching ? (downloadTotal > 0 ? `${Math.min(100, Math.round(downloadedBytes / downloadTotal * 100))}%` : downloadAction) : currentInstance ? t("home.lobby.play_time", {hours:Math.floor((currentInstance.total_play_time_seconds || 0)/3600), minutes:Math.floor((currentInstance.total_play_time_seconds || 0)%3600/60)}) : t("home.lobby.choose_instance")}</small></span>
+          </button>
+          {isLaunching ? <div className="lobby-launch-progress" role="status"><span title={downloadAction}>{downloadAction}</span><span>{downloadSpeed > 0 ? `${(downloadSpeed/1024/1024).toFixed(1)} МБ/с` : ""}</span><i style={{width: downloadTotal > 0 ? `${Math.min(100, downloadedBytes/downloadTotal*100)}%` : "100%"}} /></div> : <div className="lobby-play-note"><span className="lobby-status-dot" />{quickServer ? <><span title={quickServer}>{quickServer}</span><button onClick={() => setQuickServer("")} aria-label={t("home.lobby.clear_server")}>×</button></> : t(!currentInstance ? "home.lobby.choose_instance" : !activeAccountObj ? "home.lobby.choose_account" : "home.lobby.ready")}</div>}
+        </div>
+      </section>
+
+      {showLibrary && <InstanceLibrary instances={instances} selectedId={currentInstance?.id} onSelect={onSelectInstance} onClose={() => setShowLibrary(false)} onCreate={() => setShowCreateModal(true)} onContextMenu={(event, id) => { setShowLibrary(false); handleOpenContextMenu(event, id); }} />}
       {showWardrobe && activeAccountObj && <Suspense fallback={null}><WardrobeModal key={activeAccountObj.id} account={activeAccountObj} selectedInstance={selectedInstance} onClose={() => setShowWardrobe(false)} onApplied={setSavedSkin} /></Suspense>}
-      <div className="flex justify-between items-end">
-        <div className="mb-2">
-          <h1 className="text-3xl font-bold tracking-tight text-white">
-            {getGreeting()}, {activeUsername || t("home.player")}
-          </h1>
-        </div>
-        {/* Panda Personality & SkinViewer */}
-        <div className="flex items-center transition-all duration-300">
-          <button disabled={!activeAccountObj} onClick={() => setShowWardrobe(true)} aria-label={t("wardrobe.title")} title={t("wardrobe.title")} className="mr-6 opacity-80 hover:opacity-100 transition-opacity disabled:opacity-40 border border-transparent hover:border-primary/40">
-              <Suspense fallback={<div className="w-[90px] h-[120px] bg-card animate-pulse" />}>
-                <SkinViewer skinUrl={getSkinUrl()} model={savedSkin?.model} width={90} height={120} />
-              </Suspense>
-            <span className="text-[10px] text-muted uppercase tracking-wider">{t("wardrobe.title")}</span>
-          </button>
-          {/* Speech Bubble */}
-          <div className="relative bg-card brutalist-border px-4 py-2.5 rounded-none  flex items-center justify-center mr-5 mb-3">
-            <span className="text-[13px] text-white/90 font-medium transition-all duration-300 leading-none">{getPandaMessage()}</span>
-            {/* Bubble Tail */}
-            <div className="absolute top-1/2 -right-1.5 -translate-y-1/2 w-3 h-3 bg-card border-r border-t border-border rotate-45"></div>
-          </div>
 
-          <div className="w-28 h-28 shrink-0 drop- z-10 relative">
-            <img src={getPandaImage()} alt="Panda Emotion" className="w-full h-full object-contain transition-opacity duration-300" />
-          </div>
-        </div>
-      </div>
-
-      {/* Steam-like Selected Instance Section */}
-      <div className="flex flex-col gap-3">
-        <h2 className="text-[11px] font-semibold tracking-wider text-muted uppercase pl-1">{t("home.selected_instance")}</h2>
-        {currentInstance ? (
-        <div 
-          className="relative group rounded-none bg-card brutalist-border transition-colors hover:border-border/80 flex "
-          onContextMenu={(e) => handleOpenContextMenu(e, currentInstance.id)}
-        >
-          <div className="relative z-10 flex w-full p-6 items-center justify-between">
-            <div className="flex items-center gap-6">
-              <div className="w-16 h-16 bg-background rounded-none flex items-center justify-center brutalist-border overflow-hidden">
-                <InstanceIcon 
-                  iconPath={currentInstance.icon_path} 
-                  loaderType={currentInstance.loader_type} 
-                  className="w-full h-full object-cover" 
-                />
-              </div>
-              <div>
-                <h3 className="text-[22px] font-bold tracking-tight leading-none mb-2 text-white">{currentInstance.name}</h3>
-                <div className="flex items-center gap-2.5">
-                  <span className="text-[13px] font-medium text-white/80">
-                    {currentInstance.game_version} {currentInstance.loader_type} {currentInstance.loader_version}
-                  </span>
-                  <span className="text-[13px] text-muted/80">•</span>
-                  <span className="text-[13px] text-muted">
-                    {currentInstance.last_played ? new Date(currentInstance.last_played * 1000).toLocaleDateString() : t("home.never_played")}
-                  </span>
-                  {currentInstance.total_play_time_seconds !== undefined && (
-                    <>
-                      <span className="text-[13px] text-muted/80">•</span>
-                      <span className="text-[13px] text-muted">
-                        {Math.floor((currentInstance.total_play_time_seconds || 0) / 3600)} ч {Math.floor(((currentInstance.total_play_time_seconds || 0) % 3600) / 60)} м
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-            
-             <div className="flex items-center gap-4">
-                {isLaunching ? (
-                  <div className="flex flex-col items-end gap-1.5 mr-2 min-w-[240px] max-w-[340px]">
-                    <div className="flex justify-between items-center w-full text-[12px] font-medium text-white/90">
-                      <span className="flex items-center gap-1.5 truncate max-w-[200px]" title={downloadAction || t("home.launching")}>
-                        <Loader2 className="animate-spin shrink-0 text-primary" size={13} />
-                        {downloadAction || t("home.launching")}
-                      </span>
-                      <span className="font-bold text-primary ml-2 shrink-0">
-                        {downloadTotal > 0 ? `${Math.min(100, Math.round((downloadedBytes / downloadTotal) * 100))}%` : "..."}
-                      </span>
-                    </div>
-                    <div className="w-full h-2 bg-background rounded-none overflow-hidden brutalist-border relative">
-                      <div 
-                        className="h-full bg-primary transition-all duration-300 ease-out shadow-[0_0_8px_rgba(239,68,68,0.5)]"
-                        style={{ width: downloadTotal > 0 ? `${Math.min(100, Math.max(2, Math.round((downloadedBytes / downloadTotal) * 100)))}%` : "100%" }}
-                      />
-                    </div>
-                    <div className="flex justify-between w-full text-[10px] text-muted font-mono">
-                      {downloadTotal > 0 ? (
-                        <>
-                          <span>{(downloadedBytes / 1024 / 1024).toFixed(1)} / {(downloadTotal / 1024 / 1024).toFixed(1)} МБ</span>
-                          {downloadSpeed > 0 ? <span>{(downloadSpeed / 1024 / 1024).toFixed(1)} МБ/с</span> : <span />}
-                        </>
-                      ) : (
-                        <span>{downloadAction || t("home.launching")}</span>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                      <button 
-                        onClick={() => invoke("open_instance_folder", { id: currentInstance.id }).catch(console.error)}
-                        className="bg-card hover:bg-background brutalist-border text-muted hover:text-white px-3 py-3 rounded-none  transition-colors"
-                        title="Открыть папку сборки"
-                      >
-                        <Folder size={18} />
-                      </button>
-                      <button 
-                        onClick={() => invoke("open_instance_logs", { id: currentInstance.id }).catch(console.error)}
-                        className="bg-card hover:bg-background brutalist-border text-muted hover:text-white px-3 py-3 rounded-none transition-colors"
-                        title="Открыть логи"
-                      >
-                        <FileText size={18} />
-                      </button>
-                    <button 
-                      onClick={() => {
-                          setCrashExitCode(null);
-                          setCrashLogs(gameLogsRef.current);
-                          setShowCrashModal(true);
-                      }}
-                      className="bg-card hover:bg-background brutalist-border text-muted hover:text-white px-3 py-3 rounded-none  transition-colors"
-                      title="Просмотр логов"
-                    >
-                      <FileText size={18} />
-                    </button>
-                    <button 
-                      onClick={() => setManagingInstance(currentInstance.id)}
-                      className="bg-card hover:bg-background brutalist-border text-muted hover:text-white px-3 py-3 rounded-none transition-colors"
-                      title="Управление сборкой (Моды, Ресурспаки)"
-                    >
-                      <Settings size={18} />
-                    </button>
-                    <button 
-                      onClick={() => setShowServerBrowser(true)}
-                      className={`bg-card hover:bg-background brutalist-border text-muted hover:text-white px-3 py-3 rounded-none transition-colors ${showServerBrowser ? "text-primary border-primary" : ""}`}
-                      title="Браузер серверов и мониторинг (Live Ping)"
-                    >
-                      <Globe size={18} />
-                    </button>
-                    <button 
-                      onClick={async () => {
-                        try {
-                          const res = await invoke("create_instance_shortcut", { id: currentInstance.id });
-                          toast.success(String(res));
-                        } catch(err) {
-                          toast.error("Не удалось создать ярлык: " + err);
-                        }
-                      }}
-                      className="bg-card hover:bg-background brutalist-border text-muted hover:text-white px-3 py-3 rounded-none transition-colors"
-                      title={t("home.context_menu.desktop_shortcut")}
-                    >
-                      <ExternalLink size={18} />
-                    </button>
-                  </div>
-                )}
-               <div className="flex flex-col items-end gap-2">
-                 {quickServer && (
-                   <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted bg-card px-2 py-0.5 brutalist-border">
-                     <span className="text-primary font-bold">Сервер:</span>
-                     <span className="text-white truncate max-w-[150px]">{quickServer}</span>
-                     <button onClick={() => setQuickServer("")} className="hover:text-white ml-1 text-muted" title="Очистить сервер">×</button>
-                   </div>
-                 )}
-                 <button 
-                   onClick={() => handleLaunch(quickServer || undefined)}
-                   disabled={isLaunching}
-                   onMouseEnter={() => !isLaunching && setPandaState("celebration")}
-                   onMouseLeave={() => !isLaunching && setPandaState("welcome")}
-                   className="brutalist-button-primary disabled:opacity-50 disabled:cursor-not-allowed px-7 py-3 text-[13px] flex items-center gap-2 min-w-[140px] justify-center"
-                 >
-                   {isLaunching ? (
-                     <>
-                       <Loader2 className="animate-spin" size={16} /> 
-                       <span className="translate-y-[0.5px]">
-                         {downloadTotal > 0 ? `${Math.min(100, Math.round((downloadedBytes / downloadTotal) * 100))}%` : t("home.launching")}
-                       </span>
-                     </>
-                   ) : (
-                     <><Play fill="currentColor" size={15} /> <span className="translate-y-[0.5px]">{quickServer.trim() ? "Подключиться к серверу" : t("home.play")}</span></>
-                   )}
-                 </button>
-               </div>
-            </div>
-          </div>
-        </div>
-        ) : (
-          <div className="p-8 text-center text-muted border border-dashed border-border rounded-none">
-            {t("home.no_instance")}
-          </div>
-        )}
-      </div>
-
-      {/* Other Instances Grid */}
-      <div className="flex flex-col gap-3 mt-2 pb-8">
-        <h2 className="text-[11px] font-semibold tracking-wider text-muted uppercase pl-1">{t("home.other_instances")}</h2>
-        
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {/* Add New Instance Button */}
-          <button 
-            onClick={() => setShowCreateModal(true)}
-            className="bg-transparent hover:bg-card border border-dashed border-border hover:border-muted text-muted rounded-none flex flex-col items-center justify-center gap-3 min-h-[140px] transition-colors group"
-          >
-            <div className="w-10 h-10 rounded-none bg-card brutalist-border flex items-center justify-center group-hover:text-white transition-colors">
-              <Plus size={18} />
-            </div>
-            <span className="text-[13px] font-medium group-hover:text-white transition-colors">{t("home.add_instance")}</span>
-          </button>
-          
-          <button 
-            onClick={() => setShowModpackBrowser(true)}
-            className="bg-transparent hover:bg-card border border-dashed border-border hover:border-primary/50 text-primary/80 rounded-none flex flex-col items-center justify-center gap-3 min-h-[140px] transition-colors group"
-          >
-            <div className="w-10 h-10 rounded-none bg-card brutalist-border flex items-center justify-center group-hover:text-primary transition-colors">
-              <Download size={18} />
-            </div>
-            <span className="text-[13px] font-medium group-hover:text-primary transition-colors">Сборка Modrinth</span>
-          </button>
-
-          <button 
-            onClick={() => setShowCurseForgeModpackBrowser(true)}
-            className="bg-transparent hover:bg-card border border-dashed border-border hover:border-[#F55E1D]/50 text-[#F55E1D]/80 rounded-none flex flex-col items-center justify-center gap-3 min-h-[140px] transition-colors group"
-          >
-            <div className="w-10 h-10 rounded-none bg-card brutalist-border flex items-center justify-center group-hover:text-[#F55E1D] transition-colors">
-              <Download size={18} />
-            </div>
-            <span className="text-[13px] font-medium group-hover:text-[#F55E1D] transition-colors">Сборка CurseForge</span>
-          </button>
-
-          <button 
-            onClick={() => setShowModpackBuilder(true)}
-            className="bg-transparent hover:bg-card border border-dashed border-primary/60 hover:border-primary text-primary rounded-none flex flex-col items-center justify-center gap-3 min-h-[140px] transition-colors group relative overflow-hidden"
-          >
-            <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-amber-500/20 border border-amber-500/40 text-amber-400 text-[9px] font-mono font-bold uppercase">
-              BETA
-            </div>
-            <div className="w-10 h-10 rounded-none bg-card brutalist-border flex items-center justify-center group-hover:bg-primary group-hover:text-background transition-colors text-primary">
-              <Wand2 size={18} />
-            </div>
-            <span className="text-[13px] font-bold group-hover:text-primary transition-colors">Конструктор сборок</span>
-          </button>
-
-          {/* Other Instance Cards */}
-          {otherInstances.map((inst) => {
-            const isSelected = selectedInstance === inst.id;
-            
-            return (
-              <button
-                key={inst.id}
-                onClick={() => onSelectInstance(inst.id)}
-                onContextMenu={(e) => handleOpenContextMenu(e, inst.id)}
-                className={`flex flex-col bg-card rounded-none p-5 text-left transition-colors border group ${
-                  isSelected 
-                    ? "border-primary  " 
-                    : "border-border hover:border-muted/50"
-                }`}
-              >
-                <div className="w-10 h-10 bg-background rounded-none flex items-center justify-center brutalist-border mb-4 overflow-hidden">
-                  <InstanceIcon 
-                    iconPath={inst.icon_path} 
-                    loaderType={inst.loader_type} 
-                    className="w-full h-full object-cover" 
-                  />
-                </div>
-                
-                <div className="mt-auto">
-                  <h3 className="font-semibold text-[14px] line-clamp-1 leading-snug mb-1 text-white">{inst.name}</h3>
-                  <div className="text-[12px] text-muted">
-                    {inst.game_version} {inst.loader_type !== "Vanilla" && inst.loader_type}
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      
       {showCreateModal && (
         <Suspense fallback={null}>
           <CreateInstanceModal
@@ -859,10 +635,10 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
         </Suspense>
       )}
 
-      {managingInstance && currentInstance && (
+      {managingInstance && managedInstance && (
         <Suspense fallback={null}>
           <InstanceManagerModal
-            instance={currentInstance}
+            instance={managedInstance}
             initialTab={managerInitialTab}
             onClose={() => {
               setManagingInstance(null);
@@ -943,7 +719,7 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
             onClick={(e) => { 
                 e.stopPropagation(); 
                 onSelectInstance(contextMenu.instanceId);
-                setTimeout(() => handleLaunch(), 100);
+                handleLaunch(undefined, contextMenu.instanceId);
                 setContextMenu(null); 
             }}
           >

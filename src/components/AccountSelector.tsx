@@ -6,12 +6,13 @@ const invoke = command;
 
 interface AccountSelectorProps {
   onAccountChange?: (username: string | null, accountId: string | null) => void;
+  variant?: "compact" | "lobby";
 }
 
 import { toast } from "./Toast";
 import { useTranslation } from "react-i18next";
 
-export default function AccountSelector({ onAccountChange }: AccountSelectorProps) {
+export default function AccountSelector({ onAccountChange, variant = "compact" }: AccountSelectorProps) {
   const { t } = useTranslation();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -129,8 +130,9 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
   return (
     <div className="flex items-center relative" ref={dropdownRef}>
       <button 
-        className="flex items-center gap-2 bg-card/80 hover:bg-card-hover border border-border rounded-none px-2.5 py-1 transition-colors text-left group shrink-0"
+        className={`account-selector flex items-center gap-2 bg-card/80 hover:bg-card-hover border border-border rounded-none px-2.5 py-1 transition-colors text-left group shrink-0 ${variant === "lobby" ? "account-selector--lobby" : ""}`}
         onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
         title={activeAccount ? `${activeAccount.username} (${activeAccount.account_type})` : t("account.no_account")}
       >
         <div className="w-6 h-6 bg-background rounded-none overflow-hidden brutalist-border flex-shrink-0">
@@ -141,16 +143,17 @@ export default function AccountSelector({ onAccountChange }: AccountSelectorProp
             className="w-full h-full object-cover rendering-pixelated"
           />
         </div>
-        <div className="flex items-center gap-1.5 overflow-hidden">
+        <div className="account-selector__details flex items-center gap-1.5 overflow-hidden">
           <span className="font-semibold text-xs text-text truncate max-w-[110px]">
             {activeAccount ? activeAccount.username : t("account.no_account")}
           </span>
+          {variant === "lobby" && <span className="account-selector__type">{activeAccount ? (activeAccount.account_type === "Microsoft" ? "Microsoft" : activeAccount.account_type === "ElyBy" ? "Ely.by" : t("account.offline_title")) : t("account.add_account")}</span>}
         </div>
         <ChevronDown size={14} className={`text-muted transition-transform ml-0.5 flex-shrink-0 ${isOpen ? "rotate-180" : ""}`} />
       </button>
 
       {isOpen && (
-        <div className="absolute bottom-full left-0 mb-2 w-64 bg-card brutalist-border rounded-none shadow-2xl flex flex-col z-50">
+        <div className={`absolute left-0 w-64 bg-card brutalist-border rounded-none shadow-2xl flex flex-col z-50 ${variant === "lobby" ? "top-full mt-3" : "bottom-full mb-2"}`}>
           <div className="max-h-60 overflow-y-auto p-1 custom-scrollbar">
             {accounts.map(account => (
                 <div key={account.id} className="flex items-center justify-between group p-2 hover:bg-card-hover rounded-none transition-colors cursor-pointer" onClick={() => handleSelectAccount(account.id)}>

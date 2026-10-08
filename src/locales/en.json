@@ -55,6 +55,31 @@
       "desktop_shortcut": "Create Desktop Shortcut",
       "export": "Export...",
       "delete": "Delete"
+    },
+    "lobby": {
+      "library": "My instances",
+      "empty": "Create an instance to start playing",
+      "quick_actions": "Quick actions",
+      "my_skin": "My skin",
+      "skin_hint": "Make it your own",
+      "choose_account": "Choose an account first",
+      "friends": "Play with friends",
+      "friends_hint": "Servers and multiplayer",
+      "build": "Build your world",
+      "build_hint": "Modpack builder",
+      "character": "Your character",
+      "tagline": "Your world. Your rules.",
+      "choose_instance": "Choose an instance",
+      "manage": "Instance mods and settings",
+      "folder": "Open instance folder",
+      "logs": "View logs",
+      "play_time": "{{hours}} h {{minutes}} min played",
+      "clear_server": "Clear server",
+      "ready": "Ready for adventure",
+      "update": "Update available",
+      "minimize": "Minimize",
+      "maximize": "Maximize",
+      "support": "Support"
     }
   },
   "settings": {

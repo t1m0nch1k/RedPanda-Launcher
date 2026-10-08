@@ -55,6 +55,31 @@
       "desktop_shortcut": "创建桌面快捷方式",
       "export": "导出...",
       "delete": "删除"
+    },
+    "lobby": {
+      "library": "我的实例",
+      "empty": "创建实例以开始游戏",
+      "quick_actions": "快捷操作",
+      "my_skin": "我的皮肤",
+      "skin_hint": "打造你的形象",
+      "choose_account": "请先选择账号",
+      "friends": "与好友一起玩",
+      "friends_hint": "服务器与多人游戏",
+      "build": "打造你的世界",
+      "build_hint": "整合包构建器",
+      "character": "你的角色",
+      "tagline": "你的世界。你的规则。",
+      "choose_instance": "选择实例",
+      "manage": "实例模组与设置",
+      "folder": "打开实例文件夹",
+      "logs": "查看日志",
+      "play_time": "已玩 {{hours}} 小时 {{minutes}} 分钟",
+      "clear_server": "清除服务器",
+      "ready": "准备好冒险了",
+      "update": "有可用更新",
+      "minimize": "最小化",
+      "maximize": "最大化",
+      "support": "支持"
     }
   },
   "settings": {
