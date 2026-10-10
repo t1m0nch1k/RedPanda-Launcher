@@ -1,5 +1,4 @@
 {
-  "checkedAt": "2026-10-10T13:42:22.9181998Z",
   "services": {
     "modrinth": {
       "status": "outage"
@@ -19,5 +18,6 @@
     "redpanda-cdn": {
       "status": "unknown"
     }
-  }
+  },
+  "checkedAt": "2026-10-10T18:02:54.0044403Z"
 }
