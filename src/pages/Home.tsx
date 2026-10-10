@@ -1,5 +1,5 @@
 import { Account, SkinPreview, command } from "../lib/ipc";
-import { Plus, Play, Anvil, Feather, TreePine, Hammer, Settings, Loader2, Folder, FileText, Trash2, Download, Copy, Wand2, ExternalLink, ChevronDown, Layers, Users, ArrowUpRight, Shirt } from "lucide-react";
+import { Plus, Play, Anvil, Feather, TreePine, Hammer, Settings, Loader2, Folder, FileText, Trash2, Download, Copy, Wand2, ExternalLink, ChevronDown, Layers, Users, ArrowUpRight, Shirt, Globe, X } from "lucide-react";
 import { useState, useEffect, useLayoutEffect, useMemo, memo, useRef, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
@@ -476,54 +476,356 @@ export default memo(function Home({ selectedInstance, onSelectInstance, activeUs
   };
 
   return (
-    <div className="home-lobby">
-      <div className="lobby-backdrop" aria-hidden="true"><div className="lobby-sunbeams" /><div className="lobby-hills lobby-hills--far" /><div className="lobby-hills lobby-hills--near" />{Array.from({length: 20}, (_, index) => <i key={index} className="lobby-pixel" style={{left: `${12 + (index * 37) % 83}%`, top: `${8 + (index * 23) % 77}%`, width: index % 3 === 0 ? 10 : 5, height: index % 3 === 0 ? 10 : 5, animationDelay: `${index * -0.7}s`}} />)}</div>
-
-      <nav className="lobby-actions" aria-label={t("home.lobby.quick_actions")}>
-        <button className="lobby-tile lobby-tile--skin" disabled={!activeAccountObj} onClick={() => setShowWardrobe(true)}>
-          <div className="lobby-tile__art"><span className="lobby-tile__rays" /><img src="/pandas_png/holographic.png" alt="" /><Shirt className="lobby-tile__symbol" size={27} /><span className="lobby-tile__badge">PNG</span></div>
-          <div className="lobby-tile__caption"><strong>{t("home.lobby.my_skin")}</strong><span>{activeAccountObj ? t("home.lobby.skin_hint") : t("home.lobby.choose_account")}</span><ArrowUpRight size={18} /></div>
-        </button>
-        <button className="lobby-tile lobby-tile--friends" onClick={() => setShowServerBrowser(true)}>
-          <div className="lobby-tile__art"><span className="lobby-tile__rays" /><img src="/pandas_png/waving.png" alt="" /><Users className="lobby-tile__symbol" size={27} /><span className="lobby-tile__badge">ONLINE</span></div>
-          <div className="lobby-tile__caption"><strong>{t("home.lobby.friends")}</strong><span>{t("home.lobby.friends_hint")}</span><ArrowUpRight size={18} /></div>
-        </button>
-        <button className="lobby-tile lobby-tile--builder" onClick={() => setShowModpackBuilder(true)}>
-          <div className="lobby-tile__art"><span className="lobby-tile__rays" /><img src="/pandas_png/mining.png" alt="" /><Wand2 className="lobby-tile__symbol" size={27} /><span className="lobby-tile__badge">BETA</span></div>
-          <div className="lobby-tile__caption"><strong>{t("home.lobby.build")}</strong><span>{t("home.lobby.build_hint")}</span><ArrowUpRight size={18} /></div>
-        </button>
-      </nav>
-
-      <div className="lobby-library-shortcuts">
-        <div className="lobby-catalogs"><button onClick={() => setShowModpackBrowser(true)}>Modrinth <Download size={13} /></button><button onClick={() => setShowCurseForgeModpackBrowser(true)}>CurseForge <Download size={13} /></button></div>
-        <button className="lobby-manual-create" onClick={() => setShowCreateModal(true)}><Plus size={15} />{t("home.add_instance")}</button>
+    <div className="home-deck">
+      {/* Cinematic tech backdrop with blueprint grid and embers */}
+      <div className="deck-backdrop" aria-hidden="true">
+        <div className="deck-ambient-glow" />
+        <div className="deck-tech-grid" />
+        {Array.from({ length: 18 }, (_, index) => (
+          <i
+            key={index}
+            className="deck-ember"
+            style={{
+              left: `${8 + ((index * 33) % 84)}%`,
+              top: `${10 + ((index * 29) % 78)}%`,
+              width: index % 3 === 0 ? 6 : 3,
+              height: index % 3 === 0 ? 6 : 3,
+              animationDelay: `${index * -0.65}s`,
+            }}
+          />
+        ))}
       </div>
 
-      <section className="lobby-stage" aria-label={t("home.lobby.character")}>
-        <div className="lobby-welcome"><span className="lobby-eyebrow">{t("home.lobby.tagline")}</span><h1>{getGreeting()}, <span>{activeUsername || t("home.player")}</span></h1></div>
-        <div className="lobby-character-shadow" aria-hidden="true" />
-        <div className="lobby-character"><Suspense fallback={<div className="lobby-character-loading"><Loader2 size={28} className="animate-spin" /></div>}><SkinViewer skinUrl={getSkinUrl()} model={savedSkin?.model} responsive width={420} height={430} /></Suspense></div>
-        <button className="lobby-character-label" disabled={!activeAccountObj} onClick={() => setShowWardrobe(true)}><Shirt size={15} />{t("wardrobe.title")}<ArrowUpRight size={14} /></button>
-
-      </section>
-
-      <section className="lobby-launch-dock" aria-label={t("home.selected_instance")}>
-        <button className="lobby-selected" onClick={() => setShowLibrary(true)} onContextMenu={event => { if (currentInstance) handleOpenContextMenu(event, currentInstance.id); }} disabled={isLaunching} aria-haspopup="dialog">
-          <span className="lobby-selected__icon">{currentInstance ? <InstanceIcon iconPath={currentInstance.icon_path} loaderType={currentInstance.loader_type} /> : <Layers size={32} />}</span>
-          <span className="lobby-selected__info"><small>{t("home.selected_instance")}</small><strong>{currentInstance?.name || t("home.lobby.choose_instance")}</strong><span>{currentInstance ? `${currentInstance.game_version} · ${currentInstance.loader_type}` : t("home.lobby.empty")}</span></span><ChevronDown size={21} />
-        </button>
-        <div className="lobby-instance-tools">
-          <button className="lobby-icon-button" disabled={!currentInstance || isLaunching} onClick={() => currentInstance && setManagingInstance(currentInstance.id)} aria-label={t("home.lobby.manage")} title={t("home.lobby.manage")}><Settings size={19} /></button>
-          <button className="lobby-icon-button" disabled={!currentInstance} onClick={() => currentInstance && invoke("open_instance_folder", {id:currentInstance.id}).catch(console.error)} aria-label={t("home.lobby.folder")} title={t("home.lobby.folder")}><Folder size={19} /></button>
-          <button className="lobby-icon-button" onClick={() => { setCrashExitCode(null); setCrashLogs(gameLogsRef.current); setShowCrashModal(true); }} aria-label={t("home.lobby.logs")} title={t("home.lobby.logs")}><FileText size={19} /></button>
+      {/* LEFT COLUMN: PILOT & 3D CHARACTER POD */}
+      <aside className="deck-pod" aria-label={t("home.lobby.character")}>
+        {/* Pilot header */}
+        <div className="deck-pilot-header">
+          <div className="deck-pilot-eyebrow">
+            <span>REDPANDA PILOT</span>
+            <span className="deck-pilot-status-pill">
+              <i className="deck-status-dot" />
+              {activeAccountObj ? (activeAccountObj.account_type === "Microsoft" ? "MS" : activeAccountObj.account_type === "ElyBy" ? "ELY" : "LOCAL") : "GUEST"}
+            </span>
+          </div>
+          <h2 className="deck-pilot-greeting">
+            {getGreeting()}, <strong title={activeUsername || t("home.player")}>{activeUsername || t("home.player")}</strong>
+          </h2>
         </div>
-        <div className="lobby-play-panel">
-          <button className="lobby-play" onClick={() => handleLaunch(quickServer || undefined)} disabled={isLaunching || !currentInstance}>
-            {isLaunching ? <Loader2 size={27} className="animate-spin" /> : <Play size={29} fill="currentColor" />}<span>{isLaunching ? t("home.launching") : t("home.play")}<small>{isLaunching ? (downloadTotal > 0 ? `${Math.min(100, Math.round(downloadedBytes / downloadTotal * 100))}%` : downloadAction) : currentInstance ? t("home.lobby.play_time", {hours:Math.floor((currentInstance.total_play_time_seconds || 0)/3600), minutes:Math.floor((currentInstance.total_play_time_seconds || 0)%3600/60)}) : t("home.lobby.choose_instance")}</small></span>
+
+        {/* 3D Hologram Pedestal Stage */}
+        <div className="deck-pedestal-stage">
+          <div className="deck-pedestal-hologram">
+            <Suspense fallback={<div className="deck-character-loading"><Loader2 size={28} className="animate-spin" /></div>}>
+              <SkinViewer skinUrl={getSkinUrl()} model={savedSkin?.model} responsive width={320} height={360} />
+            </Suspense>
+          </div>
+          <div className="deck-pedestal-base" aria-hidden="true">
+            <div className="deck-pedestal-ring" />
+            <div className="deck-pedestal-shadow" />
+            <span className="deck-pedestal-tag">POD-01 · {savedSkin?.model === "slim" ? "SLIM 3PX" : "CLASSIC 4PX"}</span>
+          </div>
+        </div>
+
+        {/* Pod actions */}
+        <div className="deck-pod-actions">
+          <button
+            className="deck-wardrobe-btn"
+            disabled={!activeAccountObj}
+            onClick={() => setShowWardrobe(true)}
+            title={t("wardrobe.title")}
+          >
+            <Shirt size={15} />
+            <span>{t("wardrobe.title")}</span>
+            <ArrowUpRight size={14} />
           </button>
-          {isLaunching ? <div className="lobby-launch-progress" role="status"><span title={downloadAction}>{downloadAction}</span><span>{downloadSpeed > 0 ? `${(downloadSpeed/1024/1024).toFixed(1)} МБ/с` : ""}</span><i style={{width: downloadTotal > 0 ? `${Math.min(100, downloadedBytes/downloadTotal*100)}%` : "100%"}} /></div> : <div className="lobby-play-note"><span className="lobby-status-dot" />{quickServer ? <><span title={quickServer}>{quickServer}</span><button onClick={() => setQuickServer("")} aria-label={t("home.lobby.clear_server")}>×</button></> : t(!currentInstance ? "home.lobby.choose_instance" : !activeAccountObj ? "home.lobby.choose_account" : "home.lobby.ready")}</div>}
+          <button
+            className="deck-server-radar-btn"
+            onClick={() => setShowServerBrowser(true)}
+            title={t("home.lobby.friends")}
+          >
+            <Users size={15} />
+            <span>{t("home.lobby.friends")}</span>
+            <span className="deck-badge-p2p">P2P</span>
+          </button>
         </div>
-      </section>
+      </aside>
+
+      {/* RIGHT COLUMN: COMMAND DECK & RIG CONTROLS */}
+      <main className="deck-main" aria-label="Command Deck">
+        {/* TIER 1: ACTIVE RIG SHOWCASE */}
+        <section className="deck-rig-card" aria-label={t("home.selected_instance")}>
+          <div className="deck-rig-primary">
+            <div
+              className="deck-rig-icon"
+              onClick={() => setShowLibrary(true)}
+              onContextMenu={event => { if (currentInstance) handleOpenContextMenu(event, currentInstance.id); }}
+              role="button"
+              tabIndex={0}
+              title={t("home.lobby.choose_instance")}
+            >
+              {currentInstance ? (
+                <InstanceIcon iconPath={currentInstance.icon_path} loaderType={currentInstance.loader_type} />
+              ) : (
+                <Layers size={32} />
+              )}
+              <span className="deck-rig-loader-tag">{currentInstance?.loader_type || "VANILLA"}</span>
+            </div>
+
+            <div className="deck-rig-meta">
+              <div className="deck-rig-eyebrow">
+                <span>{t("home.selected_instance")}</span>
+                <span className="deck-rig-divider">/</span>
+                <span>{currentInstance ? `MINECRAFT ${currentInstance.game_version}` : "NO INSTANCE"}</span>
+              </div>
+              <h1 className="deck-rig-title" title={currentInstance?.name || t("home.lobby.choose_instance")}>
+                {currentInstance?.name || t("home.lobby.choose_instance")}
+              </h1>
+              <div className="deck-rig-stats">
+                <span className="deck-rig-stat-item">
+                  <TreePine size={13} />
+                  {currentInstance ? `${currentInstance.loader_type} ${currentInstance.loader_version || ""}`.trim() : "—"}
+                </span>
+                <span className="deck-rig-stat-item">
+                  <span className="deck-stat-dot" />
+                  {currentInstance
+                    ? t("home.lobby.play_time", {
+                        hours: Math.floor((currentInstance.total_play_time_seconds || 0) / 3600),
+                        minutes: Math.floor(((currentInstance.total_play_time_seconds || 0) % 3600) / 60),
+                      })
+                    : "0 ч"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Rig direct tools */}
+          <div className="deck-rig-tools">
+            <button
+              className="deck-tool-btn deck-tool-btn--primary"
+              disabled={!currentInstance || isLaunching}
+              onClick={() => currentInstance && setManagingInstance(currentInstance.id)}
+              title={t("home.lobby.manage")}
+            >
+              <Settings size={15} />
+              <span>{t("instance_manager.mods")}</span>
+            </button>
+            <button
+              className="deck-tool-btn"
+              disabled={!currentInstance}
+              onClick={() => currentInstance && invoke("open_instance_folder", { id: currentInstance.id }).catch(console.error)}
+              title={t("home.lobby.folder")}
+              aria-label={t("home.lobby.folder")}
+            >
+              <Folder size={15} />
+            </button>
+            <button
+              className="deck-tool-btn"
+              onClick={() => {
+                setCrashExitCode(null);
+                setCrashLogs(gameLogsRef.current);
+                setShowCrashModal(true);
+              }}
+              title={t("home.lobby.logs")}
+              aria-label={t("home.lobby.logs")}
+            >
+              <FileText size={15} />
+            </button>
+          </div>
+        </section>
+
+        {/* TIER 2: INSTANT INSTANCE SWITCHER STRIP */}
+        <section className="deck-strip-section" aria-label={t("home.lobby.library")}>
+          <div className="deck-strip-header">
+            <span className="deck-strip-label">
+              <Layers size={13} />
+              {t("home.lobby.library")} ({instances.length})
+            </span>
+            <div className="deck-strip-actions">
+              <button className="deck-strip-action-btn" onClick={() => setShowCreateModal(true)}>
+                <Plus size={12} /> {t("home.add_instance")}
+              </button>
+              <button className="deck-strip-action-btn" onClick={() => setShowLibrary(true)}>
+                <ChevronDown size={12} /> {t("home.lobby.library")}
+              </button>
+            </div>
+          </div>
+
+          <div className="deck-strip-carousel custom-scrollbar">
+            {instances.map((inst) => {
+              const isSelected = inst.id === currentInstance?.id;
+              return (
+                <button
+                  key={inst.id}
+                  className={`deck-strip-card ${isSelected ? "is-selected" : ""}`}
+                  onClick={() => onSelectInstance(inst.id)}
+                  onContextMenu={(event) => handleOpenContextMenu(event, inst.id)}
+                  title={`${inst.name} (${inst.game_version} · ${inst.loader_type})`}
+                >
+                  <div className="deck-strip-card-icon">
+                    <InstanceIcon iconPath={inst.icon_path} loaderType={inst.loader_type} />
+                  </div>
+                  <div className="deck-strip-card-info">
+                    <strong>{inst.name}</strong>
+                    <span>{inst.game_version} · {inst.loader_type}</span>
+                  </div>
+                  {isSelected && <span className="deck-strip-active-indicator" />}
+                </button>
+              );
+            })}
+            {instances.length === 0 && (
+              <div className="deck-strip-empty">
+                <span>{t("home.lobby.empty")}</span>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* TIER 3: BENTO FEATURE HUBS */}
+        <section className="deck-bento-grid">
+          {/* Bento 1: Smart Modpack Studio */}
+          <div
+            className="deck-bento-card deck-bento-card--builder"
+            onClick={() => setShowModpackBuilder(true)}
+            role="button"
+            tabIndex={0}
+          >
+            <div className="deck-bento-visual">
+              <img src="/bento_modpack.jpg" alt="" className="deck-bento-visual__img" />
+              <div className="deck-bento-visual__gradient" />
+            </div>
+            <div className="deck-bento-card-content">
+              <div className="deck-bento-header">
+                <span className="deck-bento-badge flex items-center gap-1"><Wand2 size={11} />BETA · AI PRESETS</span>
+                <ArrowUpRight size={14} className="text-orange-400" />
+              </div>
+              <h3>{t("home.lobby.build")}</h3>
+              <p>{t("home.lobby.build_hint")}</p>
+              <div className="deck-bento-tags">
+                <span>⚡ FPS Boost</span>
+                <span>✨ Shaders</span>
+                <span>🌲 Vanilla+</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Bento 2: Mod Catalogs Modrinth / CurseForge */}
+          <div className="deck-bento-card deck-bento-card--catalogs">
+            <div className="deck-bento-visual">
+              <img src="/bento_catalogs.jpg" alt="" className="deck-bento-visual__img" />
+              <div className="deck-bento-visual__gradient" />
+            </div>
+            <div className="deck-bento-card-content">
+              <div className="deck-bento-header">
+                <span className="deck-bento-badge deck-bento-badge--cyan">50,000+ MODS</span>
+                <Download size={14} className="text-sky-400" />
+              </div>
+              <h3>Каталоги модов</h3>
+              <p>Быстрый поиск и загрузка модификаций</p>
+              <div className="deck-bento-buttons">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowModpackBrowser(true);
+                  }}
+                >
+                  Modrinth <Download size={12} />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowCurseForgeModpackBrowser(true);
+                  }}
+                >
+                  CurseForge <Download size={12} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* TIER 4: IGNITION LAUNCH CONSOLE */}
+        <section className="deck-ignition-console">
+          {/* Direct server address */}
+          <div className="deck-ignition-server">
+            <Globe size={15} className="text-muted shrink-0" />
+            <input
+              type="text"
+              value={quickServer}
+              onChange={(e) => setQuickServer(e.target.value)}
+              placeholder="Прямой IP (напр. hypixel.net)..."
+              className="deck-server-input"
+            />
+            {quickServer && (
+              <button
+                className="deck-server-clear"
+                onClick={() => setQuickServer("")}
+                title={t("home.lobby.clear_server")}
+                aria-label={t("home.lobby.clear_server")}
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+
+          {/* Center status / telemetry */}
+          <div className="deck-ignition-telemetry">
+            {isLaunching ? (
+              <div className="deck-telemetry-progress" role="status">
+                <div className="deck-telemetry-text">
+                  <span className="truncate max-w-[200px]" title={downloadAction}>{downloadAction}</span>
+                  <span>{downloadSpeed > 0 ? `${(downloadSpeed / 1024 / 1024).toFixed(1)} МБ/с` : ""}</span>
+                </div>
+                <div className="deck-telemetry-bar">
+                  <i
+                    style={{
+                      width: downloadTotal > 0 ? `${Math.min(100, (downloadedBytes / downloadTotal) * 100)}%` : "100%",
+                    }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="deck-telemetry-idle">
+                <span className="deck-telemetry-dot" />
+                <span className="truncate">
+                  {!currentInstance
+                    ? t("home.lobby.choose_instance")
+                    : !activeAccountObj
+                    ? t("home.lobby.choose_account")
+                    : quickServer
+                    ? `Вход на: ${quickServer}`
+                    : t("home.lobby.ready")}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Massive launch button */}
+          <button
+            className="deck-launch-btn"
+            onClick={() => handleLaunch(quickServer || undefined)}
+            disabled={isLaunching || !currentInstance}
+          >
+            <span className="deck-launch-btn__icon">
+              {isLaunching ? <Loader2 size={24} className="animate-spin text-black" /> : <Play size={24} fill="currentColor" />}
+            </span>
+            <span className="deck-launch-btn__text">
+              <strong>{isLaunching ? t("home.launching") : t("home.play")}</strong>
+              <small>
+                {isLaunching
+                  ? downloadTotal > 0
+                    ? `${Math.min(100, Math.round((downloadedBytes / downloadTotal) * 100))}%`
+                    : downloadAction
+                  : currentInstance
+                  ? t("home.lobby.play_time", {
+                      hours: Math.floor((currentInstance.total_play_time_seconds || 0) / 3600),
+                      minutes: Math.floor(((currentInstance.total_play_time_seconds || 0) % 3600) / 60),
+                    })
+                  : t("home.lobby.choose_instance")}
+              </small>
+            </span>
+          </button>
+        </section>
+      </main>
 
       {showLibrary && <InstanceLibrary instances={instances} selectedId={currentInstance?.id} onSelect={onSelectInstance} onClose={() => setShowLibrary(false)} onCreate={() => setShowCreateModal(true)} onContextMenu={(event, id) => { setShowLibrary(false); handleOpenContextMenu(event, id); }} />}
       {showWardrobe && activeAccountObj && <Suspense fallback={null}><WardrobeModal key={activeAccountObj.id} account={activeAccountObj} selectedInstance={selectedInstance} onClose={() => setShowWardrobe(false)} onApplied={setSavedSkin} /></Suspense>}
