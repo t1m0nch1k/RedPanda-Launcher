@@ -1460,7 +1460,9 @@ pub async fn export_instance(app: AppHandle, id: String, dest_path: String) -> R
 
     for entry in it {
         let path = entry.path();
-        let name = path.strip_prefix(&inst_dir).unwrap();
+        let Ok(name) = path.strip_prefix(&inst_dir) else {
+            continue;
+        };
         let rel_str = name.to_string_lossy().replace("\\", "/");
 
         if rel_str.is_empty() {

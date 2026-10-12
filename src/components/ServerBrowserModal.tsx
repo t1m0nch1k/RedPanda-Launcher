@@ -198,23 +198,26 @@ export default function ServerBrowserModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 sm:p-6 animate-in fade-in duration-200">
-      <div className="bg-[#121214] brutalist-border rounded-none w-full max-w-4xl flex flex-col h-[85vh] shadow-2xl relative">
+    <div className="deck-modal-backdrop animate-in fade-in duration-200">
+      <div className="deck-modal-window w-full max-w-4xl flex flex-col h-[85vh]">
+        <div className="deck-modal-laser" />
         
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-border flex justify-between items-center bg-background/80 shrink-0">
+        <div className="deck-modal-header">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary/10 brutalist-border flex items-center justify-center text-primary shrink-0">
-              <Globe size={20} />
+            <div className="w-10 h-10 bg-[#291b14] border border-[#f55e1d]/40 rounded flex items-center justify-center text-primary shrink-0 shadow-[0_0_12px_rgba(245,94,29,0.2)]">
+              <Globe size={20} className="text-[#f55e1d]" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white tracking-wide flex items-center gap-2">
+              <span className="deck-modal-eyebrow">REDPANDA / RADAR & SERVERS</span>
+              <h2 className="deck-modal-title">
                 Браузер серверов Minecraft
-                <span className="text-xs font-mono px-2 py-0.5 bg-primary/10 border border-primary/30 text-primary uppercase">
+                <span className="text-[10px] font-mono px-2 py-0.5 bg-[#2a170f] border border-[#f55e1d]/50 text-[#ff7537] uppercase rounded flex items-center gap-1.5 shadow-[0_0_8px_rgba(245,94,29,0.25)]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   Live Ping
                 </span>
               </h2>
-              <p className="text-xs text-muted">
+              <p className="text-xs text-[#a69284] mt-0.5 font-mono">
                 {selectedInstanceName ? `Подключение через сборку: ${selectedInstanceName}` : "Выберите сервер для быстрого входа в игру."}
               </p>
             </div>
@@ -223,44 +226,40 @@ export default function ServerBrowserModal({
           <div className="flex items-center gap-2">
             <button
               onClick={pingAllServers}
-              className="p-2 text-muted hover:text-white transition-colors bg-card brutalist-border hover:bg-card-hover"
+              className="deck-modal-close"
               title="Обновить пинг всех серверов"
             >
-              <RefreshCw size={16} />
+              <RefreshCw size={15} />
             </button>
             <button 
               onClick={onClose}
-              className="p-2 text-muted hover:text-white transition-colors bg-card brutalist-border hover:bg-card-hover"
+              className="deck-modal-close"
+              title="Закрыть"
             >
-              <X size={18} />
+              <X size={17} />
             </button>
           </div>
         </div>
 
         {/* Toolbar & Filters */}
-        <div className="p-3 sm:px-5 border-b border-border bg-[#18181b]/50 shrink-0 flex flex-wrap justify-between items-center gap-3">
-          <div className="flex bg-card brutalist-border p-0.5 text-xs font-mono">
+        <div className="deck-modal-toolbar">
+          <div className="deck-segment-bar">
             <button
               onClick={() => setActiveFilter("all")}
-              className={`px-3 py-1 transition-colors ${
-                activeFilter === "all" ? "bg-primary text-background font-bold" : "text-muted hover:text-white"
-              }`}
+              className={`deck-segment-btn ${activeFilter === "all" ? "is-active" : ""}`}
             >
               Все ({servers.length})
             </button>
             <button
               onClick={() => setActiveFilter("partners")}
-              className={`px-3 py-1 transition-colors flex items-center gap-1.5 ${
-                activeFilter === "partners" ? "bg-primary text-background font-bold" : "text-muted hover:text-white"
-              }`}
+              className={`deck-segment-btn ${activeFilter === "partners" ? "is-active" : ""}`}
             >
-              <Sparkles size={12} /> Рекомендованные
+              <Sparkles size={12} className={activeFilter === "partners" ? "text-amber-200" : "text-amber-400"} /> 
+              Рекомендованные
             </button>
             <button
               onClick={() => setActiveFilter("custom")}
-              className={`px-3 py-1 transition-colors ${
-                activeFilter === "custom" ? "bg-primary text-background font-bold" : "text-muted hover:text-white"
-              }`}
+              className={`deck-segment-btn ${activeFilter === "custom" ? "is-active" : ""}`}
             >
               Мои серверы ({servers.filter(s => s.isCustom).length})
             </button>
@@ -268,7 +267,7 @@ export default function ServerBrowserModal({
 
           <button
             onClick={() => setShowAddForm(!showAddForm)}
-            className="px-3 py-1.5 bg-primary text-background text-xs font-bold brutalist-border hover:bg-primary-hover transition-colors flex items-center gap-1.5 font-mono"
+            className="deck-play-btn !py-1.5 !px-3 !text-xs !gap-1.5"
           >
             <Plus size={14} /> Добавить свой сервер
           </button>
@@ -276,9 +275,9 @@ export default function ServerBrowserModal({
 
         {/* Add Server Drawer Form */}
         {showAddForm && (
-          <div className="p-4 bg-background border-b border-border animate-in slide-in-from-top-2 duration-150 shrink-0">
-            <h4 className="text-xs font-bold text-white mb-2 uppercase tracking-wider font-mono">
-              Новый сервер в списке
+          <div className="p-4 bg-[#17120e] border-b border-[#33241b] animate-in slide-in-from-top-2 duration-150 shrink-0">
+            <h4 className="text-xs font-bold text-white mb-2 uppercase tracking-wider font-mono flex items-center gap-2">
+              <span className="w-1.5 h-1.5 bg-[#f55e1d] rounded-full" /> Новый сервер в списке
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
               <input
@@ -286,26 +285,26 @@ export default function ServerBrowserModal({
                 placeholder="Название (напр. Мой сервер с друзьями)"
                 value={newServerName}
                 onChange={(e) => setNewServerName(e.target.value)}
-                className="bg-card brutalist-border px-3 py-1.5 text-xs text-white placeholder-muted focus:outline-none focus:border-primary font-mono"
+                className="bg-[#120e0c] border border-[#382921] focus:border-[#f55e1d] rounded px-3 py-1.5 text-xs text-white placeholder-[#78675c] focus:outline-none font-mono"
               />
               <input
                 type="text"
                 placeholder="IP / Домен:Порт (напр. play.example.com:25565)"
                 value={newServerAddress}
                 onChange={(e) => setNewServerAddress(e.target.value)}
-                className="bg-card brutalist-border px-3 py-1.5 text-xs text-white placeholder-muted focus:outline-none focus:border-primary font-mono"
+                className="bg-[#120e0c] border border-[#382921] focus:border-[#f55e1d] rounded px-3 py-1.5 text-xs text-white placeholder-[#78675c] focus:outline-none font-mono"
               />
             </div>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowAddForm(false)}
-                className="px-3 py-1 text-xs text-muted hover:text-white brutalist-border bg-card hover:bg-card-hover font-mono"
+                className="px-3 py-1 text-xs text-[#a69284] hover:text-white border border-[#382921] bg-[#201813] hover:bg-[#2b2019] rounded font-mono transition-colors"
               >
                 Отмена
               </button>
               <button
                 onClick={handleAddServer}
-                className="px-4 py-1 text-xs font-bold bg-primary hover:bg-primary-hover text-background brutalist-border font-mono"
+                className="deck-play-btn !py-1 !px-4 !text-xs"
               >
                 Сохранить
               </button>
@@ -314,9 +313,9 @@ export default function ServerBrowserModal({
         )}
 
         {/* Server Cards List */}
-        <div className="flex-1 p-4 sm:p-5 overflow-y-auto space-y-3 bg-background/30">
+        <div className="flex-1 p-4 sm:p-5 overflow-y-auto space-y-3 bg-[#130f0d]/60 custom-scrollbar">
           {filteredServers.length === 0 ? (
-            <div className="text-center py-16 text-muted font-mono text-xs">
+            <div className="text-center py-16 text-[#a69284] font-mono text-xs">
               В этой категории нет серверов.
             </div>
           ) : (
@@ -328,16 +327,12 @@ export default function ServerBrowserModal({
               return (
                 <div
                   key={server.id}
-                  className={`p-4 brutalist-border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
-                    server.isPartner
-                      ? "bg-primary/5 border-primary/40 hover:border-primary"
-                      : "bg-[#18181b]/70 hover:bg-[#18181b] border-border"
-                  }`}
+                  className={`deck-server-item ${server.isPartner ? "is-partner" : ""}`}
                 >
                   {/* Left info */}
                   <div className="flex items-start sm:items-center gap-3.5 flex-1 min-w-0">
                     {/* Server Icon / Favicon */}
-                    <div className="w-12 h-12 bg-black/50 brutalist-border shrink-0 flex items-center justify-center overflow-hidden">
+                    <div className="deck-server-icon-box">
                       {ping?.result?.icon ? (
                         <img 
                           src={ping.result.icon} 
@@ -345,18 +340,18 @@ export default function ServerBrowserModal({
                           className="w-full h-full object-cover" 
                         />
                       ) : (
-                        <ServerIcon size={22} className={server.isPartner ? "text-primary" : "text-muted"} />
+                        <ServerIcon size={22} className={server.isPartner ? "text-[#f55e1d]" : "text-[#78675c]"} />
                       )}
                     </div>
 
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <h3 className="text-sm font-bold text-white tracking-wide truncate">
+                        <h3 className="text-sm font-bold text-white tracking-wide truncate font-sans">
                           {server.name}
                         </h3>
 
                         {server.isPartner && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 bg-primary text-background brutalist-border uppercase font-mono flex items-center gap-1">
+                          <span className="text-[10px] font-bold px-2 py-0.5 bg-gradient-to-r from-[#f55e1d] to-[#d94b0e] text-white rounded uppercase font-mono flex items-center gap-1 shadow-[0_0_8px_rgba(245,94,29,0.3)]">
                             <Sparkles size={11} /> {server.partnerBadge || "Партнер"}
                           </span>
                         )}
@@ -364,7 +359,7 @@ export default function ServerBrowserModal({
                         {server.tags?.map((tag, idx) => (
                           <span 
                             key={idx} 
-                            className="text-[10px] font-mono px-1.5 py-0.5 bg-card brutalist-border text-muted"
+                            className="text-[10px] font-mono px-1.5 py-0.5 bg-[#241a14] border border-[#382921] rounded text-[#a69284]"
                           >
                             {tag}
                           </span>
@@ -372,12 +367,12 @@ export default function ServerBrowserModal({
                       </div>
 
                       {/* Server Address */}
-                      <div className="flex items-center gap-2 text-xs font-mono text-muted mb-1">
-                        <span className="text-primary font-bold">IP:</span>
-                        <code className="text-zinc-300 select-all">{server.address}</code>
+                      <div className="flex items-center gap-2 text-xs font-mono text-[#a69284] mb-1">
+                        <span className="text-[#f55e1d] font-bold">IP:</span>
+                        <code className="text-[#ede2d8] bg-[#120e0c] px-1.5 py-0.5 rounded border border-[#2b2019] select-all">{server.address}</code>
                         <button
                           onClick={() => handleCopyAddress(server.id, server.address)}
-                          className="p-1 hover:text-white text-muted transition-colors"
+                          className="p-1 hover:text-white text-[#a69284] transition-colors"
                           title="Скопировать адрес"
                         >
                           {copiedId === server.id ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
@@ -385,39 +380,39 @@ export default function ServerBrowserModal({
                       </div>
 
                       {/* MOTD / Description */}
-                      <p className="text-xs text-zinc-400 line-clamp-1">
+                      <p className="text-xs text-[#a69284] line-clamp-1">
                         {server.partnerDesc || ping?.result?.motd_clean || "Minecraft сервер"}
                       </p>
                     </div>
                   </div>
 
                   {/* Right stats & actions */}
-                  <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border">
+                  <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#33241b]">
                     {/* Live Ping Status */}
                     <div className="flex flex-col items-start sm:items-end text-xs font-mono">
                       {isLoading ? (
-                        <span className="flex items-center gap-1.5 text-muted">
-                          <RefreshCw size={12} className="animate-spin text-primary" /> Проверка...
+                        <span className="flex items-center gap-1.5 text-[#a69284]">
+                          <RefreshCw size={12} className="animate-spin text-[#f55e1d]" /> Сканирование...
                         </span>
                       ) : isOnline ? (
                         <>
                           <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
-                            <span className="w-2 h-2 rounded-none bg-emerald-400 inline-block animate-pulse"></span>
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block shadow-[0_0_6px_#34d399] animate-pulse"></span>
                             <span>{ping?.result?.players_online ?? 0} / {ping?.result?.players_max ?? 0}</span>
                           </div>
-                          <div className="flex items-center gap-1.5 text-[11px] text-muted">
+                          <div className="flex items-center gap-1.5 text-[11px] text-[#a69284]">
                             <Wifi size={11} />
                             <span className={getLatencyColor(ping?.result?.latency_ms)}>
                               {ping?.result?.latency_ms ? `${ping.result.latency_ms} ms` : "OK"}
                             </span>
                             {ping?.result?.version && (
-                              <span className="text-zinc-500">• {ping.result.version}</span>
+                              <span className="text-[#78675c]">• {ping.result.version}</span>
                             )}
                           </div>
                         </>
                       ) : (
-                        <div className="flex items-center gap-1.5 text-zinc-500">
-                          <span className="w-2 h-2 rounded-none bg-zinc-600 inline-block"></span>
+                        <div className="flex items-center gap-1.5 text-[#78675c]">
+                          <span className="w-2 h-2 rounded-full bg-[#523e32] inline-block"></span>
                           <span>Офлайн</span>
                         </div>
                       )}
@@ -430,15 +425,15 @@ export default function ServerBrowserModal({
                           onConnectServer(server.address);
                           onClose();
                         }}
-                        className="px-4 py-2 bg-primary hover:bg-primary-hover text-background text-xs font-bold uppercase brutalist-border transition-colors flex items-center gap-1.5 font-mono"
+                        className="deck-play-btn"
                       >
-                        <Play size={13} /> Играть
+                        <Play size={13} fill="currentColor" /> Играть
                       </button>
 
                       {server.isCustom && (
                         <button
                           onClick={() => handleDeleteServer(server.id)}
-                          className="p-2 text-muted hover:text-red-400 transition-colors bg-card brutalist-border hover:bg-card-hover"
+                          className="p-2 text-[#a69284] hover:text-red-400 transition-colors bg-[#201813] border border-[#382921] hover:border-red-900/50 rounded"
                           title="Удалить сервер"
                         >
                           <Trash2 size={14} />
@@ -453,11 +448,14 @@ export default function ServerBrowserModal({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-border bg-background/80 shrink-0 flex justify-between items-center text-xs font-mono text-muted">
-          <span>Клик по кнопке «Играть» автоматически запустит выбранную сборку с прямым входом на сервер.</span>
+        <div className="deck-modal-footer">
+          <span className="text-xs font-mono text-[#a69284] flex items-center gap-2">
+            <span className="w-1.5 h-1.5 bg-[#f55e1d] rounded-full" />
+            Клик по кнопке «Играть» автоматически запустит выбранную сборку с прямым входом на сервер.
+          </span>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 bg-card hover:bg-card-hover text-white brutalist-border font-bold transition-colors"
+            className="px-4 py-1.5 bg-[#251c16] hover:bg-[#33261f] text-white border border-[#3d2b20] hover:border-[#553b2d] rounded text-xs font-bold transition-colors font-mono"
           >
             Закрыть
           </button>

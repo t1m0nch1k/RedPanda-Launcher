@@ -46,7 +46,14 @@ pub fn run() {
     }
 
     #[cfg(windows)]
-    if direct_instance.is_none() && !acquire_single_instance() {
+    if !acquire_single_instance() {
+        // Другой экземпляр уже работает. Запуск с ярлыка не поднимает второй процесс:
+        // запрос передаётся работающему лаунчеру, чтобы данные писал только один процесс.
+        if let Some(instance_id) = direct_instance.take() {
+            if let Err(error) = request_direct_launch(&instance_id) {
+                log::error!("Не удалось передать запрос прямого запуска: {error}");
+            }
+        }
         return;
     }
 
@@ -61,6 +68,9 @@ pub fn run() {
         .setup(move |app| {
             #[cfg(windows)]
             start_shutdown_listener(app.handle().clone());
+
+            #[cfg(windows)]
+            start_direct_launch_watcher(app.handle().clone());
 
             if let Some(instance_id) = direct_instance_clone {
                 if let Some(window) = app.get_webview_window("main") {
@@ -225,5 +235,111 @@ fn start_shutdown_listener(app: tauri::AppHandle) {
         unsafe { WaitForSingleObject(event, INFINITE) };
         app.exit(0);
         unsafe { windows_sys::Win32::Foundation::CloseHandle(event) };
+    });
+}
+
+/// Запрос прямого запуска, который второй процесс оставляет работающему лаунчеру.
+#[cfg(windows)]
+#[derive(serde::Serialize, serde::Deserialize)]
+struct DirectLaunchRequest {
+    instance_id: String,
+    requested_at: u64,
+}
+
+/// Запрос старше этого времени считается забытым (например, после аварийного завершения).
+#[cfg(windows)]
+const DIRECT_LAUNCH_REQUEST_TTL_SECONDS: u64 = 60;
+
+#[cfg(windows)]
+static FORWARDED_LAUNCH_ACTIVE: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(windows)]
+fn direct_launch_request_path() -> Result<std::path::PathBuf, String> {
+    Ok(crate::security::launcher_data_dir()?.join("direct-launch.request"))
+}
+
+/// Кладёт запрос запуска в общий каталог данных лаунчера.
+#[cfg(windows)]
+fn request_direct_launch(instance_id: &str) -> Result<(), String> {
+    crate::security::validate_instance_id(instance_id)?;
+    let requested_at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_secs())
+        .unwrap_or(0);
+    let payload = serde_json::json!({
+        "instance_id": instance_id,
+        "requested_at": requested_at,
+    });
+    crate::storage::atomic_write(
+        &direct_launch_request_path()?,
+        payload.to_string().as_bytes(),
+    )
+}
+
+/// Раз в 500 мс проверяет файл-запрос от ярлыка и запускает сборку в этом процессе.
+#[cfg(windows)]
+fn start_direct_launch_watcher(app: tauri::AppHandle) {
+    use std::sync::atomic::Ordering;
+
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_millis(500));
+
+        let Ok(path) = direct_launch_request_path() else {
+            continue;
+        };
+        if !path.exists() {
+            continue;
+        }
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        let _ = std::fs::remove_file(&path);
+
+        let request: DirectLaunchRequest = match serde_json::from_str(&text) {
+            Ok(request) => request,
+            Err(error) => {
+                log::warn!("Некорректный запрос прямого запуска: {error}");
+                continue;
+            }
+        };
+        if crate::security::validate_instance_id(&request.instance_id).is_err() {
+            log::warn!("Запрос прямого запуска содержит недопустимый идентификатор сборки");
+            continue;
+        }
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|elapsed| elapsed.as_secs())
+            .unwrap_or(0);
+        if now.saturating_sub(request.requested_at) > DIRECT_LAUNCH_REQUEST_TTL_SECONDS {
+            log::warn!("Пропущен устаревший запрос прямого запуска");
+            continue;
+        }
+        if FORWARDED_LAUNCH_ACTIVE.swap(true, Ordering::SeqCst) {
+            log::warn!("Прямой запуск уже выполняется, запрос пропущен");
+            continue;
+        }
+
+        let handle = app.clone();
+        tauri::async_runtime::spawn(async move {
+            let result =
+                crate::launcher::launch_game_forwarded(handle.clone(), request.instance_id).await;
+            FORWARDED_LAUNCH_ACTIVE.store(false, Ordering::SeqCst);
+
+            if let Err(error) = result {
+                log::error!("Прямой запуск по ярлыку не удался: {error}");
+                if let Some(window) = handle.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+                use tauri_plugin_dialog::DialogExt;
+                let _ = handle
+                    .dialog()
+                    .message(format!("Ошибка запуска сборки:\n{error}"))
+                    .title("RedPanda Launcher")
+                    .kind(tauri_plugin_dialog::MessageDialogKind::Error)
+                    .blocking_show();
+            }
+        });
     });
 }

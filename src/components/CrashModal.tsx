@@ -149,35 +149,37 @@ export default function CrashModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 sm:p-6 animate-in fade-in duration-200">
-      <div className="bg-[#121214] brutalist-border rounded-none w-full max-w-5xl flex flex-col h-[88vh] shadow-2xl relative">
+    <div className="deck-modal-backdrop animate-in fade-in duration-200">
+      <div className="deck-modal-window w-full max-w-5xl flex flex-col h-[88vh]">
+        <div className="deck-modal-laser" />
         
         {/* Modal Header */}
-        <div className="p-4 sm:p-5 border-b border-border flex justify-between items-center bg-background/80 shrink-0">
+        <div className="deck-modal-header">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-red-500/10 brutalist-border flex items-center justify-center text-red-400 shrink-0">
-              <Flame size={20} />
+            <div className="w-10 h-10 bg-red-950/40 border border-red-500/40 rounded flex items-center justify-center text-red-400 shrink-0 shadow-[0_0_12px_rgba(239,68,68,0.2)]">
+              <Flame size={20} className="text-red-400" />
             </div>
             <div>
+              <span className="deck-modal-eyebrow !text-red-400">REDPANDA / CRASH TELEMETRY</span>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-white tracking-wide">Игра завершилась с ошибкой</h2>
+                <h2 className="deck-modal-title">Игра завершилась с ошибкой</h2>
                 {exitCode !== undefined && exitCode !== null && (
-                  <span className="text-xs font-mono px-2 py-0.5 bg-card brutalist-border text-muted">
+                  <span className="text-xs font-mono px-2 py-0.5 bg-[#261513] border border-red-500/30 text-red-300 rounded">
                     Exit code: {exitCode}
                   </span>
                 )}
               </div>
-              <p className="text-xs text-muted">
+              <p className="text-xs text-[#a69284] mt-0.5 font-mono">
                 Автоматическая диагностика сборок RedPanda проанализировала журнал игры.
               </p>
             </div>
           </div>
           <button 
             onClick={onClose}
-            className="text-muted hover:text-white transition-colors bg-card p-2 rounded-none brutalist-border hover:bg-card-hover"
+            className="deck-modal-close"
             title="Закрыть"
           >
-            <X size={18} />
+            <X size={17} />
           </button>
         </div>
 
@@ -241,27 +243,24 @@ export default function CrashModal({
         </div>
 
         {/* Logs Explorer Area */}
-        <div className="flex-1 p-4 sm:p-5 overflow-hidden flex flex-col bg-background/40 gap-3">
+        {/* Logs Explorer Area */}
+        <div className="flex-1 p-4 sm:p-5 overflow-hidden flex flex-col bg-[#140f0c] gap-3">
           {/* Filter Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 shrink-0">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted font-medium flex items-center gap-1.5">
-                <Terminal size={14} /> Журнал консоли ({filteredLogs.length})
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-[#a69284] font-mono font-bold flex items-center gap-1.5">
+                <Terminal size={14} className="text-[#f55e1d]" /> Журнал консоли ({filteredLogs.length})
               </span>
-              <div className="flex bg-card brutalist-border p-0.5 text-xs">
+              <div className="deck-segment-bar">
                 <button
                   onClick={() => setFilterStream("all")}
-                  className={`px-2.5 py-1 transition-colors ${
-                    filterStream === "all" ? "bg-primary text-background font-bold" : "text-muted hover:text-white"
-                  }`}
+                  className={`deck-segment-btn ${filterStream === "all" ? "is-active" : ""}`}
                 >
                   Все ({logs.length})
                 </button>
                 <button
                   onClick={() => setFilterStream("stderr")}
-                  className={`px-2.5 py-1 transition-colors ${
-                    filterStream === "stderr" ? "bg-red-500 text-white font-bold" : "text-muted hover:text-white"
-                  }`}
+                  className={`deck-segment-btn ${filterStream === "stderr" ? "!bg-red-900/60 !text-red-200" : ""}`}
                 >
                   Только ошибки
                 </button>
@@ -269,18 +268,18 @@ export default function CrashModal({
             </div>
 
             <div className="relative flex-1 max-w-xs">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#78675c]" />
               <input
                 type="text"
                 placeholder="Поиск в логах..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1 bg-card brutalist-border text-xs text-white placeholder-muted focus:outline-none focus:border-primary font-mono"
+                className="w-full pl-8 pr-3 py-1 bg-[#120e0c] border border-[#382921] focus:border-[#f55e1d] rounded text-xs text-white placeholder-[#78675c] focus:outline-none font-mono"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-white"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[#78675c] hover:text-white"
                 >
                   <X size={12} />
                 </button>
@@ -289,9 +288,9 @@ export default function CrashModal({
           </div>
 
           {/* Console Text Window */}
-          <div className="flex-1 bg-[#09090b] brutalist-border p-3.5 overflow-y-auto font-mono text-[12px] leading-relaxed select-text">
+          <div className="flex-1 bg-[#0f0b09] border border-[#2b2019] rounded p-3.5 overflow-y-auto font-mono text-[12px] leading-relaxed select-text custom-scrollbar">
             {filteredLogs.length === 0 ? (
-              <div className="text-muted italic p-4 text-center">
+              <div className="text-[#78675c] italic p-4 text-center font-mono">
                 {logs.length === 0
                   ? "Логов нет. Возможно, игра была прервана до инициализации JVM."
                   : "По вашему запросу строк не найдено."}
@@ -300,12 +299,12 @@ export default function CrashModal({
               filteredLogs.map((log, i) => (
                 <div 
                   key={i} 
-                  className={`break-words py-0.5 ${
+                  className={`break-words py-0.5 px-1 rounded ${
                     log.stream === "Stderr" || /error|exception|critical|fatal/i.test(log.line) 
-                      ? "text-red-400 bg-red-500/5" 
+                      ? "text-red-400 bg-red-950/20" 
                       : /warn/i.test(log.line) 
                         ? "text-amber-300" 
-                        : "text-zinc-300"
+                        : "text-[#d1c2b6]"
                   }`}
                 >
                   <span className="opacity-40 select-none mr-2 text-[10px]">
@@ -319,12 +318,12 @@ export default function CrashModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 sm:p-5 border-t border-border bg-background/80 shrink-0 flex flex-wrap justify-between items-center gap-3">
+        <div className="deck-modal-footer">
           <div className="flex items-center gap-2">
             {instanceId && (
               <button
                 onClick={handleOpenFolder}
-                className="px-3 py-2 text-xs font-mono brutalist-border bg-card hover:bg-card-hover text-muted hover:text-white transition-colors flex items-center gap-1.5"
+                className="px-3 py-1.5 text-xs font-mono rounded border border-[#382921] bg-[#201813] hover:bg-[#2b2019] text-[#a69284] hover:text-white transition-colors flex items-center gap-1.5"
               >
                 <Folder size={14} /> Папка сборки
               </button>
@@ -334,14 +333,14 @@ export default function CrashModal({
           <div className="flex items-center gap-3">
             <button 
               onClick={handleCopyLogs}
-              className="px-4 py-2 text-xs font-bold brutalist-border bg-card hover:bg-card-hover text-white flex items-center gap-2 transition-colors"
+              className="px-4 py-1.5 text-xs font-mono font-bold border border-[#382921] bg-[#201813] hover:bg-[#2b2019] text-white rounded flex items-center gap-2 transition-colors"
             >
               {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
               <span>{copied ? "Скопировано!" : "Копировать логи"}</span>
             </button>
             <button 
               onClick={onClose}
-              className="px-6 py-2 text-xs font-bold bg-primary hover:bg-primary-hover text-background transition-colors brutalist-border"
+              className="deck-play-btn !py-1.5 !px-6 !text-xs"
             >
               Закрыть
             </button>

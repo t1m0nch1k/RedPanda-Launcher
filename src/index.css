@@ -3,14 +3,14 @@
 @tailwind utilities;
 
 :root {
-  --color-bg: #101214;
-  --color-card: #16181a;
-  --color-card-hover: #1e2124;
-  --color-muted: #8a8a8e;
-  --color-border: #2a2d30;
-  --color-text: #ffffff;
+  --color-bg: #14110f;
+  --color-card: #1c1511;
+  --color-card-hover: #261d17;
+  --color-muted: #a69284;
+  --color-border: #382921;
+  --color-text: #f5ece5;
   --color-primary: #F55E1D;
-  --color-primary-hover: #FF6B26;
+  --color-primary-hover: #FF7537;
 }
 
 [data-theme="light"], .light {
@@ -81,35 +81,63 @@
 
 @layer utilities {
   .brutalist-border {
-    @apply border-2 border-border;
+    border: 1.5px solid var(--color-border);
+    border-radius: 4px;
   }
   
   .brutalist-panel {
-    @apply bg-card border-2 border-border;
+    background-color: var(--color-card);
+    border: 1.5px solid var(--color-border);
+    border-radius: 6px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
   .brutalist-button {
-    @apply border-2 border-border bg-card hover:bg-card-hover transition-colors font-bold uppercase;
+    border: 1.5px solid var(--color-border);
+    background-color: #241c17;
+    color: var(--color-text);
+    border-radius: 4px;
+    transition: all 0.15s ease;
+    font-weight: 700;
+  }
+  .brutalist-button:hover {
+    background-color: #33261f;
+    border-color: #523b2e;
+    color: #ffffff;
   }
   
   .brutalist-button-primary {
-    @apply border-2 border-primary bg-primary text-background hover:bg-primary-hover hover:border-primary-hover transition-colors font-bold uppercase;
+    border: 1px solid #ff7537;
+    background: linear-gradient(135deg, #f55e1d 0%, #d94b0e 100%);
+    color: #ffffff;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+    font-weight: 700;
+    box-shadow: 0 4px 14px rgba(245, 94, 29, 0.35);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  }
+  .brutalist-button-primary:hover {
+    background: linear-gradient(135deg, #ff7537 0%, #e55314 100%);
+    box-shadow: 0 6px 20px rgba(245, 94, 29, 0.5);
   }
 }
 
 /* Global sleek scrollbar */
 ::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-track {
-  @apply bg-background border-l-2 border-border;
+  background: #14110f;
+  border-left: 1px solid #2a1f19;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-border border-2 border-background;
+  background: #382921;
+  border: 2px solid #14110f;
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-muted;
+  background: #523b2e;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -120,10 +148,10 @@
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #333;
+  background: #382921;
   border-radius: 4px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: #523b2e;
 }
 

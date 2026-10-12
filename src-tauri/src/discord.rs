@@ -14,7 +14,10 @@ const CLIENT_ID: &str = "1328001712411516958"; // Replace with real Client ID if
 pub fn init_discord(app: AppHandle, enabled: bool) -> Result<(), String> {
     let state: State<'_, DiscordState> = app.state();
 
-    *state.is_enabled.lock().unwrap() = enabled;
+    *state
+        .is_enabled
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) = enabled;
 
     if enabled {
         let app_clone = app.clone();
@@ -24,7 +27,10 @@ pub fn init_discord(app: AppHandle, enabled: bool) -> Result<(), String> {
 
             // Connect blocks and might panic, catch_unwind could be safer but thread crash won't kill app
             if client.connect().is_ok() {
-                let mut client_guard = state.client.lock().unwrap();
+                let mut client_guard = state
+                    .client
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner());
                 *client_guard = Some(client);
                 drop(client_guard);
                 // Set initial activity
@@ -37,7 +43,10 @@ pub fn init_discord(app: AppHandle, enabled: bool) -> Result<(), String> {
             }
         });
     } else {
-        let mut client_guard = state.client.lock().unwrap();
+        let mut client_guard = state
+            .client
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         if let Some(mut client) = client_guard.take() {
             let _ = client.close();
         }
@@ -55,11 +64,18 @@ pub fn set_discord_activity(
 ) -> Result<(), String> {
     let state: State<'_, DiscordState> = app.state();
 
-    if !*state.is_enabled.lock().unwrap() {
+    if !*state
+        .is_enabled
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+    {
         return Ok(());
     }
 
-    let mut client_guard = state.client.lock().unwrap();
+    let mut client_guard = state
+        .client
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Some(client) = client_guard.as_mut() {
         let mut payload = activity::Activity::new().details(&details);
 
@@ -74,7 +90,10 @@ pub fn set_discord_activity(
         }
 
         let mut timestamps = activity::Timestamps::new();
-        let mut start_guard = state.start_time.lock().unwrap();
+        let mut start_guard = state
+            .start_time
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let start_val = start_guard.get_or_insert_with(|| {
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -94,8 +113,14 @@ pub fn set_discord_activity(
 pub fn clear_discord_activity(app: AppHandle) -> Result<(), String> {
     let state: State<'_, DiscordState> = app.state();
 
-    *state.start_time.lock().unwrap() = None;
-    let mut client_guard = state.client.lock().unwrap();
+    *state
+        .start_time
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
+    let mut client_guard = state
+        .client
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Some(client) = client_guard.as_mut() {
         let _ = client.clear_activity();
     }

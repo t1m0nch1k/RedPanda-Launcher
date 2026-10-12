@@ -9,11 +9,19 @@ pub async fn launch_game(
     instance_id: String,
     server: Option<String>,
 ) -> Result<(), String> {
-    launch_game_internal(app, account_id, instance_id, server, false).await
+    launch_game_internal(app, account_id, instance_id, server, false, false).await
 }
 
+/// Запуск сборки с ярлыка, когда лаунчер ещё не работает: окно скрыто во время игры,
+/// процесс завершается вместе с игрой.
 pub async fn launch_game_direct(app: AppHandle, instance_id: String) -> Result<(), String> {
-    launch_game_internal(app, None, instance_id, None, true).await
+    launch_game_internal(app, None, instance_id, None, true, true).await
+}
+
+/// Запуск сборки с ярлыка, когда экземпляр лаунчера уже работает: окно скрывается
+/// на время игры, но процесс остаётся жив, чтобы данные писал только один процесс.
+pub async fn launch_game_forwarded(app: AppHandle, instance_id: String) -> Result<(), String> {
+    launch_game_internal(app, None, instance_id, None, true, false).await
 }
 
 async fn launch_game_internal(
@@ -21,7 +29,8 @@ async fn launch_game_internal(
     account_id: Option<String>,
     instance_id: String,
     server: Option<String>,
-    is_direct: bool,
+    hide_window_during_game: bool,
+    exit_when_game_finishes: bool,
 ) -> Result<(), String> {
     crate::security::validate_instance_id(&instance_id)?;
     // Initialize lighty-launcher global state (ignore error if already initialized)
@@ -187,7 +196,7 @@ async fn launch_game_internal(
                     "redpanda_logo".to_string(),
                 );
 
-                if is_direct {
+                if exit_when_game_finishes {
                     log::info!("Direct launch game finished, exiting launcher process");
                     app_clone.exit(0);
                 } else {
@@ -398,7 +407,7 @@ async fn launch_game_internal(
                 });
             }
 
-            if is_direct || settings.launch_behavior == "hide" {
+            if hide_window_during_game || settings.launch_behavior == "hide" {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.hide();
                 }
@@ -525,7 +534,26 @@ pub async fn ping_minecraft_server(address: String) -> Result<ServerPingResult, 
         return Err("Address cannot be empty".to_string());
     }
 
-    let url = format!("https://api.mcstatus.io/v2/status/java/{}", clean_addr);
+    // Адрес приходит из интерфейса и подставляется в путь URL стороннего API:
+    // разрешаем только вид host или host:port и кодируем сегмент пути.
+    if clean_addr.len() > 255
+        || !clean_addr
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_' | ':'))
+    {
+        return Err(
+            "Адрес сервера должен быть в виде host или host:port (латиница, цифры, точка, дефис)"
+                .to_string(),
+        );
+    }
+
+    let mut url = reqwest::Url::parse("https://api.mcstatus.io/v2/status/java/")
+        .map_err(|e| format!("Не удалось построить URL проверки сервера: {e}"))?;
+    url.path_segments_mut()
+        .map_err(|_| "Некорректный базовый URL проверки сервера".to_string())?
+        .pop_if_empty()
+        .push(clean_addr);
+
     let start_time = std::time::Instant::now();
 
     let client = reqwest::Client::builder()
@@ -533,7 +561,7 @@ pub async fn ping_minecraft_server(address: String) -> Result<ServerPingResult, 
         .build()
         .map_err(|e| e.to_string())?;
 
-    match client.get(&url).send().await {
+    match client.get(url).send().await {
         Ok(res) => {
             let latency = start_time.elapsed().as_millis() as u64;
             if let Ok(json) = res.json::<serde_json::Value>().await {

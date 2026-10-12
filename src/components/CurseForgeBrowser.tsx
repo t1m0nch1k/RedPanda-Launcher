@@ -162,30 +162,31 @@ export default function CurseForgeBrowser({ instance, onClose, projectType = "mo
     const browserTitle = projectType === "modpack" ? "Модпаки CurseForge" : projectType === "resourcepack" ? "Ресурспаки CurseForge" : projectType === "shader" ? "Шейдеры CurseForge" : "Моды CurseForge";
 
     return (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6">
+        <div className="deck-modal-backdrop animate-in fade-in duration-200">
             {installPlan && <InstallPreviewModal plan={installPlan} title={selectedMod?.name || installPlan.title} onClose={() => setInstallPlan(null)} onInstalled={() => {
                 setInstallPlan(null);
                 toast.success(t(projectType === "resourcepack" ? "modrinth.install_success_resourcepack" : projectType === "shader" ? "modrinth.install_success_shader" : "modrinth.install_success_mod"));
             }} />}
 
-            <div className="bg-card brutalist-border rounded-none w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="deck-modal-window w-full max-w-5xl h-[84vh] flex flex-col overflow-hidden">
+                <div className="deck-modal-laser" />
+                
                 {/* Header */}
-                <div className="flex items-center gap-4 p-4 border-b border-border bg-background/50">
-                <button onClick={onClose} className="p-2 text-muted hover:text-white transition-colors">
-                    <ArrowLeft size={20} />
-                </button>
-                <div>
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                        {browserTitle}
-                    </h2>
-                    {instance ? <p className="text-xs text-muted">{t("modrinth.search_for")} {instance.game_version} {instance.loader_type}</p> : null}
+                <div className="deck-modal-header !py-3 !px-5">
+                    <button onClick={onClose} className="deck-modal-close" title="Назад">
+                        <ArrowLeft size={16} />
+                    </button>
+                    <div className="flex-1 ml-2">
+                        <span className="deck-modal-eyebrow">REDPANDA / CURSEFORGE CATALOG</span>
+                        <h3 className="deck-modal-title">{browserTitle}</h3>
+                        {instance ? <p className="text-xs text-[#a69284] font-mono mt-0.5">{t("modrinth.search_for")} {instance.game_version} {instance.loader_type}</p> : null}
+                    </div>
                 </div>
-            </div>
 
-            <div className="flex flex-1 overflow-hidden">
-                {/* Search Sidebar */}
-                <div className="w-72 bg-background border-r border-border flex flex-col">
-                    <div className="p-4 border-b border-border">
+                <div className="flex flex-1 overflow-hidden bg-[#1a1410]">
+                    {/* Search Sidebar */}
+                    <div className="w-72 bg-[#17120e] border-r border-[#33241b] flex flex-col">
+                        <div className="p-4 border-b border-[#33241b]">
                         <div className="relative">
                             <input 
                                 type="text" 

@@ -166,6 +166,10 @@ export default function App() {
     setLogs(["[00:00:01] Запуск процесса деинсталляции..."]);
 
     try {
+      addLog("[00:00:01] Проверка запущенного RedPanda Launcher...");
+      await invoke("close_running_launcher");
+      addLog("[00:00:02] ✓ Запущенный лаунчер закрыт или не найден");
+
       addLog("[00:00:02] Удаление ярлыков с Рабочего стола и меню Пуск...");
       await invoke("remove_shortcuts");
 
@@ -179,7 +183,7 @@ export default function App() {
         addLog("[00:00:05] Очистка пользовательских данных и кэша в AppData...");
       }
 
-      addLog("[00:00:06] Деинсталляция успешно завершена.");
+      addLog("[00:00:06] Деинсталляция завершена: файлы лаунчера удаляются сразу после закрытия установщика.");
       setStep("uninstalled");
     } catch (err: unknown) {
       console.error("Uninstall failed", err);

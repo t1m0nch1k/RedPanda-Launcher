@@ -271,36 +271,38 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
     : 0;
 
   return (
-    <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4">
-      <div className="bg-card brutalist-border w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="deck-modal-backdrop animate-in fade-in duration-200">
+      <div className="deck-modal-window w-full max-w-2xl max-h-[85vh]">
+        <div className="deck-modal-laser" />
         
         {/* Header */}
-        <div className="h-16 px-6 bg-background border-b border-border flex items-center justify-between shrink-0">
+        <div className="deck-modal-header">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-none bg-primary/20 border border-primary/40 flex items-center justify-center text-primary">
-              <Wand2 size={18} />
+            <div className="w-10 h-10 bg-[#291b14] border border-[#f55e1d]/40 rounded flex items-center justify-center text-primary shrink-0 shadow-[0_0_12px_rgba(245,94,29,0.2)]">
+              <Wand2 size={20} className="text-[#f55e1d]" />
             </div>
             <div>
+              <span className="deck-modal-eyebrow">REDPANDA / MODPACK STUDIO</span>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-white tracking-wide">Конструктор сборок</h2>
-                <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 text-[10px] font-bold brutalist-border uppercase tracking-wider">
+                <h2 className="deck-modal-title">Конструктор сборок</h2>
+                <span className="px-1.5 py-0.5 bg-[#2a170f] border border-[#f55e1d]/50 text-[#ff7537] text-[10px] font-bold rounded uppercase tracking-wider font-mono">
                   BETA
                 </span>
               </div>
-              <p className="text-xs text-muted">Умный генератор модпаков под выбранные тематики</p>
+              <p className="text-xs text-[#a69284] font-mono mt-0.5">Умный генератор модпаков под выбранные тематики</p>
             </div>
           </div>
           <button 
             disabled={isBuilding}
             onClick={onClose}
-            className="p-1.5 text-muted hover:text-white brutalist-border hover:bg-card-hover transition-colors disabled:opacity-40"
+            className="deck-modal-close disabled:opacity-40"
           >
-            <X size={16} />
+            <X size={17} />
           </button>
         </div>
 
         {/* Steps Breadcrumb Indicator */}
-        <div className="bg-background/50 border-b border-border px-6 py-2.5 flex items-center justify-between text-xs font-mono shrink-0">
+        <div className="bg-[#17120e] border-b border-[#33241b] px-6 py-2.5 flex items-center justify-between text-xs font-mono shrink-0">
           {[
             { id: 1, label: "1. Параметры" },
             { id: 2, label: "2. Тематики" },
@@ -310,7 +312,7 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
             <div 
               key={s.id} 
               className={`flex items-center gap-1.5 font-bold ${
-                step === s.id ? "text-primary" : step > s.id ? "text-white/80" : "text-muted"
+                step === s.id ? "text-[#f55e1d]" : step > s.id ? "text-white/90" : "text-[#78675c]"
               }`}
             >
               <span>{s.label}</span>
@@ -320,7 +322,7 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-6 bg-[#1a1410] custom-scrollbar">
           
           {/* STEP 1: General Parameters */}
           {step === 1 && (
@@ -645,11 +647,11 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
 
         {/* Footer Navigation Buttons */}
         {step <= 3 && (
-          <div className="h-16 px-6 bg-background border-t border-border flex items-center justify-between shrink-0">
+          <div className="deck-modal-footer">
             {step > 1 ? (
               <button
                 onClick={() => setStep(prev => (prev - 1) as 1 | 2 | 3)}
-                className="px-4 py-2 bg-card brutalist-border text-xs font-bold text-white hover:bg-card-hover transition-colors flex items-center gap-1.5"
+                className="px-4 py-1.5 rounded border border-[#382921] bg-[#201813] hover:bg-[#2b2019] text-xs font-mono font-bold text-white transition-colors flex items-center gap-1.5"
               >
                 <ChevronLeft size={14} /> Назад
               </button>
@@ -670,14 +672,14 @@ export default function ModpackBuilderModal({ onClose, onInstanceCreated }: Modp
                   }
                   setStep(prev => (prev + 1) as 2 | 3);
                 }}
-                className="px-5 py-2 bg-primary text-background brutalist-border text-xs font-bold hover:bg-primary-hover transition-colors flex items-center gap-1.5"
+                className="deck-play-btn !py-1.5 !px-5 !text-xs !gap-1.5"
               >
                 Далее <ChevronRight size={14} />
               </button>
             ) : (
               <button
                 onClick={handleStartBuild}
-                className="px-6 py-2.5 bg-primary text-background brutalist-border text-xs font-bold hover:bg-primary-hover transition-colors flex items-center gap-2"
+                className="deck-play-btn !py-1.5 !px-6 !text-xs !gap-2"
               >
                 <Wand2 size={14} /> Собрать сборку ({selectedModIds.size})
               </button>

@@ -213,6 +213,7 @@
     "nothing_found": "未找到任何内容",
     "downloads_count": "{{count}} 次下载",
     "available_versions": "可用版本",
+      "no_compatible_versions_modpack": "没有适用于此整合包的兼容版本",
     "no_compatible_versions": "没有适用于 {{version}} {{loader}} 的兼容版本"
   },
   "account": {
@@ -247,6 +248,7 @@
     "loading": "加载中...",
     "back": "返回",
     "save": "保存",
+      "delete": "删除",
     "cancel": "取消"
   },
   "install_preview": {

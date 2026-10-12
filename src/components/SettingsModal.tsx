@@ -152,64 +152,80 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
   if (!settings) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80  flex items-center justify-center z-50 p-4">
-      <div className="bg-card brutalist-border rounded-none w-full max-w-2xl  flex flex-col h-[80vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="deck-modal-backdrop animate-in fade-in duration-200">
+      <div className="deck-modal-window w-full max-w-3xl flex flex-col h-[82vh]">
+        <div className="deck-modal-laser" />
         
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-border bg-background/50">
-          <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-            <Settings size={24} className="text-primary" />
-            {t("settings.title")}
-          </h2>
-          <button onClick={onClose} className="p-2 text-muted hover:text-white hover:bg-card rounded-none transition-colors">
-            <X size={20} />
+        <div className="deck-modal-header">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-[#291b14] border border-[#f55e1d]/40 rounded flex items-center justify-center text-primary shrink-0 shadow-[0_0_12px_rgba(245,94,29,0.2)]">
+              <Settings size={18} className="text-[#f55e1d]" />
+            </div>
+            <div>
+              <span className="deck-modal-eyebrow">REDPANDA / SYSTEM CONFIG</span>
+              <h2 className="deck-modal-title">
+                {t("settings.title")}
+              </h2>
+            </div>
+          </div>
+          <button onClick={onClose} className="deck-modal-close">
+            <X size={17} />
           </button>
         </div>
 
         {/* Content */}
         <div className="flex flex-1 overflow-hidden">
           {/* Sidebar */}
-          <div className="w-48 bg-background border-r border-border p-4 flex flex-col gap-2">
+          <div className="w-52 bg-[#17120e] border-r border-[#33241b] p-3 flex flex-col gap-1.5 shrink-0">
             <button 
               onClick={() => setActiveTab("general")}
-              className={`flex items-center gap-3 px-4 py-3 rounded-none font-medium transition-colors ${
-                activeTab === "general" ? "bg-primary/20 text-primary" : "text-muted hover:text-white hover:bg-card"
+              className={`flex items-center gap-3 px-3.5 py-2.5 rounded text-xs font-mono font-bold transition-all text-left ${
+                activeTab === "general"
+                  ? "bg-gradient-to-r from-[#2e1d15] to-[#201611] border border-[#f55e1d]/50 text-white shadow-[0_0_12px_rgba(245,94,29,0.15)]"
+                  : "text-[#a69284] hover:text-white hover:bg-[#201813] border border-transparent"
               }`}
             >
-              <Monitor size={18} />
-              {t("settings.tab_general", "General")}
+              <Monitor size={16} className={activeTab === "general" ? "text-[#f55e1d]" : "text-[#78675c]"} />
+              {t("settings.tab_general", "Общие")}
             </button>
             <button 
               onClick={() => setActiveTab("java")}
-              className={`flex items-center gap-3 px-4 py-3 rounded-none font-medium transition-colors ${
-                activeTab === "java" ? "bg-primary/20 text-primary" : "text-muted hover:text-white hover:bg-card"
+              className={`flex items-center gap-3 px-3.5 py-2.5 rounded text-xs font-mono font-bold transition-all text-left ${
+                activeTab === "java"
+                  ? "bg-gradient-to-r from-[#2e1d15] to-[#201611] border border-[#f55e1d]/50 text-white shadow-[0_0_12px_rgba(245,94,29,0.15)]"
+                  : "text-[#a69284] hover:text-white hover:bg-[#201813] border border-transparent"
               }`}
             >
-              <Cpu size={18} />
-              {t("settings.tab_java", "Java & RAM")}
+              <Cpu size={16} className={activeTab === "java" ? "text-[#f55e1d]" : "text-[#78675c]"} />
+              {t("settings.tab_java", "Java и ОЗУ")}
             </button>
             <button 
               onClick={() => setActiveTab("customization")}
-              className={`flex items-center gap-3 px-4 py-3 rounded-none font-medium transition-colors ${
-                activeTab === "customization" ? "bg-primary/20 text-primary" : "text-muted hover:text-white hover:bg-card"
+              className={`flex items-center gap-3 px-3.5 py-2.5 rounded text-xs font-mono font-bold transition-all text-left ${
+                activeTab === "customization"
+                  ? "bg-gradient-to-r from-[#2e1d15] to-[#201611] border border-[#f55e1d]/50 text-white shadow-[0_0_12px_rgba(245,94,29,0.15)]"
+                  : "text-[#a69284] hover:text-white hover:bg-[#201813] border border-transparent"
               }`}
             >
-              <Palette size={18} />
+              <Palette size={16} className={activeTab === "customization" ? "text-[#f55e1d]" : "text-[#78675c]"} />
               Кастомизация
             </button>
             <button 
               onClick={() => setActiveTab("integrations")}
-              className={`flex items-center gap-3 px-4 py-3 rounded-none font-medium transition-colors ${
-                activeTab === "integrations" ? "bg-primary/20 text-primary" : "text-muted hover:text-white hover:bg-card"
+              className={`flex items-center gap-3 px-3.5 py-2.5 rounded text-xs font-mono font-bold transition-all text-left ${
+                activeTab === "integrations"
+                  ? "bg-gradient-to-r from-[#2e1d15] to-[#201611] border border-[#f55e1d]/50 text-white shadow-[0_0_12px_rgba(245,94,29,0.15)]"
+                  : "text-[#a69284] hover:text-white hover:bg-[#201813] border border-transparent"
               }`}
             >
-              <Monitor size={18} />
+              <Code size={16} className={activeTab === "integrations" ? "text-[#f55e1d]" : "text-[#78675c]"} />
               Интеграции
             </button>
           </div>
 
           {/* Main Panel */}
-          <div className="flex-1 p-6 overflow-y-auto custom-scrollbar bg-card">
+          <div className="flex-1 p-6 overflow-y-auto custom-scrollbar bg-[#1a1410]">
             
             {activeTab === "general" && (
               <div className="flex flex-col gap-8">

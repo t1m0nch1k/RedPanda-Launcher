@@ -207,31 +207,33 @@ export default function ModrinthBrowser({ instance, onClose, projectType = "mod"
     const browserTitle = projectType === "modpack" ? t("modrinth.browser_modpacks") : projectType === "resourcepack" ? t("modrinth.browser_resourcepacks") : projectType === "shader" ? t("modrinth.browser_shaders") : t("modrinth.browser_mods");
 
     return (
-        <div className="fixed inset-0 bg-black/80  flex items-center justify-center z-50 p-6">
+        <div className="deck-modal-backdrop animate-in fade-in duration-200">
             {installPlan && <InstallPreviewModal plan={installPlan} title={selectedMod?.title || installPlan.title} onClose={() => setInstallPlan(null)} onInstalled={() => {
                 setInstallPlan(null);
                 toast.success(t(projectType === "resourcepack" ? "modrinth.install_success_resourcepack" : projectType === "shader" ? "modrinth.install_success_shader" : "modrinth.install_success_mod"));
             }} />}
 
-            <div className="bg-card brutalist-border rounded-none w-full max-w-4xl h-[80vh]  flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="deck-modal-window w-full max-w-5xl h-[84vh] flex flex-col overflow-hidden">
+                <div className="deck-modal-laser" />
                 
                 {/* Header */}
-                <div className="p-4 border-b border-border flex items-center gap-4 bg-background/50">
-                    <button onClick={onClose} className="p-2 text-muted hover:text-white hover:bg-background rounded-none transition-colors">
-                        <ArrowLeft size={18} />
+                <div className="deck-modal-header !py-3 !px-5">
+                    <button onClick={onClose} className="deck-modal-close" title="Назад">
+                        <ArrowLeft size={16} />
                     </button>
-                    <div className="flex-1">
-                        <h3 className="font-semibold text-white leading-tight">{browserTitle}</h3>
-                        {instance ? <p className="text-xs text-muted">{t("modrinth.search_for")} {instance.game_version} {instance.loader_type}</p> : null}
+                    <div className="flex-1 ml-2">
+                        <span className="deck-modal-eyebrow">REDPANDA / MODRINTH CATALOG</span>
+                        <h3 className="deck-modal-title">{browserTitle}</h3>
+                        {instance ? <p className="text-xs text-[#a69284] font-mono mt-0.5">{t("modrinth.search_for")} {instance.game_version} {instance.loader_type}</p> : null}
                     </div>
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 flex overflow-hidden">
+                <div className="flex-1 flex overflow-hidden bg-[#1a1410]">
                     
                     {/* Category Sidebar */}
-                    <div className="w-48 border-r border-border bg-background/20 flex flex-col overflow-y-auto shrink-0 custom-scrollbar">
-                         <div className="p-3 text-[11px] font-bold text-muted uppercase tracking-wider sticky top-0 bg-background/95  z-10 border-b border-border/50">
+                    <div className="w-48 border-r border-[#33241b] bg-[#17120e] flex flex-col overflow-y-auto shrink-0 custom-scrollbar">
+                         <div className="p-3 text-[11px] font-mono font-bold text-[#a69284] uppercase tracking-wider sticky top-0 bg-[#17120e]/95 z-10 border-b border-[#33241b]">
                              {t("modrinth.categories")}
                          </div>
                          <div className="p-2 flex flex-col gap-0.5">

@@ -1240,14 +1240,8 @@ pub async fn register_uninstaller(target_dir: String) -> Result<(), String> {
             &format!("\"{}\" --uninstall", uninstall_exe.to_string_lossy()),
         )
         .map_err(|e| e.to_string())?;
-        key.set_value(
-            "QuietUninstallString",
-            &format!(
-                "\"{}\" --uninstall --quiet",
-                uninstall_exe.to_string_lossy()
-            ),
-        )
-        .map_err(|e| e.to_string())?;
+        // QuietUninstallString намеренно не задаётся: тихий режим удаления в
+        // установщике не реализован, а обещать несуществующее поведение нельзя.
         let installed_size = directory_size(&target)
             .map_err(|e| format!("Failed to calculate installed size: {e}"))?;
         let size: u32 = (installed_size / 1024).min(u32::MAX as u64) as u32;

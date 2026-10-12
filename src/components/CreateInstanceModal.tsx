@@ -197,31 +197,42 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
   ];
 
   return (
-    <div className="fixed inset-0 bg-black/80  flex items-center justify-center z-50 p-4">
-      <div className="bg-card brutalist-border rounded-none w-full max-w-md  flex flex-col animate-in fade-in zoom-in-95 duration-200">
+    <div className="deck-modal-backdrop animate-in fade-in duration-200">
+      <div className="deck-modal-window w-full max-w-lg">
+        <div className="deck-modal-laser" />
         
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-border bg-background/50 rounded-t-2xl">
-          <h2 className="text-xl font-bold text-white flex items-center gap-3">
-            <Box size={20} className="text-primary" />
-            {t("create_instance.title")}
-          </h2>
-          <button onClick={onClose} className="p-2 text-muted hover:text-white hover:bg-card rounded-none transition-colors">
-            <X size={20} />
+        <div className="deck-modal-header">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-[#291b14] border border-[#f55e1d]/40 rounded flex items-center justify-center text-primary shrink-0 shadow-[0_0_12px_rgba(245,94,29,0.2)]">
+              <Box size={18} className="text-[#f55e1d]" />
+            </div>
+            <div>
+              <span className="deck-modal-eyebrow">REDPANDA / NEW INSTANCE</span>
+              <h2 className="deck-modal-title">
+                {t("create_instance.title")}
+              </h2>
+            </div>
+          </div>
+          <button onClick={onClose} className="deck-modal-close">
+            <X size={17} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 flex flex-col gap-6">
+        <div className="p-6 flex flex-col gap-5 bg-[#17120e]">
           
           <div>
-            <label className="text-xs text-muted mb-2 block uppercase tracking-wider font-semibold">{t("create_instance.name")}</label>
+            <label className="text-xs text-[#a69284] mb-2 block uppercase tracking-wider font-mono font-bold flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#f55e1d]" />
+              {t("create_instance.name")}
+            </label>
             <input 
               type="text" 
               placeholder={t("create_instance.name_placeholder")}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-background brutalist-border rounded-none px-4 py-3 text-[13px] text-white focus:outline-none focus:border-primary transition-colors"
+              className="w-full bg-[#120e0c] border border-[#382921] focus:border-[#f55e1d] rounded px-4 py-2.5 text-xs text-white placeholder-[#78675c] focus:outline-none font-mono transition-colors"
               autoFocus
             />
           </div>
@@ -229,7 +240,7 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
           <div className="grid grid-cols-2 gap-4">
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-xs text-muted block uppercase tracking-wider font-semibold">
+                <label className="text-xs text-[#a69284] block uppercase tracking-wider font-mono font-bold">
                   {t("create_instance.version")}
                 </label>
                 <label className="flex items-center gap-1.5 cursor-pointer select-none group">
@@ -237,80 +248,82 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
                     type="checkbox"
                     checked={showSnapshots}
                     onChange={(e) => setShowSnapshots(e.target.checked)}
-                    className="w-3.5 h-3.5 accent-primary cursor-pointer rounded-none"
+                    className="w-3.5 h-3.5 accent-[#f55e1d] cursor-pointer rounded"
                   />
-                  <span className="text-[11px] text-muted group-hover:text-white transition-colors">Снапшоты</span>
+                  <span className="text-[11px] font-mono text-[#a69284] group-hover:text-white transition-colors">Снапшоты</span>
                 </label>
               </div>
               <select 
                 value={gameVersion}
                 onChange={(e) => setGameVersion(e.target.value)}
                 disabled={loadingVersions}
-                className="w-full bg-background brutalist-border rounded-none px-4 py-3 text-[13px] text-white focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer disabled:opacity-50"
+                className="w-full bg-[#120e0c] border border-[#382921] focus:border-[#f55e1d] rounded px-3 py-2.5 text-xs text-white focus:outline-none font-mono transition-colors appearance-none cursor-pointer disabled:opacity-50"
               >
                 {loadingVersions ? (
                   <option>{t("common.loading")}</option>
                 ) : (
                   mcVersions.map(v => (
-                    <option key={v} value={v}>{v}</option>
+                    <option key={v} value={v} className="bg-[#18120e]">{v}</option>
                   ))
                 )}
               </select>
             </div>
             <div>
-              <label className="text-xs text-muted mb-2 block uppercase tracking-wider font-semibold">{t("create_instance.loader")}</label>
+              <label className="text-xs text-[#a69284] mb-2 block uppercase tracking-wider font-mono font-bold">
+                {t("create_instance.loader")}
+              </label>
               <select 
                 value={loaderType}
                 onChange={(e) => setLoaderType(e.target.value)}
-                className="w-full bg-background brutalist-border rounded-none px-4 py-3 text-[13px] text-white focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer"
+                className="w-full bg-[#120e0c] border border-[#382921] focus:border-[#f55e1d] rounded px-3 py-2.5 text-xs text-white focus:outline-none font-mono transition-colors appearance-none cursor-pointer"
               >
                 {loaderOptions.map(opt => (
-                  <option key={opt.id} value={opt.id}>{opt.name}</option>
+                  <option key={opt.id} value={opt.id} className="bg-[#18120e]">{opt.name}</option>
                 ))}
               </select>
             </div>
           </div>
 
           {loaderType !== "Vanilla" && (
-            <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-              <label className="text-xs text-muted mb-2 block uppercase tracking-wider font-semibold flex items-center gap-2">
-                <Layers size={14} /> {t("create_instance.loader_version", { loader: loaderType })}
-              </label>
-              <select
-                value={loaderVersion}
-                onChange={(e) => setLoaderVersion(e.target.value)}
-                disabled={loadingLoaderVersions}
-                className="w-full bg-background brutalist-border rounded-none px-4 py-3 text-[13px] text-white focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer disabled:opacity-50"
-              >
-                {loadingLoaderVersions ? (
-                  <option>{t("common.loading")}</option>
-                ) : loaderVersions.length === 0 ? (
-                  <option value="">{t("create_instance.latest_available")}</option>
-                ) : (
-                  loaderVersions.map(v => (
-                    <option key={v} value={v}>{v}</option>
-                  ))
-                )}
-              </select>
-              <p className="text-[10px] text-muted mt-1.5 ml-1">
-                {t("create_instance.leave_empty_latest")}
-              </p>
+            <div className="p-3.5 bg-[#130f0d] border border-[#33251d] rounded space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div>
+                <label className="text-xs text-[#a69284] mb-2 block uppercase tracking-wider font-mono font-bold flex items-center gap-1.5">
+                  <Layers size={13} className="text-[#f55e1d]" /> {t("create_instance.loader_version", { loader: loaderType })}
+                </label>
+                <select
+                  value={loaderVersion}
+                  onChange={(e) => setLoaderVersion(e.target.value)}
+                  disabled={loadingLoaderVersions}
+                  className="w-full bg-[#120e0c] border border-[#382921] focus:border-[#f55e1d] rounded px-3 py-2 text-xs text-white focus:outline-none font-mono transition-colors appearance-none cursor-pointer disabled:opacity-50"
+                >
+                  {loadingLoaderVersions ? (
+                    <option>{t("common.loading")}</option>
+                  ) : loaderVersions.length === 0 ? (
+                    <option value="">{t("create_instance.latest_available")}</option>
+                  ) : (
+                    loaderVersions.map(v => (
+                      <option key={v} value={v} className="bg-[#18120e]">{v}</option>
+                    ))
+                  )}
+                </select>
+                <p className="text-[10px] text-[#8c7a6e] font-mono mt-1.5">
+                  {t("create_instance.leave_empty_latest")}
+                </p>
+              </div>
 
-              <div className="mt-4 flex items-start gap-3">
-                <div className="flex items-center h-5">
-                  <input
-                    id="optimize"
-                    type="checkbox"
-                    checked={optimizeFPS}
-                    onChange={(e) => setOptimizeFPS(e.target.checked)}
-                    className="w-4 h-4 rounded-none border-border bg-background text-primary focus:ring-primary focus:ring-offset-background"
-                  />
-                </div>
+              <div className="pt-2 border-t border-[#291e18] flex items-start gap-3">
+                <input
+                  id="optimize"
+                  type="checkbox"
+                  checked={optimizeFPS}
+                  onChange={(e) => setOptimizeFPS(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 accent-[#f55e1d] cursor-pointer rounded"
+                />
                 <div className="flex flex-col">
-                  <label htmlFor="optimize" className="text-sm font-medium text-white cursor-pointer">
+                  <label htmlFor="optimize" className="text-xs font-mono font-bold text-white cursor-pointer">
                     {t("create_instance.install_opt_mods")}
                   </label>
-                  <p className="text-[10px] text-muted mt-0.5">
+                  <p className="text-[10px] text-[#a69284] mt-0.5 font-mono">
                     {t("create_instance.opt_mods_desc")}
                   </p>
                 </div>
@@ -321,26 +334,26 @@ export default function CreateInstanceModal({ onClose, onCreated }: CreateInstan
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-border bg-background/50 rounded-b-2xl flex justify-between items-center gap-3">
+        <div className="deck-modal-footer">
           <button
             onClick={handleImportMrpack}
-            className="px-3 py-2 rounded-none font-semibold text-xs border border-primary/40 text-primary hover:bg-primary/10 transition-colors flex items-center gap-1.5"
+            className="px-3 py-1.5 rounded text-xs font-mono font-bold border border-[#f55e1d]/40 text-[#ff7537] hover:bg-[#f55e1d]/10 transition-colors flex items-center gap-1.5"
           >
-            <Box size={14} /> Импорт сборки (.mrpack)
+            <Box size={14} /> Импорт (.mrpack)
           </button>
           <div className="flex items-center gap-2">
             <button 
               onClick={onClose} 
-              className="px-5 py-2.5 rounded-none font-medium text-[13px] text-muted hover:text-white transition-colors"
+              className="px-4 py-1.5 rounded text-xs font-mono text-[#a69284] hover:text-white border border-[#382921] bg-[#201813] hover:bg-[#2b2019] transition-colors"
             >
               {t("create_instance.cancel")}
             </button>
             <button 
               onClick={handleCreate}
               disabled={isCreating || !name.trim() || !gameVersion.trim()}
-              className="bg-primary hover:bg-primary-hover text-white px-6 py-2.5 rounded-none font-semibold text-[13px] disabled:opacity-50 transition-colors flex items-center gap-2"
+              className="deck-play-btn !py-1.5 !px-5 !text-xs disabled:opacity-40"
             >
-              {isCreating ? t("create_instance.creating") : <><Play size={14} /> {t("create_instance.create")}</>}
+              {isCreating ? t("create_instance.creating") : <><Play size={13} fill="currentColor" /> {t("create_instance.create")}</>}
             </button>
           </div>
         </div>

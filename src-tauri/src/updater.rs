@@ -51,8 +51,43 @@ struct GithubAsset {
 
 const CURRENT_VERSION: &str = env!("REDPANDA_VERSION");
 
+/// Set by build.rs. Builds packaged without the real update public key embed the
+/// RFC 8032 test vector whose private half is public knowledge, so they must not
+/// accept automatic updates at all.
+const UPDATE_KEY_IS_TEST: &str = env!("REDPANDA_UPDATE_KEY_IS_TEST");
+
+fn automatic_updates_disabled() -> bool {
+    UPDATE_KEY_IS_TEST == "1"
+}
+
+fn disabled_update_info() -> UpdateInfo {
+    UpdateInfo {
+        has_update: false,
+        current_version: CURRENT_VERSION.to_string(),
+        latest_version: CURRENT_VERSION.to_string(),
+        release_notes:
+            "Автоматические обновления отключены: сборка собрана без настоящего ключа подписи обновлений."
+                .to_string(),
+        download_url: String::new(),
+        html_url: "https://github.com/t1m0nch1k/RedPanda-Launcher/releases".to_string(),
+        sha256: None,
+        asset_name: None,
+        size: None,
+        signature: None,
+        key_id: None,
+        manifest_json: None,
+    }
+}
+
 #[tauri::command]
 pub async fn check_for_updates() -> Result<UpdateInfo, String> {
+    if automatic_updates_disabled() {
+        log::warn!(
+            "Автоматические обновления отключены: сборка использует тестовый ключ подписи обновлений"
+        );
+        return Ok(disabled_update_info());
+    }
+
     log::info!("Checking for RedPanda Launcher updates on GitHub...");
 
     let client =
@@ -212,6 +247,13 @@ pub async fn download_and_install_update(
     expected_size: Option<u64>,
     expected_manifest: Option<String>,
 ) -> Result<(), String> {
+    if automatic_updates_disabled() {
+        return Err(
+            "Автоматическая установка обновлений отключена: сборка собрана без настоящего ключа подписи обновлений."
+                .to_string(),
+        );
+    }
+
     if download_url.is_empty() {
         return Err("Download URL is empty".to_string());
     }

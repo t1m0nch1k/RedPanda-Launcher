@@ -1,10 +1,28 @@
 # Send RedPanda Launcher v0.3.0 Update Announcement to Telegram Channel
 param(
-    [string]$BotToken = "8692133625:AAGFpKAi5-4Jed2vpJqjc-wcJhMvIQqGAUg",
+    [string]$BotToken = "",
     [string]$ChatId = "@redpanda_launcher"
 )
 
 $ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrWhiteSpace($BotToken)) {
+    $BotToken = $env:TELEGRAM_BOT_TOKEN
+}
+
+if ([string]::IsNullOrWhiteSpace($BotToken)) {
+    $envPath = Join-Path $PSScriptRoot "..\.env"
+    if (Test-Path -LiteralPath $envPath) {
+        $match = Select-String -LiteralPath $envPath -Pattern '^\s*TELEGRAM_BOT_TOKEN\s*=' | Select-Object -First 1
+        if ($match) {
+            $BotToken = ($match.Line -replace '^\s*TELEGRAM_BOT_TOKEN\s*=\s*', '').Trim().Trim('"').Trim("'")
+        }
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($BotToken)) {
+    throw "TELEGRAM_BOT_TOKEN не задан: укажите его в переменной окружения или в .env (см. .env.example). Прежний токен из истории репозитория нужно отозвать у @BotFather."
+}
 
 $postText = @"
 🔥 <b>ВСТРЕЧАЙТЕ REDPANDA LAUNCHER v0.3.0!</b> 🔥

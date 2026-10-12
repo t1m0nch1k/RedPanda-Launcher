@@ -213,6 +213,7 @@
     "nothing_found": "No se encontró nada",
     "downloads_count": "{{count}} descargas",
     "available_versions": "Versiones disponibles",
+      "no_compatible_versions_modpack": "No hay versiones compatibles para este modpack",
     "no_compatible_versions": "No hay versiones compatibles para {{version}} {{loader}}"
   },
   "account": {
@@ -247,6 +248,7 @@
     "loading": "Cargando...",
     "back": "Atrás",
     "save": "Guardar",
+      "delete": "Eliminar",
     "cancel": "Cancelar"
   },
   "install_preview": {

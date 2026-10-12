@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "RedPanda Launcher",
-        "width": 1050,
-        "height": 650,
+        "width": 1280,
+        "height": 720,
         "decorations": false,
         "transparent": true,
         "resizable": false

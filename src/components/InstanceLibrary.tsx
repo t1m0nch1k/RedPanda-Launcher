@@ -26,7 +26,7 @@ export default function InstanceLibrary({ instances, selectedId, onSelect, onClo
     return () => { previous?.focus(); };
   }, []);
   return <div className="lobby-dialog-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-    <div ref={panel} role="dialog" aria-modal="true" aria-labelledby="instance-library-title" className="lobby-library" onKeyDown={e => {
+    <div ref={panel} role="dialog" aria-modal="true" aria-labelledby="instance-library-title" className="lobby-library relative overflow-hidden" onKeyDown={e => {
       if (e.key === "Escape") { e.stopPropagation(); onClose(); }
       if (e.key === "Tab") {
         const buttons = panel.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)");
@@ -36,7 +36,8 @@ export default function InstanceLibrary({ instances, selectedId, onSelect, onClo
         else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
       }
     }}>
-      <header><div><span className="lobby-eyebrow">REDPANDA / LIBRARY</span><h2 id="instance-library-title">{t("home.lobby.library")}</h2></div><button className="lobby-icon-button" aria-label={t("common.close")} onClick={onClose}><X size={20} /></button></header>
+      <div className="deck-modal-laser" />
+      <header><div><span className="lobby-eyebrow">REDPANDA / LIBRARY</span><h2 id="instance-library-title">{t("home.lobby.library")}</h2></div><button className="deck-modal-close" aria-label={t("common.close")} onClick={onClose}><X size={18} /></button></header>
       <div className="lobby-library__list custom-scrollbar">
         {instances.map(instance => <button key={instance.id} className={`lobby-library__item ${selectedId === instance.id ? "is-selected" : ""}`} onClick={() => { onSelect(instance.id); onClose(); }} onContextMenu={event => onContextMenu(event, instance.id)}>
           <span className="lobby-library__icon"><Box size={24} /></span><span><strong>{instance.name}</strong><small>{instance.game_version} · {instance.loader_type}</small></span>{selectedId === instance.id && <Check size={20} />}

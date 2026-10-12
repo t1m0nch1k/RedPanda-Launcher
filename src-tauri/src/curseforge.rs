@@ -123,6 +123,14 @@ pub(crate) async fn send_curseforge_request(
     if !res.status().is_success() {
         let status = res.status();
         let error_text = res.text().await.unwrap_or_default();
+        // Встроенный ключ живёт в бинарнике: его отзыв ломает каталог у всех
+        // пользователей сразу, поэтому такой отказ нужно называть прямо.
+        if status == reqwest::StatusCode::FORBIDDEN || status == reqwest::StatusCode::UNAUTHORIZED {
+            return Err(format!(
+                "Каталог CurseForge недоступен: ключ API отклонён ({}). Нужен выпуск обновления лаунчера с новым ключом. Ответ сервера: {}",
+                status, error_text
+            ));
+        }
         return Err(format!(
             "CurseForge API вернул ошибку {}: {}",
             status, error_text

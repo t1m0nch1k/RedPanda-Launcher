@@ -182,6 +182,7 @@
     "nothing_found": "Ничего не найдено",
     "downloads_count": "{{count}} скачиваний",
     "available_versions": "Доступные версии",
+      "no_compatible_versions_modpack": "Нет совместимых версий для этой сборки",
     "no_compatible_versions": "Нет совместимых версий для {{version}} {{loader}}",
     "install": "Установить"
   },
@@ -247,6 +248,7 @@
     "loading": "Загрузка...",
     "back": "Назад",
     "save": "Сохранить",
+      "delete": "Удалить",
     "cancel": "Отмена"
   },
   "install_preview": {
