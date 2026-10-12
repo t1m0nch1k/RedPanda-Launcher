@@ -55,8 +55,8 @@ export default function Home() {
 
   const features = [
     { icon: <IconBolt size={24} />, title: "LIGHTWEIGHT_CORE", desc: "{ built_with: 'Rust & Tauri',\n  memory_footprint: 'optimized',\n  startup: 'native' }" },
-    { icon: <IconPuzzle size={24} />, title: "ПРЕДПРОСМОТР МОДОВ", desc: "До установки проверьте список файлов, обязательные зависимости и конфликты. Доступно в разработке 0.3.3 для Modrinth и CurseForge." },
-    { icon: <IconLayoutGrid size={24} />, title: "CUSTOM_GUI_INSTALLER", desc: "Автономный установщик для Windows. Публичная загрузка: 0.3.1. Сохраняет ваши аккаунты и сборки при переустановке." },
+    { icon: <IconPuzzle size={24} />, title: "ПРЕДПРОСМОТР МОДОВ", desc: "До установки проверьте список файлов, обязательные зависимости и конфликты. Доступно в 0.3.3 для Modrinth и CurseForge." },
+    { icon: <IconLayoutGrid size={24} />, title: "CUSTOM_GUI_INSTALLER", desc: `Автономный установщик для Windows. Публичная загрузка: ${APP_VERSION}. Сохраняет ваши аккаунты и сборки при переустановке.` },
     { icon: <IconShieldLock size={24} />, title: "SECURE_STORAGE_&_UPDATES", desc: "{ storage: 'Windows DPAPI',\n  updates: 'signed_manifest + SHA-256',\n  path_traversal: 'protected' }" },
     { icon: <IconGlobe size={24} />, title: "E4MC_&_STEAM_P2P", desc: "{ modes: ['e4mc.link', 'e4steam'],\n  p2p_hosting: 'built-in',\n  ports_required: false }" },
     { icon: <IconRocket size={24} />, title: "ГАРДЕРОБ СКИНОВ", desc: "Выберите PNG и модель Classic или Slim, посмотрите скин в 3D. В 0.3.3: загрузка в профиль Microsoft или локальная установка через CustomSkinLoader." },
@@ -114,7 +114,7 @@ export default function Home() {
 
           <p className="text-sm sm:text-base md:text-lg text-muted mb-10 max-w-2xl font-mono leading-relaxed bg-card/40 p-4 border-l-2 border-primary">
             {"// Современный лаунчер Майнкрафт на Rust & Tauri."}<br/>
-            {"// В разработке 0.3.3: предпросмотр установки модов и гардероб со скинами прямо в лаунчере."}
+            {"// В 0.3.3: предпросмотр установки модов и гардероб со скинами прямо в лаунчере."}
           </p>
 
           <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">

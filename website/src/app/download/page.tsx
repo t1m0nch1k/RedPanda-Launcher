@@ -10,7 +10,7 @@ import {
   IconArrowUpRight
 } from "@tabler/icons-react";
 
-const RELEASE_VERSION = "0.3.1";
+const RELEASE_VERSION = "0.3.3";
 const RELEASE_TAG = `v${RELEASE_VERSION}`;
 
 export const metadata = {
