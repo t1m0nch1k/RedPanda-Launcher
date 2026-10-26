@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { IconCookie, IconX, IconAdjustmentsHorizontal } from "@tabler/icons-react";
 
+export const CONSENT_OPEN_EVENT = "redpanda-open-consent";
+
 export function CookieBanner() {
   const [show, setShow] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -17,6 +19,26 @@ export function CookieBanner() {
       const timer = setTimeout(() => setShow(true), 800);
       return () => clearTimeout(timer);
     }
+  }, []);
+
+  // Повторное открытие по запросу (кнопка «Параметры конфиденциальности» в подвале)
+  useEffect(() => {
+    const open = () => {
+      setShow(true);
+      setShowSettings(true);
+      const consent = localStorage.getItem("redpanda_cookie_consent");
+      if (consent) {
+        try {
+          const parsed = JSON.parse(consent);
+          setAnalyticsEnabled(Boolean(parsed.analytics));
+          setAdsEnabled(Boolean(parsed.ads));
+        } catch {
+          /* используем текущие значения по умолчанию */
+        }
+      }
+    };
+    window.addEventListener(CONSENT_OPEN_EVENT, open);
+    return () => window.removeEventListener(CONSENT_OPEN_EVENT, open);
   }, []);
 
   const handleAcceptAll = () => {

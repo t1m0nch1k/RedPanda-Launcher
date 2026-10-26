@@ -2,8 +2,10 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { IconBrandTelegram, IconBrandGithub, IconArrowUpRight, IconShieldCheck, IconCpu, IconRocket } from "@tabler/icons-react";
+import { ConsentSettingsButton } from "./ConsentSettingsButton";
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.3";
+const OPERATOR_NAME = "Иноземцев А. В.";
 
 export function Footer() {
   return (
@@ -177,19 +179,8 @@ export function Footer() {
           </div>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <span>© 2026 RedPanda Launcher</span>
-            <Link
-              href="/privacy"
-              className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors text-muted"
-            >
-              {/* Официальный синий бейдж Privacy Options (Check & X) */}
-              <svg className="w-5 h-2.5" viewBox="0 0 28 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="28" height="14" rx="7" fill="#0078D4" />
-                <path d="M6 7L8 9L12 5" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M18 5L22 9M22 5L18 9" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <span>Параметры конфиденциальности</span>
-            </Link>
+            <span>© 2026 RedPanda Launcher · Оператор: {OPERATOR_NAME}</span>
+            <ConsentSettingsButton />
           </div>
         </div>
       </div>
