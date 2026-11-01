@@ -1,9 +1,10 @@
 import { Account } from "../lib/ipc";
 import { 
   Plus, Play, Anvil, Feather, TreePine, Hammer, Settings, Loader2, Folder, 
-  FileText, Trash2, Copy, ExternalLink, 
-  Box, Layers, User, Globe, X, AlertCircle, Home as HomeIcon,
-  MessageCircle, Send, GitBranch, Sparkles, Minus, Square} from "lucide-react";
+  FileText, Trash2, Copy, ExternalLink, ChevronRight, 
+  Box, Blocks, Layers, Puzzle, User, Pickaxe, Globe, X, AlertCircle, Home as HomeIcon,
+  MessageCircle, Send, GitBranch, Sparkles, Minus, Square
+} from "lucide-react";
 import { useState, useEffect, useLayoutEffect, useMemo, memo, useRef, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
@@ -13,7 +14,6 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import AccountSelector from "../components/AccountSelector";
-import Mascot, { POSE_SRC, type MascotPose } from "../components/Mascot";
 import InstanceLibrary from "../components/InstanceLibrary";
 import packageInfo from "../../package.json";
 
@@ -117,6 +117,7 @@ export default memo(function Home({
   const [isExporting, setIsExporting] = useState<Record<string, boolean>>({});
 
   const [activeAccountObj, setActiveAccountObj] = useState<Account | null>(null);
+  const [accountsCount, setAccountsCount] = useState<number>(1);
   const [modCount, setModCount] = useState<number | null>(null);
 
   const [isLaunching, setIsLaunching] = useState(false);
@@ -132,14 +133,6 @@ export default memo(function Home({
   const [crashExitCode, setCrashExitCode] = useState<number | null>(null);
   const [showCrashModal, setShowCrashModal] = useState(false);
   const [quickServer, setQuickServer] = useState("");
-
-  // Mascot: override pose (waving greeting / joy after successful run)
-  const [mascotOverride, setMascotOverride] = useState<MascotPose | null>(null);
-  useEffect(() => {
-    setMascotOverride("waving");
-    const id = setTimeout(() => setMascotOverride(null), 4500);
-    return () => clearTimeout(id);
-  }, []);
 
   const currentInstance = useMemo(() => instances.find(i => i.id === selectedInstance) || instances[0], [instances, selectedInstance]);
   const managedInstance = instances.find(instance => instance.id === managingInstance);
@@ -171,6 +164,7 @@ export default memo(function Home({
     let disposed = false;
     invoke<Account[]>("get_accounts").then(accs => {
       if (!disposed) {
+        setAccountsCount(accs.length || 1);
         setActiveAccountObj(accs.find(a => a.is_active) || null);
       }
     }).catch(console.error);
@@ -214,6 +208,14 @@ export default memo(function Home({
     if (isYesterday) return `Вчера, ${timeStr}`;
     return `${date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}, ${timeStr}`;
   };
+
+  // Recent instances sorted by last_played desc
+  const recentInstances = useMemo(() => {
+    return [...instances]
+      .filter(instance => Boolean(instance.last_played))
+      .sort((a, b) => (b.last_played || 0) - (a.last_played || 0))
+      .slice(0, 5);
+  }, [instances]);
 
   // Context Menu
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, instanceId: string } | null>(null);
@@ -303,13 +305,9 @@ export default memo(function Home({
           return;
         }
 
-          if (eventType === "InstanceExited") {
+        if (eventType === "InstanceExited") {
           setIsLaunching(false);
           setDownloadAction("");
-          if (data.exit_code === 0) {
-            setMascotOverride("joy");
-            setTimeout(() => setMascotOverride(null), 6000);
-          }
           if (data.exit_code !== 0) {
             setCrashExitCode(data.exit_code);
             setCrashLogs([...gameLogsRef.current]);
@@ -530,284 +528,285 @@ export default memo(function Home({
     setDownloadAction("");
   };
 
-  // Mascot pose bound to launcher state
-  const mascotPose: MascotPose = showCrashModal
-    ? "thinking"
-    : mascotOverride !== null
-      ? mascotOverride
-      : isLaunching
-        ? (downloadTotal > 0 && downloadedBytes < downloadTotal ? "mining" : "clasped")
-        : "standing";
-  const mascotMessage: string | null = isLaunching
-    ? (downloadAction || null)
-    : (showCrashModal ? "Ой... вылет. Я уже смотрю логи" : null);
-
   return (
-    <div className="rp-root">
-      {/* 1. LEFT SIDEBAR */}
-      <aside
-        className="rp-side"
-        onMouseDown={(event) => {
-          if (!(event.target as HTMLElement).closest("button, input, a, .account-selector")) {
+    <div className="hub-root">
+      {/* 0. TOP WINDOW HEADER BAR — лого слева, аккаунт и управление окном справа, на всю ширину окна */}
+      <header
+        className="hub-top-header"
+        onMouseDown={event => {
+          if (!(event.target as HTMLElement).closest('button, input, a, .account-selector')) {
             appWindow.startDragging();
           }
         }}
       >
-        <div className="rp-brand">
-          <img className="rp-brand-logo" src="/logo.png" alt="RedPanda" draggable={false} />
-          <div>
-            <div className="rp-brand-title">REDPANDA <b>LAUNCHER</b></div>
-            <div className="rp-brand-sub">Версия {packageInfo.version}</div>
+        <div className="hub-brand">
+          <img src="/logo.png" alt="RedPanda" />
+          <div className="hub-brand-text">
+            <span className="hub-brand-title">REDPANDA</span>
+            <span className="hub-brand-subtitle">LAUNCHER</span>
           </div>
         </div>
 
-        <nav className="rp-nav">
-          <button className="rp-nav-btn on" onClick={() => {}}>
-            <HomeIcon size={18} />
-            <span>Главная</span>
-          </button>
-          <button className="rp-nav-btn" onClick={() => setShowLibrary(true)}>
-            <Box size={18} />
-            <span>Сборки</span>
-          </button>
-          <button className="rp-nav-btn" onClick={() => setShowModpackBuilder(true)}>
-            <Layers size={18} />
-            <span>Моды</span>
-          </button>
-          <button className="rp-nav-btn" onClick={() => setShowWardrobe(true)}>
-            <User size={18} />
-            <span>Скины</span>
-          </button>
-          <button className="rp-nav-btn" onClick={() => setShowServerBrowser(true)}>
-            <Globe size={18} />
-            <span>Игра с друзьями</span>
-          </button>
-          <button className="rp-nav-btn" onClick={() => onOpenLauncherSettings?.()}>
-            <Settings size={18} />
-            <span>Настройки</span>
-          </button>
-        </nav>
-
-        <div className="rp-side-bottom">
-          <div className="rp-socials">
-            <button onClick={() => openUrl("https://discord.gg/dFv6YvYy5p")} className="rp-social-btn" title="Discord">
-              <MessageCircle size={14} />
-            </button>
-            <button onClick={() => openUrl("https://t.me/redpanda_launcher")} className="rp-social-btn" title="Telegram">
-              <Send size={13} />
-            </button>
-            <button onClick={() => openUrl("https://github.com/t1m0nch1k/RedPanda-Launcher")} className="rp-social-btn" title="GitHub">
-              <GitBranch size={14} />
-            </button>
-            <span className="rp-social-ver">v{packageInfo.version}</span>
-          </div>
-          <AccountSelector
-            variant="lobby"
-            onAccountChange={(username, id) => {
-              onAccountChange?.(username, id);
-            }}
-          />
-        </div>
-      </aside>
-
-      {/* 2. MAIN COLUMN */}
-      <div className="rp-main">
-        <header
-          className="rp-topbar"
-          onMouseDown={(event) => {
-            if (!(event.target as HTMLElement).closest("button, input, a, .account-selector")) {
-              appWindow.startDragging();
-            }
-          }}
-        >
-          <h1>Главная</h1>
-
+        <div className="hub-drag-zone">
           {updateInfo?.has_update && (
-            <button className="rp-update-badge" onClick={() => onOpenUpdateModal?.()}>
+            <button 
+              onClick={() => onOpenUpdateModal?.()}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#f55e1d]/20 border border-[#f55e1d]/40 text-[#f55e1d] text-xs font-mono font-bold animate-pulse"
+            >
               <Sparkles size={13} />
               <span>Обновление v{updateInfo.latest_version}</span>
             </button>
           )}
+        </div>
 
-          <div className="rp-win-controls">
-            <button
-              className="rp-win-btn"
-              onClick={() => onOpenFolder ? onOpenFolder() : invoke("open_launcher_folder").catch(console.error)}
-              title={t("app.launcher_folder")}
-            >
-              <Folder size={15} />
-            </button>
-            <button
-              className="rp-win-btn"
-              onClick={() => appWindow.minimize()}
+        <div className="hub-header-actions">
+          <AccountSelector 
+            variant="lobby" 
+            onAccountChange={(username, id) => {
+              onAccountChange?.(username, id);
+            }} 
+          />
+
+          <button 
+            className="hub-icon-btn" 
+            onClick={() => onOpenFolder ? onOpenFolder() : invoke("open_launcher_folder").catch(console.error)} 
+            title={t("app.launcher_folder")}
+          >
+            <Folder size={17} />
+          </button>
+
+          <button 
+            className="hub-icon-btn" 
+            onClick={() => onOpenLauncherSettings?.()} 
+            title={t("app.launcher_settings")}
+          >
+            <Settings size={18} />
+          </button>
+
+          <div className="hub-win-controls">
+            <button 
+              onClick={() => appWindow.minimize()} 
+              className="hub-win-btn" 
               title={t("home.lobby.minimize")}
             >
               <Minus size={15} />
             </button>
-            <button
-              className="rp-win-btn"
-              onClick={() => appWindow.toggleMaximize()}
+            <button 
+              onClick={() => appWindow.toggleMaximize()} 
+              className="hub-win-btn" 
               title={t("home.lobby.maximize")}
             >
               <Square size={12} />
             </button>
-            <button
-              className="rp-win-btn rp-win-btn--close"
-              onClick={() => appWindow.close()}
+            <button 
+              onClick={() => appWindow.close()} 
+              className="hub-win-btn hub-win-btn--close" 
               title={t("common.close")}
             >
               <X size={16} />
             </button>
           </div>
-        </header>
+        </div>
+      </header>
 
-        <div className="rp-columns custom-scrollbar">
-          {/* Column: main content */}
-          <div className="rp-col-main">
-            {/* HERO */}
-            <section className="rp-hero">
-              <div className="rp-hero-grid">
-                <div className="rp-hero-col">
-                  <div className="rp-hero-head">
-                    <div style={{ minWidth: 0, flex: "1 1 260px" }}>
-                      <div className="rp-hero-eyebrow">Выбранная сборка</div>
-                      <h1 className="rp-hero-title" title={currentInstance?.name}>
-                        {currentInstance?.name || "Нет сборок"}
-                      </h1>
-                      <div className="rp-hero-meta">
-                        <span>{currentInstance?.game_version || "—"}</span>
-                        <span>·</span>
-                        <span>{currentInstance?.loader_type || "—"}</span>
-                        <span>·</span>
-                        <span>{modCount !== null ? formatModCount(modCount) : "моды"}</span>
-                      </div>
-                    </div>
+      {/* 1. LEFT NAVIGATION SIDEBAR */}
+      <aside className="hub-sidebar-left">
+        <div className="flex flex-col">
+          {/* Navigation Items */}
+          <nav className="hub-nav-menu">
+            <button 
+              className="hub-nav-item is-active"
+              onClick={() => {}}
+            >
+              <HomeIcon size={18} />
+              <span>Главная</span>
+            </button>
+            <button 
+              className="hub-nav-item"
+              onClick={() => setShowLibrary(true)}
+            >
+              <Box size={18} />
+              <span>Играть</span>
+            </button>
+            <button 
+              className="hub-nav-item"
+              onClick={() => setShowModpackBuilder(true)}
+            >
+              <Layers size={18} />
+              <span>Моды</span>
+            </button>
+            <button 
+              className="hub-nav-item"
+              onClick={() => setShowWardrobe(true)}
+            >
+              <Folder size={18} />
+              <span>Профили</span>
+            </button>
+            <button 
+              className="hub-nav-item"
+              onClick={() => onOpenLauncherSettings?.()}
+            >
+              <Settings size={18} />
+              <span>Настройки</span>
+            </button>
+          </nav>
+        </div>
 
-                    <div className="rp-hero-actions">
-                      {currentInstance && (
-                        <>
-                          <button
-                            className="rp-btn rp-icon-btn"
-                            onClick={() => setManagingInstance(currentInstance.id)}
-                            title="Настройки сборки и моды"
-                          >
-                            <Settings size={17} />
-                          </button>
-                          <button
-                            className="rp-btn rp-icon-btn"
-                            onClick={() => invoke("open_instance_folder", { id: currentInstance.id }).catch(console.error)}
-                            title="Папка сборки"
-                          >
-                            <Folder size={17} />
-                          </button>
-                          <button
-                            className="rp-btn rp-icon-btn"
-                            onClick={() => setShowServerBrowser(true)}
-                            title="Мультиплеер & Серверы"
-                          >
-                            <Globe size={17} />
-                          </button>
-                        </>
-                      )}
-                      <button
-                        className="rp-btn main big"
-                        onClick={() => handleLaunch(quickServer || undefined)}
-                        disabled={isLaunching || !currentInstance}
-                      >
-                        {isLaunching ? (
-                          <Loader2 size={18} className="animate-spin" />
-                        ) : (
-                          <Play size={18} fill="currentColor" />
-                        )}
-                        <span>{isLaunching ? "Запуск..." : "Играть"}</span>
-                      </button>
-                    </div>
+        {/* Mascot Bottom Card */}
+        <div className="hub-mascot-card">
+          <img src="/logo.png" alt="" />
+          <span className="hub-mascot-text">
+            Больше, чем просто игра
+          </span>
+        </div>
+      </aside>
+
+      {/* 2. CENTER MAIN COLUMN */}
+      <main className="hub-center">
+        {/* Scrollable Main Content */}
+        <div className="hub-scroll-area custom-scrollbar">
+          {/* HERO BANNER ("РЕКОМЕНДУЕМ" / Active Instance) */}
+          <section className="hub-hero-banner">
+            <div 
+              className="hub-hero-bg"
+              style={{ backgroundImage: 'url("/hero_sunset.jpg")' }}
+            />
+            <div className="hub-hero-overlay" />
+
+            <div className="hub-hero-content">
+              {/* Eyebrow */}
+              <span className="hub-hero-eyebrow">РЕКОМЕНДУЕМ</span>
+
+              {/* Title */}
+              <h1 className="hub-hero-title">
+                {currentInstance?.name || "TechnoMagic RPG"}
+              </h1>
+
+              {/* Description */}
+              <p className="hub-hero-desc">
+                {currentInstance?.id === "technomagic-rpg" 
+                  ? "Магия, технологии и бесконечные возможности в одной сборке."
+                  : "Погрузитесь в захватывающий игровой мир Minecraft с высокой производительностью и удобством."}
+              </p>
+
+              {/* Badges / Meta */}
+              <div className="hub-hero-meta">
+                <span className="hub-hero-meta-item">
+                  <Box size={13} />
+                  {currentInstance?.game_version || "—"}
+                </span>
+                <span className="hub-hero-meta-dot">•</span>
+                <span className="hub-hero-meta-item">
+                  <Pickaxe size={13} />
+                  {currentInstance?.loader_type || "—"}
+                </span>
+                <span className="hub-hero-meta-dot">•</span>
+                <span className="hub-hero-meta-item">
+                  <Blocks size={13} />
+                  {modCount !== null ? formatModCount(modCount) : "—"}
+                </span>
+              </div>
+
+              {/* Bottom Launch Button & Tools */}
+              <div className="hub-hero-bottom">
+                <button
+                  className="hub-hero-play-btn"
+                  onClick={() => handleLaunch(quickServer || undefined)}
+                  disabled={isLaunching || !currentInstance}
+                >
+                  {isLaunching ? (
+                    <Loader2 size={18} className="animate-spin text-white" />
+                  ) : (
+                    <Play size={18} fill="currentColor" />
+                  )}
+                  <span>{isLaunching ? "Запуск..." : "Играть"}</span>
+                </button>
+
+                {currentInstance && (
+                  <>
+                    <button
+                      className="hub-hero-tool-btn"
+                      onClick={() => setManagingInstance(currentInstance.id)}
+                      title="Настройки сборки и моды"
+                    >
+                      <Settings size={18} />
+                    </button>
+                    <button
+                      className="hub-hero-tool-btn"
+                      onClick={() => invoke("open_instance_folder", { id: currentInstance.id }).catch(console.error)}
+                      title="Папка сборки"
+                    >
+                      <Folder size={18} />
+                    </button>
+                    <button
+                      className="hub-hero-tool-btn"
+                      onClick={() => setShowServerBrowser(true)}
+                      title="Мультиплеер & Серверы"
+                    >
+                      <Globe size={18} />
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* In-banner launch progress bar */}
+              {isLaunching && (
+                <div className="mt-2 w-full max-w-md bg-[#130d09]/90 border border-[#3d261a] rounded-lg p-2.5 flex flex-col gap-1.5 shadow-xl backdrop-blur-md">
+                  <div className="flex items-center justify-between text-xs font-mono text-[#dcd0c7]">
+                    <span className="truncate max-w-[260px] font-medium">{downloadAction || "Подготовка к запуску..."}</span>
+                    <span className="text-[#f55e1d] font-bold">
+                      {downloadSpeed > 0 ? `${(downloadSpeed / 1024 / 1024).toFixed(1)} МБ/с ` : ""}
+                      {downloadTotal > 0 ? `(${Math.min(100, Math.round((downloadedBytes / downloadTotal) * 100))}%)` : ""}
+                    </span>
                   </div>
-
-                  {/* Status line: launch progress / ready */}
-                  <div className="rp-statusline">
-                    {isLaunching ? (
-                      <>
-                        <span className="rp-status-dot" style={{ background: "var(--rp-accent)", animation: "rp-pulse 1.2s ease-in-out infinite" }} />
-                        <div className="rp-statusbar">
-                          <div
-                            className="rp-statusbar-fill"
-                            style={{ width: downloadTotal > 0 ? `${Math.min(100, (downloadedBytes / downloadTotal) * 100)}%` : "100%" }}
-                          />
-                        </div>
-                        <b>{downloadAction || "Подготовка к запуску..."}</b>
-                        <span>
-                          {downloadSpeed > 0 ? `${(downloadSpeed / 1024 / 1024).toFixed(1)} МБ/с · ` : ""}
-                          {downloadTotal > 0 ? `${Math.min(100, Math.round((downloadedBytes / downloadTotal) * 100))}%` : ""}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="rp-status-dot" />
-                        <div className="rp-statusbar">
-                          <div className="rp-statusbar-fill" style={{ width: "100%", background: "var(--rp-ok)" }} />
-                        </div>
-                        <b>Готова к запуску</b>
-                        <span>{formatLastPlayed(currentInstance?.last_played)}</span>
-                      </>
-                    )}
+                  <div className="w-full h-1.5 bg-[#0e0906] rounded-full overflow-hidden border border-[#2b1b12]">
+                    <div 
+                      className="h-full bg-gradient-to-r from-[#f55e1d] to-[#ff854d] transition-all duration-200 rounded-full shadow-[0_0_8px_rgba(245,94,29,0.7)]"
+                      style={{ width: downloadTotal > 0 ? `${Math.min(100, (downloadedBytes / downloadTotal) * 100)}%` : "100%" }}
+                    />
                   </div>
                 </div>
+              )}
+            </div>
+          </section>
 
-                {/* Mascot lives in its own column — never overlaps content */}
-                <div className="rp-mascot-col">
-                  <Mascot pose={mascotPose} message={mascotMessage} />
-                </div>
-              </div>
-            </section>
+          {/* SECTION: "МОИ СБОРКИ" */}
+          <section className="flex flex-col">
+            <div className="hub-section-header">
+              <h2 className="hub-section-title">
+                Мои сборки
+              </h2>
+              <button 
+                className="hub-section-link"
+                onClick={() => setShowLibrary(true)}
+              >
+                <span>Все сборки</span>
+                <ChevronRight size={15} />
+              </button>
+            </div>
 
-            {/* INSTANCES TABLE */}
-            <section className="rp-card rp-section">
-              <div className="rp-section-head">
-                <h2>Мои сборки</h2>
-                <div className="rp-section-actions">
-                  <button className="rp-btn small" onClick={() => setShowCreateModal(true)}>
-                    <Plus size={15} />
-                    <span>Создать сборку</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="rp-table-head">
-                <span />
-                <span>Название</span>
-                <span>Версия</span>
-                <span>Загрузчик</span>
-                <span>Последний запуск</span>
-                <span />
-              </div>
-
-              {instances.map((inst) => {
+            <div className="hub-cards-grid">
+              {instances.slice(0, 4).map((inst) => {
                 const isSelected = inst.id === currentInstance?.id;
                 return (
                   <div
                     key={inst.id}
-                    className={isSelected ? "rp-row sel" : "rp-row"}
+                    className={`hub-instance-card ${isSelected ? "is-active" : ""}`}
                     onClick={() => onSelectInstance(inst.id)}
-                    onContextMenu={(event) => handleOpenContextMenu(event, inst.id)}
+                    onContextMenu={event => handleOpenContextMenu(event, inst.id)}
                     title={`${inst.name} (${inst.game_version} · ${inst.loader_type})`}
                   >
-                    <div className="rp-row-ava">
-                      <InstanceIcon
-                        iconPath={inst.icon_path}
-                        loaderType={inst.loader_type}
-                        className="w-full h-full object-contain p-1"
-                      />
+                    <div className="hub-card-thumb">
+                      <InstanceIcon iconPath={inst.icon_path} loaderType={inst.loader_type} />
                     </div>
-                    <div className="rp-row-name">
-                      <b>{inst.name}</b>
-                      <span>{isSelected ? "Сейчас выбрана" : inst.game_version}</span>
+
+                    <div className="hub-card-info">
+                      <span className="hub-card-title">{inst.name}</span>
+                      <span className="hub-card-sub">{inst.game_version} • {inst.loader_type}</span>
                     </div>
-                    <span>{inst.game_version}</span>
-                    <span>{inst.loader_type}</span>
-                    <span>{formatLastPlayed(inst.last_played)}</span>
+
                     <button
-                      className="rp-row-play"
+                      className="hub-card-play-btn"
                       onClick={(e) => {
                         e.stopPropagation();
                         onSelectInstance(inst.id);
@@ -815,82 +814,167 @@ export default memo(function Home({
                       }}
                       title="Быстрый запуск"
                     >
-                      <Play size={13} />
-                      <span>Играть</span>
+                      <Play size={14} fill="currentColor" />
                     </button>
                   </div>
                 );
               })}
 
-              {instances.length === 0 && (
-                <div className="rp-table-empty">
-                  Сборок пока нет. Перетащите файл .mrpack в окно или нажмите «Создать сборку».
+              {/* Slot to create instance if less than 4 */}
+              {instances.length < 4 && (
+                <div 
+                  className="hub-card-create"
+                  onClick={() => setShowCreateModal(true)}
+                >
+                  <Plus size={22} />
+                  <span className="text-xs font-semibold">Создать сборку</span>
                 </div>
               )}
-            </section>
+            </div>
+          </section>
+
+          {/* SECTION: "ПОСЛЕДНИЕ ЗАПУСКИ" */}
+          <section className="flex flex-col">
+            <div className="hub-section-header">
+              <h2 className="hub-section-title">Последние запуски</h2>
+            </div>
+
+            <div className="hub-history-container">
+              {recentInstances.map((inst) => (
+                <div
+                  key={inst.id}
+                  className="hub-history-row"
+                  onClick={() => onSelectInstance(inst.id)}
+                  onContextMenu={event => handleOpenContextMenu(event, inst.id)}
+                >
+                  <div className="hub-history-left">
+                    <div className="hub-history-icon">
+                      <InstanceIcon iconPath={inst.icon_path} loaderType={inst.loader_type} className="w-5 h-5 object-contain" />
+                    </div>
+                    <div className="hub-history-details">
+                      <span className="hub-history-name">{inst.name}</span>
+                      <span className="hub-history-sub">{inst.game_version} • {inst.loader_type}</span>
+                    </div>
+                  </div>
+
+                  <div className="hub-history-right">
+                    <span className="hub-history-time">
+                      {formatLastPlayed(inst.last_played)}
+                    </span>
+                    <ChevronRight size={16} className="hub-history-chevron" />
+                  </div>
+                </div>
+              ))}
+
+              {recentInstances.length === 0 && (
+                <div className="p-4 text-center text-xs text-[#8c7769]">
+                  История запусков пока пуста
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      </main>
+
+      {/* 3. RIGHT NAVIGATION SIDEBAR */}
+      <aside className="hub-sidebar-right">
+        {/* Shortcuts Box */}
+        <div className="hub-shortcuts-box">
+          <button 
+            className="hub-shortcut-btn"
+            onClick={() => setShowLibrary(true)}
+          >
+            <div className="hub-shortcut-btn-left">
+              <Box size={17} />
+              <span>Мои сборки</span>
+            </div>
+            <div className="hub-shortcut-btn-right">
+              <span>{instances.length}</span>
+              <ChevronRight size={14} />
+            </div>
+          </button>
+
+          <button 
+            className="hub-shortcut-btn"
+            onClick={() => setShowModpackBuilder(true)}
+          >
+            <div className="hub-shortcut-btn-left">
+              <Puzzle size={17} />
+              <span>Мои моды</span>
+            </div>
+            <div className="hub-shortcut-btn-right">
+              <span>{modCount ?? "—"}</span>
+              <ChevronRight size={14} />
+            </div>
+          </button>
+
+          <button 
+            className="hub-shortcut-btn"
+            onClick={() => setShowWardrobe(true)}
+          >
+            <div className="hub-shortcut-btn-left">
+              <User size={17} />
+              <span>Профили</span>
+            </div>
+            <div className="hub-shortcut-btn-right">
+              <span>{accountsCount}</span>
+              <ChevronRight size={14} />
+            </div>
+          </button>
+
+          <button 
+            className="hub-shortcut-btn"
+            onClick={() => onOpenLauncherSettings?.()}
+          >
+            <div className="hub-shortcut-btn-left">
+              <Settings size={17} />
+              <span>Настройки</span>
+            </div>
+            <div className="hub-shortcut-btn-right">
+              <ChevronRight size={14} />
+            </div>
+          </button>
+        </div>
+
+        {/* Brand Card */}
+        <div className="hub-brand-card">
+          <div className="hub-brand-row">
+            <img src="/logo.png" alt="RedPanda" />
+            <div className="hub-brand-copy">
+              <span className="hub-brand-name">RedPanda</span>
+              <span className="hub-brand-tagline">Твой мир — твои правила</span>
+              <span className="hub-brand-accent-line" />
+            </div>
           </div>
 
-          {/* Right column */}
-          <aside className="rp-aside">
-            {updateInfo?.has_update ? (
-              <section className="rp-card rp-card-pad">
-                <h2>Доступно обновление</h2>
-                <div className="rp-card-sub">
-                  Версия {updateInfo.latest_version} доступна к установке.
-                </div>
-                <button
-                  className="rp-btn main"
-                  style={{ width: "100%", marginTop: 14 }}
-                  onClick={() => onOpenUpdateModal?.()}
-                >
-                  Обновить лаунчер
-                </button>
-              </section>
-            ) : (
-              <section className="rp-card rp-card-pad">
-                <h2>RedPanda Launcher</h2>
-                <div className="rp-card-sub">v{packageInfo.version} — у вас актуальная версия.</div>
-              </section>
-            )}
-
-            <section className="rp-card rp-card-pad">
-              <h2>Сервисы</h2>
-              <div className="rp-svc">
-                <span className="rp-svc-name"><i className="rp-svc-dot" />Mojang Auth</span>
-                <span className="rp-svc-val">работает</span>
-              </div>
-              <div className="rp-svc">
-                <span className="rp-svc-name"><i className="rp-svc-dot" />Modrinth</span>
-                <span className="rp-svc-val">работает</span>
-              </div>
-              <div className="rp-svc">
-                <span className="rp-svc-name"><i className="rp-svc-dot" />CurseForge</span>
-                <span className="rp-svc-val">работает</span>
-              </div>
-              <div className="rp-svc">
-                <span className="rp-svc-name"><i className="rp-svc-dot" />RedPanda CDN</span>
-                <span className="rp-svc-val">работает</span>
-              </div>
-            </section>
-
-            <section className="rp-card rp-card-pad">
-              <h2>Подсказка дня</h2>
-              <div className="rp-hint">
-                <img className="rp-mini-panda" src={POSE_SRC.reading} alt="" draggable={false} />
-                <div className="rp-card-sub">
-                  Играйте с друзьями без открытия портов.{" "}
-                  <a className="rp-link" onClick={() => setShowServerBrowser(true)} style={{ cursor: "pointer" }}>Как настроить</a>
-                </div>
-              </div>
-            </section>
-
-            <div className="rp-statics" style={{ padding: "2px 6px" }}>
-              Java · Minecraft · Modrinth<br />
-              CurseForge · Forge / Fabric / NeoForge
-            </div>
-          </aside>
+          <div className="hub-socials-row">
+            <button 
+              onClick={() => openUrl("https://discord.gg/dFv6YvYy5p")} 
+              className="hub-social-btn" 
+              title="Discord"
+            >
+              <MessageCircle size={14} />
+            </button>
+            <button 
+              onClick={() => openUrl("https://t.me/redpanda_launcher")} 
+              className="hub-social-btn" 
+              title="Telegram"
+            >
+              <Send size={13} />
+            </button>
+            <button 
+              onClick={() => openUrl("https://github.com/t1m0nch1k/RedPanda-Launcher")} 
+              className="hub-social-btn" 
+              title="GitHub"
+            >
+              <GitBranch size={14} />
+            </button>
+            <span className="ml-auto text-[10px] font-mono text-[#8c7769]">
+              v{packageInfo.version}
+            </span>
+          </div>
         </div>
-      </div>
+      </aside>
 
       {/* MODALS AND OVERLAYS */}
       {showLibrary && (
