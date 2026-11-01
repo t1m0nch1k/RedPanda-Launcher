@@ -8,16 +8,6 @@
 <style>html,body{margin:0;height:100%}</style>
 </head>
 <body>
-<div style="position:fixed;top:8px;right:8px;z-index:99;display:flex;gap:6px;font-family:Inter,Arial,sans-serif;">
-  <button onclick="setTheme('dark')" style="padding:6px 12px;border:1px solid #3A3D44;border-radius:5px;background:#1E2023;color:#E8E9EB;cursor:pointer;">Тёмная</button>
-  <button onclick="setTheme('light')" style="padding:6px 12px;border:1px solid #C9CFDA;border-radius:5px;background:#fff;color:#0E0F12;cursor:pointer;">Светлая</button>
-</div>
-<script>
-function setTheme(t) {
-  if (t === 'light') { document.documentElement.setAttribute('data-theme', 'light'); document.querySelector('.rp-root').classList.add('light'); }
-  else { document.documentElement.removeAttribute('data-theme'); document.querySelector('.rp-root').classList.remove('light'); }
-}
-</script>
 <div class="rp-root">
 
   <!-- Sidebar -->
