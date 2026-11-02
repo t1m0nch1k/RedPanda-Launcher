@@ -1,5 +1,4 @@
 {
-  "checkedAt": "2026-11-02T07:33:33.1601205Z",
   "services": {
     "minecraft-auth": {
       "status": "operational"
@@ -19,5 +18,6 @@
     "redpanda-cdn": {
       "status": "unknown"
     }
-  }
+  },
+  "checkedAt": "2026-11-02T17:27:04.7429831Z"
 }
