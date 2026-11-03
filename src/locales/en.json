@@ -83,6 +83,8 @@
     }
   },
   "settings": {
+    "tab_general": "General",
+    "tab_java": "Java & memory",
     "title": "Settings",
     "language": "Language",
     "java_path": "Java Path (leave empty for auto-detect)",
@@ -182,7 +184,7 @@
     "nothing_found": "Nothing found",
     "downloads_count": "{{count}} downloads",
     "available_versions": "Available versions",
-      "no_compatible_versions_modpack": "No compatible versions for this modpack",
+    "no_compatible_versions_modpack": "No compatible versions for this modpack",
     "no_compatible_versions": "No compatible versions for {{version}} {{loader}}",
     "install": "Install"
   },
@@ -229,6 +231,7 @@
     "add": "Add...",
     "no_saved": "No saved accounts",
     "add_account": "Add account",
+    "needs_relogin": "Login required",
     "offline_title": "Offline (Cracked)",
     "offline_desc": "Access only to offline servers",
     "ms_title": "Microsoft License",
@@ -239,16 +242,24 @@
     "nickname_placeholder": "E.g.: Notch",
     "adding": "Adding...",
     "waiting_auth": "Waiting for authorization...",
-    "continue_browser": "Continue login in the opened browser window."
+    "continue_browser": "Continue login in the opened browser window.",
+    "added": "Account added:",
+    "ms_success": "Microsoft account added successfully",
+    "ms_code_title": "Enter the code at Microsoft",
+    "ms_code_step1": "Open",
+    "ms_code_step2": "and enter the confirmation code:",
+    "ms_declined": "You declined the authorization request",
+    "ms_expired": "The code has expired. Try signing in again."
   },
   "common": {
     "close": "Close",
     "error": "Error",
     "success": "Success",
+    "copied": "Copied",
     "loading": "Loading...",
     "back": "Back",
     "save": "Save",
-      "delete": "Delete",
+    "delete": "Delete",
     "cancel": "Cancel"
   },
   "install_preview": {
@@ -288,6 +299,13 @@
     "success_profile": "Uploaded to Minecraft. Restart the game to refresh your skin.",
     "success_local": "Applied to the selected instance. Restart the game.",
     "apply": "Apply skin",
-    "applying": "Applying skin…"
+    "applying": "Applying skin…",
+    "elyby_info": "For Ely.by accounts, skins and capes are configured in your Ely.by website profile. In-game, the launcher automatically connects your skin via authlib-injector.",
+    "open_elyby": "Open Ely.by Wardrobe in browser",
+    "sync_elyby": "Sync from Ely.by",
+    "syncing": "Syncing…",
+    "synced": "Skin successfully synced from Ely.by!",
+    "no_modded_instances_warning": "Installing a local skin requires a mod loader (Fabric, Forge, Quilt, or NeoForge). Pure Vanilla does not support local skin injection.",
+    "create_modded_hint": "Create a Fabric instance or choose a mod loader in instance settings."
   }
 }

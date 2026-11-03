@@ -180,6 +180,7 @@ pub fn run() {
             commands::content::discard_mod_install,
             commands::skins::preview_skin,
             commands::skins::get_account_skin,
+            commands::skins::refresh_account_skin,
             commands::skins::apply_skin,
             builder::build_custom_modpack,
         ])

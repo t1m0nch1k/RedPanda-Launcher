@@ -6,28 +6,34 @@ use std::{
     io::Cursor,
     path::{Path, PathBuf},
 };
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter};
 
 const MAX_SKIN_BYTES: usize = 1024 * 1024;
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SkinPreview {
     pub data_url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_data_url: Option<String>,
     pub sha256: String,
     pub width: u32,
     pub height: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
 }
+
 #[derive(Serialize, Deserialize)]
 struct SavedSkin {
     model: String,
 }
+
 fn validate_model(model: &str) -> Result<(), String> {
     if !matches!(model, "classic" | "slim") {
         return Err("Выберите Classic или Slim".into());
     }
     Ok(())
 }
+
 fn validate_png(bytes: &[u8]) -> Result<(u32, u32), String> {
     if bytes.len() > MAX_SKIN_BYTES {
         return Err("PNG должен быть не больше 1 МБ".into());
@@ -51,6 +57,7 @@ fn validate_png(bytes: &[u8]) -> Result<(u32, u32), String> {
         .map_err(|_| "PNG повреждён")?;
     Ok((width, height))
 }
+
 fn read_skin(path: &Path) -> Result<Vec<u8>, String> {
     let metadata = fs::metadata(path).map_err(|e| format!("Не удалось открыть PNG: {e}"))?;
     if !metadata.is_file() || metadata.len() > MAX_SKIN_BYTES as u64 {
@@ -60,16 +67,118 @@ fn read_skin(path: &Path) -> Result<Vec<u8>, String> {
     validate_png(&bytes)?;
     Ok(bytes)
 }
+
+pub fn extract_avatar_png(skin_bytes: &[u8]) -> Result<Vec<u8>, String> {
+    let decoder = png::Decoder::new_with_limits(
+        Cursor::new(skin_bytes),
+        png::Limits {
+            bytes: MAX_SKIN_BYTES,
+        },
+    );
+    let mut reader = decoder
+        .read_info()
+        .map_err(|_| "Не удалось прочитать PNG скина")?;
+    let (width, height) = (reader.info().width, reader.info().height);
+    if width != 64 || !matches!(height, 32 | 64) {
+        return Err("Нужен PNG размером 64×64 или 64×32".into());
+    }
+    let color_type = reader.info().color_type;
+    let mut raw_pixels = vec![0; reader.output_buffer_size()];
+    reader
+        .next_frame(&mut raw_pixels)
+        .map_err(|_| "PNG повреждён")?;
+
+    let get_rgba = |px: u32, py: u32| -> [u8; 4] {
+        if px >= width || py >= height {
+            return [0, 0, 0, 0];
+        }
+        let base = (py * width + px) as usize;
+        match color_type {
+            png::ColorType::Rgba => {
+                let idx = base * 4;
+                if idx + 3 < raw_pixels.len() {
+                    [raw_pixels[idx], raw_pixels[idx + 1], raw_pixels[idx + 2], raw_pixels[idx + 3]]
+                } else {
+                    [0, 0, 0, 0]
+                }
+            }
+            png::ColorType::Rgb => {
+                let idx = base * 3;
+                if idx + 2 < raw_pixels.len() {
+                    [raw_pixels[idx], raw_pixels[idx + 1], raw_pixels[idx + 2], 255]
+                } else {
+                    [0, 0, 0, 0]
+                }
+            }
+            _ => [0, 0, 0, 0],
+        }
+    };
+
+    let mut head_8x8 = [0u8; 8 * 8 * 4];
+    for y in 0..8 {
+        for x in 0..8 {
+            let base_rgba = get_rgba(8 + x, 8 + y);
+            let hat_rgba = get_rgba(40 + x, 8 + y);
+            let dest_idx = (y * 8 + x) as usize * 4;
+
+            let final_pixel = if hat_rgba[3] > 10 {
+                if hat_rgba[3] >= 250 {
+                    hat_rgba
+                } else {
+                    let a = hat_rgba[3] as f32 / 255.0;
+                    [
+                        ((hat_rgba[0] as f32 * a) + (base_rgba[0] as f32 * (1.0 - a))) as u8,
+                        ((hat_rgba[1] as f32 * a) + (base_rgba[1] as f32 * (1.0 - a))) as u8,
+                        ((hat_rgba[2] as f32 * a) + (base_rgba[2] as f32 * (1.0 - a))) as u8,
+                        255,
+                    ]
+                }
+            } else {
+                base_rgba
+            };
+
+            head_8x8[dest_idx..dest_idx + 4].copy_from_slice(&final_pixel);
+        }
+    }
+
+    let out_size = 64usize;
+    let mut out_pixels = vec![0u8; out_size * out_size * 4];
+    for y in 0..out_size {
+        let sy = y / 8;
+        for x in 0..out_size {
+            let sx = x / 8;
+            let src_idx = (sy * 8 + sx) * 4;
+            let dst_idx = (y * out_size + x) * 4;
+            out_pixels[dst_idx..dst_idx + 4].copy_from_slice(&head_8x8[src_idx..src_idx + 4]);
+        }
+    }
+
+    let mut out_png = Vec::new();
+    {
+        let mut encoder = png::Encoder::new(&mut out_png, out_size as u32, out_size as u32);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        let mut writer = encoder.write_header().map_err(|e| e.to_string())?;
+        writer.write_image_data(&out_pixels).map_err(|e| e.to_string())?;
+    }
+    Ok(out_png)
+}
+
 fn preview(bytes: &[u8]) -> Result<SkinPreview, String> {
     let (width, height) = validate_png(bytes)?;
+    let avatar_data_url = extract_avatar_png(bytes)
+        .ok()
+        .map(|b| format!("data:image/png;base64,{}", STANDARD.encode(&b)));
     Ok(SkinPreview {
         sha256: hex::encode(Sha256::digest(bytes)),
         data_url: format!("data:image/png;base64,{}", STANDARD.encode(bytes)),
+        avatar_data_url,
         width,
         height,
         model: None,
     })
 }
+
 fn account_folder(id: &str) -> Result<PathBuf, String> {
     // Account IDs are generated UUIDs; reject arbitrary IPC paths.
     uuid::Uuid::parse_str(id).map_err(|_| "Некорректный ID аккаунта")?;
@@ -78,31 +187,100 @@ fn account_folder(id: &str) -> Result<PathBuf, String> {
         &format!("skins/{id}"),
     )
 }
+
 pub async fn preview_file(path: String) -> Result<SkinPreview, String> {
     tauri::async_runtime::spawn_blocking(move || preview(&read_skin(Path::new(&path))?))
         .await
         .map_err(|e| e.to_string())?
 }
-pub fn get_saved(app: &AppHandle, account_id: &str) -> Result<Option<SkinPreview>, String> {
-    if !crate::accounts::get_accounts(app.clone())?
-        .iter()
-        .any(|a| a.id == account_id)
-    {
-        return Err("Аккаунт не найден".into());
-    }
+
+pub async fn get_saved(app: &AppHandle, account_id: &str) -> Result<Option<SkinPreview>, String> {
+    let accounts = crate::accounts::load_accounts_data(app)?.accounts;
+    let account = accounts
+        .into_iter()
+        .find(|a| a.id == account_id)
+        .ok_or("Аккаунт не найден")?;
     let folder = account_folder(account_id)?;
     let path = crate::security::safe_join(&folder, "skin.png")?;
-    if !path.exists() {
-        return Ok(None);
+    if path.exists() {
+        if let Ok(bytes) = read_skin(&path) {
+            let mut skin = preview(&bytes)?;
+            let metadata = crate::security::safe_join(&folder, "skin.json")?;
+            if metadata.exists() {
+                if let Ok(saved) = crate::storage::read_json_with_backup::<SavedSkin>(&metadata) {
+                    skin.model = Some(saved.model);
+                }
+            }
+            return Ok(Some(skin));
+        }
     }
-    let mut skin = preview(&read_skin(&path)?)?;
+
+    if account.account_type == "ElyBy" && !account.username.trim().is_empty() {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .map_err(|e| e.to_string())?;
+        let url = format!("http://skinsystem.ely.by/skins/{}.png", account.username.trim());
+        if let Ok(resp) = client.get(&url).send().await {
+            if resp.status().is_success() {
+                if let Ok(bytes) = resp.bytes().await {
+                    if let Ok(skin) = preview(&bytes) {
+                        let _ = crate::storage::atomic_write(&path, &bytes);
+                        let _ = crate::storage::atomic_write(
+                            &crate::security::safe_join(&folder, "skin.json")?,
+                            serde_json::to_string(&SavedSkin {
+                                model: "classic".into(),
+                            })
+                            .unwrap_or_default()
+                            .as_bytes(),
+                        );
+                        return Ok(Some(skin));
+                    }
+                }
+            }
+        }
+    } else if account.account_type == "Microsoft" {
+        if let Some(ref uuid) = account.uuid {
+            let client = reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(10))
+                .build()
+                .map_err(|e| e.to_string())?;
+            let url = format!("https://minotar.net/skin/{}", uuid);
+            if let Ok(resp) = client.get(&url).send().await {
+                if resp.status().is_success() {
+                    if let Ok(bytes) = resp.bytes().await {
+                        if let Ok(skin) = preview(&bytes) {
+                            let _ = crate::storage::atomic_write(&path, &bytes);
+                            return Ok(Some(skin));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(None)
+}
+
+pub async fn refresh_account_skin(
+    app: &AppHandle,
+    account_id: &str,
+) -> Result<Option<SkinPreview>, String> {
+    let folder = account_folder(account_id)?;
+    let path = crate::security::safe_join(&folder, "skin.png")?;
+    if path.exists() {
+        let _ = fs::remove_file(&path);
+    }
     let metadata = crate::security::safe_join(&folder, "skin.json")?;
     if metadata.exists() {
-        let saved: SavedSkin = crate::storage::read_json_with_backup(&metadata)?;
-        skin.model = Some(saved.model);
+        let _ = fs::remove_file(&metadata);
     }
-    Ok(Some(skin))
+    let skin = get_saved(app, account_id).await?;
+    let _ = app.emit("accounts_changed", ());
+    let _ = app.emit("skin_changed", account_id);
+    Ok(skin)
 }
+
 fn local_config(
     mut config: serde_json::Value,
     account_id: &str,
@@ -111,6 +289,8 @@ fn local_config(
     if !config.is_object() {
         return Err("Конфигурация CustomSkinLoader повреждена".into());
     }
+    config["enable"] = serde_json::json!(true);
+    config["enableCache"] = serde_json::json!(true);
     if config.get("loadlist").is_none() {
         config["loadlist"] = serde_json::json!([]);
     }
@@ -119,9 +299,25 @@ fn local_config(
         .ok_or("Некорректный loadlist CustomSkinLoader")?;
     let name = format!("RedPanda-{account_id}");
     list.retain(|entry| entry["name"].as_str() != Some(&name));
-    list.insert(0,serde_json::json!({"name":name,"type":"Legacy","skin":format!("RedPanda/{account_id}/{{USERNAME}}.png"),"model":if model == "classic" { "default" } else { "slim" }}));
+    list.insert(
+        0,
+        serde_json::json!({
+            "name": name,
+            "type": "Legacy",
+            "checkPNG": false,
+            "skin": format!("RedPanda/{account_id}/{{USERNAME}}.png"),
+            "model": if model == "classic" { "default" } else { "slim" }
+        }),
+    );
+    if !list.iter().any(|entry| entry["name"].as_str() == Some("Mojang")) {
+        list.push(serde_json::json!({
+            "name": "Mojang",
+            "type": "MojangAPI"
+        }));
+    }
     Ok(config)
 }
+
 fn has_skin_loader(game_dir: &Path) -> Result<bool, String> {
     use std::io::Read;
     let mods = crate::security::safe_join(game_dir, "mods")?;
@@ -153,12 +349,13 @@ fn has_skin_loader(game_dir: &Path) -> Result<bool, String> {
                 }
                 if metadata.ends_with(".json") || metadata == "mcmod.info" {
                     if let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) {
-                        if value["id"].as_str() == Some("customskinloader")
-                            || value["quilt_loader"]["id"].as_str() == Some("customskinloader")
+                        let matches_id = |id: &str| id.to_lowercase().starts_with("customskinloader");
+                        if value["id"].as_str().is_some_and(matches_id)
+                            || value["quilt_loader"]["id"].as_str().is_some_and(matches_id)
                             || value.as_array().is_some_and(|items| {
                                 items
                                     .iter()
-                                    .any(|i| i["modid"].as_str() == Some("customskinloader"))
+                                    .any(|i| i["modid"].as_str().is_some_and(matches_id))
                             })
                         {
                             return Ok(true);
@@ -168,7 +365,11 @@ fn has_skin_loader(game_dir: &Path) -> Result<bool, String> {
                     let line = line.split('#').next().unwrap_or("").trim();
                     line.split_once('=').is_some_and(|(key, value)| {
                         key.trim() == "modId"
-                            && value.trim().trim_matches(['\"', '\'']) == "customskinloader"
+                            && value
+                                .trim()
+                                .trim_matches(['\"', '\''])
+                                .to_lowercase()
+                                .starts_with("customskinloader")
                     })
                 }) {
                     return Ok(true);
@@ -178,6 +379,7 @@ fn has_skin_loader(game_dir: &Path) -> Result<bool, String> {
     }
     Ok(false)
 }
+
 pub async fn apply(
     app: AppHandle,
     account_id: String,
@@ -312,8 +514,11 @@ pub async fn apply(
     )?;
     let mut skin = preview(&bytes)?;
     skin.model = Some(model);
+    let _ = app.emit("accounts_changed", ());
+    let _ = app.emit("skin_changed", &account_id);
     Ok(skin)
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -343,6 +548,12 @@ mod tests {
     #[test]
     fn rejects_unknown_model() {
         assert!(validate_model("other").is_err());
+    }
+    #[test]
+    fn extracts_avatar_from_valid_skin() {
+        let avatar = extract_avatar_png(&png_bytes(64, 64)).unwrap();
+        assert!(!avatar.is_empty());
+        assert_eq!(validate_png(&avatar).unwrap(), (64, 64));
     }
     #[test]
     fn preserves_existing_config_and_replaces_own_profile() {

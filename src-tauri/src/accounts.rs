@@ -11,7 +11,7 @@ use sha1::{Digest, Sha1};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use uuid::Uuid;
 
 lazy_static! {
@@ -30,6 +30,11 @@ pub struct Account {
     pub refresh_token: Option<String>,
     #[serde(default)]
     pub expires_at: Option<i64>,
+    /// Секреты этого аккаунта не удалось расшифровать (повреждённый vault,
+    /// смена профиля Windows и т.п.). Аккаунт не валиден до повторного входа,
+    /// но остальное состояние vault продолжает работать.
+    #[serde(default)]
+    pub needs_relogin: bool,
 }
 
 fn public_account(mut account: Account) -> Account {
@@ -63,10 +68,32 @@ fn get_encryption_key() -> [u8; 32] {
 }
 
 #[cfg(windows)]
+/// App-specific DPAPI entropy: без него любой same-user процесс может
+/// расшифровать blob. Как минимум привязывает blob к хранилищу лаунчера и
+/// исключает молчаливую пере-используемость данных другими приложениями.
+const DPAPI_ENTROPY: &[u8] = b"RedPandaLauncher::account-vault::v2";
+#[cfg(windows)]
+/// Запрещаем интерактивные DPAPI-подсказки в фоне (без UI).
+const CRYPTPROTECT_UI_FORBIDDEN: u32 = 0x1;
+
+#[cfg(windows)]
 fn dpapi_protect(value: &[u8]) -> Option<Vec<u8>> {
+    dpapi_protect_with_entropy(value, Some(DPAPI_ENTROPY))
+}
+
+#[cfg(windows)]
+fn dpapi_protect_with_entropy(value: &[u8], entropy: Option<&[u8]>) -> Option<Vec<u8>> {
     use windows_sys::Win32::Foundation::LocalFree;
     use windows_sys::Win32::Security::Cryptography::{CryptProtectData, CRYPT_INTEGER_BLOB};
 
+    let entropy_blob = entropy.map(|bytes| CRYPT_INTEGER_BLOB {
+        cbData: bytes.len() as u32,
+        pbData: bytes.as_ptr() as *mut u8,
+    });
+    let optional_entropy = entropy_blob
+        .as_ref()
+        .map(|blob| blob as *const CRYPT_INTEGER_BLOB)
+        .unwrap_or_else(std::ptr::null);
     let input = CRYPT_INTEGER_BLOB {
         cbData: value.len() as u32,
         pbData: value.as_ptr() as *mut u8,
@@ -79,10 +106,10 @@ fn dpapi_protect(value: &[u8]) -> Option<Vec<u8>> {
         CryptProtectData(
             &input,
             std::ptr::null(),
-            std::ptr::null(),
+            optional_entropy,
             std::ptr::null_mut(),
             std::ptr::null(),
-            0,
+            CRYPTPROTECT_UI_FORBIDDEN,
             &mut output,
         )
     };
@@ -97,9 +124,22 @@ fn dpapi_protect(value: &[u8]) -> Option<Vec<u8>> {
 
 #[cfg(windows)]
 fn dpapi_unprotect(value: &[u8]) -> Option<Vec<u8>> {
+    dpapi_unprotect_with_entropy(value, Some(DPAPI_ENTROPY))
+}
+
+#[cfg(windows)]
+fn dpapi_unprotect_with_entropy(value: &[u8], entropy: Option<&[u8]>) -> Option<Vec<u8>> {
     use windows_sys::Win32::Foundation::LocalFree;
     use windows_sys::Win32::Security::Cryptography::{CryptUnprotectData, CRYPT_INTEGER_BLOB};
 
+    let entropy_blob = entropy.map(|bytes| CRYPT_INTEGER_BLOB {
+        cbData: bytes.len() as u32,
+        pbData: bytes.as_ptr() as *mut u8,
+    });
+    let optional_entropy = entropy_blob
+        .as_ref()
+        .map(|blob| blob as *const CRYPT_INTEGER_BLOB)
+        .unwrap_or_else(std::ptr::null);
     let input = CRYPT_INTEGER_BLOB {
         cbData: value.len() as u32,
         pbData: value.as_ptr() as *mut u8,
@@ -112,10 +152,10 @@ fn dpapi_unprotect(value: &[u8]) -> Option<Vec<u8>> {
         CryptUnprotectData(
             &input,
             std::ptr::null_mut(),
-            std::ptr::null(),
+            optional_entropy,
             std::ptr::null_mut(),
             std::ptr::null(),
-            0,
+            CRYPTPROTECT_UI_FORBIDDEN,
             &mut output,
         )
     };
@@ -140,7 +180,7 @@ pub(crate) fn encrypt_secret_checked(plain: &str) -> Result<String, String> {
     {
         let ciphertext = dpapi_protect(plain.as_bytes())
             .ok_or_else(|| "Windows DPAPI could not protect the secret".to_string())?;
-        Ok(format!("enc:dpapi:{}", BASE64.encode(ciphertext)))
+        Ok(format!("enc:dpapi:v2:{}", BASE64.encode(ciphertext)))
     }
 
     #[cfg(not(windows))]
@@ -168,11 +208,24 @@ pub(crate) fn encrypt_secret_checked(plain: &str) -> Result<String, String> {
 /// inaccessible ciphertext is an error, never an apparent access token.
 pub(crate) fn decrypt_secret_checked(enc: &str) -> Result<String, String> {
     #[cfg(windows)]
-    if let Some(stripped) = enc.strip_prefix("enc:dpapi:") {
+    if let Some(stripped) = enc.strip_prefix("enc:dpapi:v2:") {
         let decoded = BASE64
             .decode(stripped)
             .map_err(|_| "DPAPI ciphertext is not valid base64".to_string())?;
         let plaintext = dpapi_unprotect(&decoded)
+            .ok_or_else(|| "Windows DPAPI could not decrypt the secret".to_string())?;
+        return String::from_utf8(plaintext)
+            .map_err(|_| "Decrypted secret is not valid UTF-8".to_string());
+    }
+
+    #[cfg(windows)]
+    if let Some(stripped) = enc.strip_prefix("enc:dpapi:") {
+        // Legacy-формат без app-specific entropy, читается для миграции:
+        // при следующей записи токен будет переподписан в enc:dpapi:v2.
+        let decoded = BASE64
+            .decode(stripped)
+            .map_err(|_| "DPAPI ciphertext is not valid base64".to_string())?;
+        let plaintext = dpapi_unprotect_with_entropy(&decoded, None)
             .ok_or_else(|| "Windows DPAPI could not decrypt the secret".to_string())?;
         return String::from_utf8(plaintext)
             .map_err(|_| "Decrypted secret is not valid UTF-8".to_string());
@@ -246,11 +299,59 @@ fn get_accounts_file_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(path)
 }
 
-pub(crate) fn load_accounts_data(app: &AppHandle) -> Result<AccountsData, String> {
-    let _guard = ACCOUNTS_MUTEX
-        .lock()
-        .map_err(|_| "Failed to acquire accounts mutex lock".to_string())?;
+/// Современный формат секрета? Всё, что старее, мигрируется при следующей записи.
+fn token_is_legacy_format(token: &str) -> bool {
+    #[cfg(windows)]
+    {
+        !token.starts_with("enc:dpapi:v2:")
+    }
+    #[cfg(not(windows))]
+    {
+        !token.starts_with("enc:v2:")
+    }
+}
 
+/// Изолирует сбой расшифровки конкретного аккаунта: вместо того, чтобы один
+/// сбойный секрет валил весь vault, очищаем токены аккаунта и помечаем
+/// needs_relogin. Пользователь может удалить аккаунт или войти заново,
+/// остальные аккаунты продолжают работать.
+fn isolate_account_token_failure(acc: &mut Account, error: &str, needs_migration: &mut bool) {
+    log::warn!(
+        "Account '{}' has unreadable credentials ({error}); clearing tokens and requiring re-login",
+        acc.username
+    );
+    acc.access_token = None;
+    acc.refresh_token = None;
+    acc.needs_relogin = true;
+    *needs_migration = true;
+}
+
+fn decrypt_account_tokens(acc: &mut Account, needs_migration: &mut bool) {
+    if let Some(token) = acc.access_token.clone() {
+        if token_is_legacy_format(&token) {
+            *needs_migration = true;
+        }
+        match decrypt_secret_checked(&token) {
+            Ok(plain) => acc.access_token = Some(plain),
+            Err(error) => {
+                isolate_account_token_failure(acc, &error, needs_migration);
+                return;
+            }
+        }
+    }
+    if let Some(token) = acc.refresh_token.clone() {
+        if token_is_legacy_format(&token) {
+            *needs_migration = true;
+        }
+        match decrypt_secret_checked(&token) {
+            Ok(plain) => acc.refresh_token = Some(plain),
+            Err(error) => isolate_account_token_failure(acc, &error, needs_migration),
+        }
+    }
+}
+
+/// Читает vault БЕЗ захвата мьютекса: вызвать под замком ACCOUNTS_MUTEX.
+fn load_accounts_data_unlocked(app: &AppHandle) -> Result<AccountsData, String> {
     let path = get_accounts_file_path(app)?;
 
     if !path.exists() {
@@ -260,57 +361,24 @@ pub(crate) fn load_accounts_data(app: &AppHandle) -> Result<AccountsData, String
     let mut data: AccountsData = crate::storage::read_json_with_backup(&path)?;
 
     let mut needs_migration = false;
-    // Decrypt sensitive tokens transparently and migrate legacy encryption.
-    // A bad ciphertext is surfaced to the caller instead of being used as an
-    // access token, which would otherwise produce misleading login failures.
     for acc in &mut data.accounts {
-        if let Some(token) = &acc.access_token {
-            #[cfg(windows)]
-            {
-                needs_migration |= !token.starts_with("enc:dpapi:");
-            }
-            #[cfg(not(windows))]
-            {
-                needs_migration |= !token.starts_with("enc:v2:");
-            }
-            acc.access_token = Some(decrypt_secret_checked(token).map_err(|error| {
-                format!(
-                    "Could not decrypt access token for account '{}': {error}",
-                    acc.username
-                )
-            })?);
-        }
-        if let Some(token) = &acc.refresh_token {
-            #[cfg(windows)]
-            {
-                needs_migration |= !token.starts_with("enc:dpapi:");
-            }
-            #[cfg(not(windows))]
-            {
-                needs_migration |= !token.starts_with("enc:v2:");
-            }
-            acc.refresh_token = Some(decrypt_secret_checked(token).map_err(|error| {
-                format!(
-                    "Could not decrypt refresh token for account '{}': {error}",
-                    acc.username
-                )
-            })?);
-        }
+        decrypt_account_tokens(acc, &mut needs_migration);
     }
 
     if needs_migration {
-        drop(_guard);
-        save_accounts_data(app, &data)?;
+        // Миграция (переподпись legacy-секретов либо изоляция сбойного
+        // аккаунта) не должна блокировать чтение: неудачная запись просто
+        // повторится при следующем запуске.
+        if let Err(error) = save_accounts_data_unlocked(app, &data) {
+            log::warn!("Could not persist accounts vault migration: {error}");
+        }
     }
 
     Ok(data)
 }
 
-pub(crate) fn save_accounts_data(app: &AppHandle, data: &AccountsData) -> Result<(), String> {
-    let _guard = ACCOUNTS_MUTEX
-        .lock()
-        .map_err(|_| "Failed to acquire accounts mutex lock".to_string())?;
-
+/// Сохраняет vault БЕЗ захвата мьютекса: вызвать под замком ACCOUNTS_MUTEX.
+fn save_accounts_data_unlocked(app: &AppHandle, data: &AccountsData) -> Result<(), String> {
     let path = get_accounts_file_path(app)?;
 
     // Clone data to encrypt secrets before disk write
@@ -340,6 +408,54 @@ pub(crate) fn save_accounts_data(app: &AppHandle, data: &AccountsData) -> Result
         .map_err(|e| format!("Failed to write accounts.json: {e}"))
 }
 
+/// Read-modify-write vault'а под одним захваченным мьютексом.
+///
+/// Раньше команды делали `load` (лок) → изменение → `save` (лок заново),
+/// из-за чего две параллельные команды могли молча перетирать данные
+/// друг друга (lost update). Теперь весь цикл атомарен.
+fn with_accounts_data<F>(app: &AppHandle, f: F) -> Result<(), String>
+where
+    F: FnOnce(&mut AccountsData) -> Result<(), String>,
+{
+    let _guard = ACCOUNTS_MUTEX
+        .lock()
+        .map_err(|_| "Failed to acquire accounts mutex lock".to_string())?;
+    let mut data = load_accounts_data_unlocked(app)?;
+    f(&mut data)?;
+    save_accounts_data_unlocked(app, &data)
+}
+
+pub(crate) fn load_accounts_data(app: &AppHandle) -> Result<AccountsData, String> {
+    let _guard = ACCOUNTS_MUTEX
+        .lock()
+        .map_err(|_| "Failed to acquire accounts mutex lock".to_string())?;
+    load_accounts_data_unlocked(app)
+}
+
+/// Делает `incoming` активным и либо обновляет существующую запись того же
+/// провайдер-профиля (тот же тип + uuid), либо добавляет новую.
+/// Так повторный вход не плодит дубликаты со старыми токенами.
+fn upsert_account(data: &mut AccountsData, mut incoming: Account) -> Account {
+    for account in &mut data.accounts {
+        account.is_active = false;
+    }
+
+    let existing = data.accounts.iter_mut().find(|account| {
+        account.account_type == incoming.account_type
+            && incoming.uuid.is_some()
+            && account.uuid == incoming.uuid
+    });
+
+    if let Some(existing) = existing {
+        incoming.id = existing.id.clone();
+        *existing = incoming.clone();
+        return incoming;
+    }
+
+    data.accounts.push(incoming.clone());
+    incoming
+}
+
 #[tauri::command]
 pub fn get_accounts(app: AppHandle) -> Result<Vec<Account>, String> {
     let data = load_accounts_data(&app)?;
@@ -356,71 +472,76 @@ pub fn get_accounts(app: AppHandle) -> Result<Vec<Account>, String> {
 
 #[tauri::command]
 pub fn add_offline_account(app: AppHandle, username: String) -> Result<Account, String> {
-    let mut data = load_accounts_data(&app)?;
-
-    let is_active = data.accounts.is_empty();
-
-    if is_active {
+    let mut created: Option<Account> = None;
+    with_accounts_data(&app, |data| {
         for acc in &mut data.accounts {
             acc.is_active = false;
         }
-    }
 
-    let new_account = Account {
-        id: Uuid::new_v4().to_string(),
-        username: username.clone(),
-        account_type: "Offline".to_string(),
-        is_active,
-        uuid: None,
-        access_token: None,
-        refresh_token: None,
-        expires_at: None,
-    };
+        let new_account = Account {
+            id: Uuid::new_v4().to_string(),
+            username: username.clone(),
+            account_type: "Offline".to_string(),
+            is_active: true,
+            uuid: None,
+            access_token: None,
+            refresh_token: None,
+            expires_at: None,
+            needs_relogin: false,
+        };
 
-    data.accounts.push(new_account.clone());
-    save_accounts_data(&app, &data)?;
+        created = Some(upsert_account(data, new_account));
+        Ok(())
+    })?;
 
-    Ok(public_account(new_account))
+    let _ = app.emit("accounts_changed", ());
+    Ok(public_account(created.expect("account created inside closure")))
 }
 
 #[tauri::command]
 pub fn remove_account(app: AppHandle, id: String) -> Result<(), String> {
-    let mut data = load_accounts_data(&app)?;
+    // Работает и для аккаунта с нечитаемыми токенами: расшифровка при загрузке
+    // теперь изолируется на аккаунт (needs_relogin), а не роняет весь vault.
+    with_accounts_data(&app, |data| {
+        let initial_len = data.accounts.len();
+        data.accounts.retain(|acc| acc.id != id);
 
-    let initial_len = data.accounts.len();
-    data.accounts.retain(|acc| acc.id != id);
+        if data.accounts.len() == initial_len {
+            return Err("Account not found".to_string());
+        }
 
-    if data.accounts.len() == initial_len {
-        return Err("Account not found".to_string());
-    }
+        if !data.accounts.iter().any(|acc| acc.is_active) && !data.accounts.is_empty() {
+            data.accounts[0].is_active = true;
+        }
 
-    if !data.accounts.iter().any(|acc| acc.is_active) && !data.accounts.is_empty() {
-        data.accounts[0].is_active = true;
-    }
+        Ok(())
+    })?;
 
-    save_accounts_data(&app, &data)?;
+    let _ = app.emit("accounts_changed", ());
     Ok(())
 }
 
 #[tauri::command]
 pub fn set_active_account(app: AppHandle, id: String) -> Result<(), String> {
-    let mut data = load_accounts_data(&app)?;
-
-    let mut found = false;
-    for acc in &mut data.accounts {
-        if acc.id == id {
-            acc.is_active = true;
-            found = true;
-        } else {
-            acc.is_active = false;
+    with_accounts_data(&app, |data| {
+        let mut found = false;
+        for acc in &mut data.accounts {
+            if acc.id == id {
+                acc.is_active = true;
+                found = true;
+            } else {
+                acc.is_active = false;
+            }
         }
-    }
 
-    if !found {
-        return Err("Account not found".to_string());
-    }
+        if !found {
+            return Err("Account not found".to_string());
+        }
 
-    save_accounts_data(&app, &data)?;
+        Ok(())
+    })?;
+
+    let _ = app.emit("accounts_changed", ());
     Ok(())
 }
 
@@ -472,29 +593,30 @@ pub async fn add_elyby_account(
         .selectedProfile
         .ok_or("No Minecraft profile found on this account")?;
 
-    let mut data = load_accounts_data(&app)?;
-    let is_active = data.accounts.is_empty();
-    if is_active {
+    let mut created: Option<Account> = None;
+    with_accounts_data(&app, |data| {
         for acc in &mut data.accounts {
             acc.is_active = false;
         }
-    }
 
-    let new_account = Account {
-        id: Uuid::new_v4().to_string(),
-        username: profile.name,
-        account_type: "ElyBy".to_string(),
-        is_active,
-        uuid: Some(profile.id),
-        access_token: Some(auth_data.accessToken),
-        refresh_token: None,
-        expires_at: None,
-    };
+        let new_account = Account {
+            id: Uuid::new_v4().to_string(),
+            username: profile.name,
+            account_type: "ElyBy".to_string(),
+            is_active: true,
+            uuid: Some(profile.id),
+            access_token: Some(auth_data.accessToken),
+            refresh_token: None,
+            expires_at: None,
+            needs_relogin: false,
+        };
 
-    data.accounts.push(new_account.clone());
-    save_accounts_data(&app, &data)?;
+        created = Some(upsert_account(data, new_account));
+        Ok(())
+    })?;
 
-    Ok(public_account(new_account))
+    let _ = app.emit("accounts_changed", ());
+    Ok(public_account(created.expect("account created inside closure")))
 }
 
 #[derive(Serialize, Clone)]
@@ -503,6 +625,8 @@ pub struct DeviceCodeInfo {
     pub verification_uri: String,
     pub device_code: String,
     pub interval: u64,
+    /// Сколько секунд код остаётся действительным (Microsoft отдаёт 900).
+    pub expires_in: u64,
 }
 
 #[tauri::command]
@@ -530,11 +654,28 @@ pub async fn microsoft_device_code() -> Result<DeviceCodeInfo, String> {
         .await
         .map_err(|_| "Invalid MS response".to_string())?;
 
+    let user_code = json["user_code"]
+        .as_str()
+        .filter(|value| !value.is_empty())
+        .ok_or("Microsoft device code response has no user_code")?;
+    let verification_uri = json["verification_uri"]
+        .as_str()
+        .filter(|value| !value.is_empty())
+        .ok_or("Microsoft device code response has no verification_uri")?;
+    let device_code = json["device_code"]
+        .as_str()
+        .filter(|value| !value.is_empty())
+        .ok_or("Microsoft device code response has no device_code")?;
+
     Ok(DeviceCodeInfo {
-        user_code: json["user_code"].as_str().unwrap_or("").to_string(),
-        verification_uri: json["verification_uri"].as_str().unwrap_or("").to_string(),
-        device_code: json["device_code"].as_str().unwrap_or("").to_string(),
-        interval: json["interval"].as_u64().unwrap_or(5),
+        user_code: user_code.to_string(),
+        verification_uri: verification_uri.to_string(),
+        device_code: device_code.to_string(),
+        interval: json["interval"].as_u64().filter(|value| *value > 0).unwrap_or(5),
+        expires_in: json["expires_in"]
+            .as_u64()
+            .filter(|value| *value > 0)
+            .unwrap_or(900),
     })
 }
 
@@ -704,25 +845,39 @@ pub async fn poll_microsoft_device_code(
         .await
         .map_err(|e| format!("Device code network error: {}", e))?;
 
-    if !token_res.status().is_success() {
-        let err_json: serde_json::Value = token_res.json().await.unwrap_or_default();
-        let err_code = err_json["error"]
-            .as_str()
-            .unwrap_or("authorization_pending");
-        if err_code == "authorization_pending" {
-            return Err("authorization_pending".to_string());
-        } else if err_code == "authorization_declined" {
-            return Err("authorization_declined".to_string());
-        } else if err_code == "expired_token" {
-            return Err("expired_token".to_string());
-        }
-        return Err(format!("Device code poll error: {}", err_code));
-    }
-
-    let token_data: serde_json::Value = token_res
-        .json()
+    // MSA device flow возвращает и HTTP 4xx, и 200 с {"error": ...} в теле —
+    // разбираем тело независимо от статуса, иначе ожидание не различимо
+    // от реального ответа с токеном.
+    let status = token_res.status();
+    let body = token_res
+        .text()
         .await
         .map_err(|_| "Invalid MS token response".to_string())?;
+    let token_data: serde_json::Value = match serde_json::from_str(&body) {
+        Ok(value) => value,
+        Err(_) => {
+            // Прокси/шлюз может вернуть HTML или пустое тело на 5xx/429:
+            // это временная ошибка, а не повод прекращать вход.
+            if status.is_server_error() || status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                return Err("authorization_pending".to_string());
+            }
+            return Err("Invalid MS token response".to_string());
+        }
+    };
+
+    if let Some(err_code) = token_data["error"].as_str() {
+        match err_code {
+            "authorization_pending" => return Err("authorization_pending".to_string()),
+            "slow_down" => return Err("slow_down".to_string()),
+            "authorization_declined" => return Err("authorization_declined".to_string()),
+            "expired_token" => return Err("expired_token".to_string()),
+            _ => return Err(format!("Device code poll error: {}", err_code)),
+        }
+    }
+    if !status.is_success() {
+        return Err(format!("Device code poll error: HTTP {}", status));
+    }
+
     let ms_access_token = token_data["access_token"]
         .as_str()
         .ok_or("No MS access token")?;
@@ -734,29 +889,31 @@ pub async fn poll_microsoft_device_code(
     let profile = get_minecraft_profile(&client, &mc_access_token).await?;
     let expires_at = chrono::Utc::now().timestamp() + expires_in;
 
-    let mut data = load_accounts_data(&app)?;
-    let is_active = data.accounts.is_empty();
-    if is_active {
+    let mut created: Option<Account> = None;
+    with_accounts_data(&app, |data| {
         for acc in &mut data.accounts {
             acc.is_active = false;
         }
-    }
 
-    let new_account = Account {
-        id: Uuid::new_v4().to_string(),
-        username: profile.name,
-        account_type: "Microsoft".to_string(),
-        is_active,
-        uuid: Some(profile.id),
-        access_token: Some(mc_access_token),
-        refresh_token,
-        expires_at: Some(expires_at),
-    };
+        let new_account = Account {
+            id: Uuid::new_v4().to_string(),
+            username: profile.name,
+            account_type: "Microsoft".to_string(),
+            is_active: true,
+            uuid: Some(profile.id),
+            access_token: Some(mc_access_token),
+            refresh_token: refresh_token.clone(),
+            expires_at: Some(expires_at),
+            needs_relogin: false,
+        };
 
-    data.accounts.push(new_account.clone());
-    save_accounts_data(&app, &data)?;
+        created = Some(upsert_account(data, new_account));
+        Ok(())
+    })?;
 
-    Ok(public_account(new_account))
+    // Список на фронте мог уже «закрыть» окно входа: уведомляем UI об изменениях vault.
+    let _ = app.emit("accounts_changed", ());
+    Ok(public_account(created.expect("account created inside closure")))
 }
 
 #[tauri::command]
@@ -767,12 +924,14 @@ pub async fn add_microsoft_account(app: AppHandle, device_code: String) -> Resul
 #[tauri::command]
 pub async fn add_elyby_account_oauth(app: AppHandle) -> Result<Account, String> {
     let client_id = "elyprism-launcher";
+    // Ely.by ignores PKCE for this client: sending `code_verifier` back to the token
+    // endpoint makes the exchange fail with `invalid_request`, so the flow stays plain.
     let auth_url_template = format!(
-        "https://account.ely.by/oauth2/v1?client_id={}&response_type=code&scope=account_info+offline_access+minecraft_server_session&prompt=select_account&state={{STATE}}&code_challenge={{CODE_CHALLENGE}}&code_challenge_method=S256&redirect_uri={{REDIRECT_URI}}",
+        "https://account.ely.by/oauth2/v1?client_id={}&response_type=code&scope=account_info+offline_access+minecraft_server_session&prompt=select_account&state={{STATE}}&redirect_uri={{REDIRECT_URI}}",
         client_id
     );
 
-    let (code, redirect_uri, code_verifier) =
+    let (code, redirect_uri, _code_verifier) =
         crate::oauth::start_oauth_flow(&app, &auth_url_template).await?;
 
     let client = crate::downloads::trusted_download_client("RedPandaLauncher/accounts")?;
@@ -783,14 +942,32 @@ pub async fn add_elyby_account_oauth(app: AppHandle) -> Result<Account, String> 
             ("grant_type", "authorization_code"),
             ("code", &code),
             ("redirect_uri", &redirect_uri),
-            ("code_verifier", &code_verifier),
         ])
         .send()
         .await
         .map_err(|e| format!("Network error: {}", e))?;
+    log::info!("Ely.by: token exchange responded with {}", token_res.status());
 
     if !token_res.status().is_success() {
-        return Err(format!("Failed to exchange token: {}", token_res.status()));
+        let status = token_res.status();
+        let body = token_res.text().await.unwrap_or_default();
+        let detail = serde_json::from_str::<serde_json::Value>(&body)
+            .ok()
+            .and_then(|json| {
+                let error = json["error"].as_str().unwrap_or("").to_string();
+                let message = json["message"].as_str().unwrap_or("").to_string();
+                match (error.is_empty(), message.is_empty()) {
+                    (false, false) => Some(format!("{error}: {message}")),
+                    (false, true) => Some(error),
+                    (true, false) => Some(message),
+                    (true, true) => None,
+                }
+            })
+            .unwrap_or(body);
+        log::warn!("Ely.by token exchange failed: HTTP {status} body={detail}");
+        return Err(format!(
+            "Ely.by token exchange failed (HTTP {status}): {detail}"
+        ));
     }
 
     let token_data: serde_json::Value = token_res
@@ -812,7 +989,10 @@ pub async fn add_elyby_account_oauth(app: AppHandle) -> Result<Account, String> 
         .map_err(|e| format!("Profile network error: {}", e))?;
 
     if !profile_res.status().is_success() {
-        return Err("Failed to fetch Minecraft profile".to_string());
+        let status = profile_res.status();
+        let body = profile_res.text().await.unwrap_or_default();
+        log::warn!("Ely.by profile fetch failed: HTTP {status} body={body}");
+        return Err(format!("Ely.by profile request failed (HTTP {status}): {body}"));
     }
 
     let profile_data: serde_json::Value = profile_res
@@ -823,29 +1003,30 @@ pub async fn add_elyby_account_oauth(app: AppHandle) -> Result<Account, String> 
     let profile_id = profile_data["id"].as_str().ok_or("No profile ID")?;
     let profile_name = profile_data["name"].as_str().ok_or("No profile name")?;
 
-    let mut data = load_accounts_data(&app)?;
-    let is_active = data.accounts.is_empty();
-    if is_active {
+    let mut created: Option<Account> = None;
+    with_accounts_data(&app, |data| {
         for acc in &mut data.accounts {
             acc.is_active = false;
         }
-    }
 
-    let new_account = Account {
-        id: Uuid::new_v4().to_string(),
-        username: profile_name.to_string(),
-        account_type: "ElyBy".to_string(),
-        is_active,
-        uuid: Some(profile_id.to_string()),
-        access_token: Some(access_token.to_string()),
-        refresh_token,
-        expires_at: Some(expires_at),
-    };
+        let new_account = Account {
+            id: Uuid::new_v4().to_string(),
+            username: profile_name.to_string(),
+            account_type: "ElyBy".to_string(),
+            is_active: true,
+            uuid: Some(profile_id.to_string()),
+            access_token: Some(access_token.to_string()),
+            refresh_token: refresh_token.clone(),
+            expires_at: Some(expires_at),
+            needs_relogin: false,
+        };
 
-    data.accounts.push(new_account.clone());
-    save_accounts_data(&app, &data)?;
+        created = Some(upsert_account(data, new_account));
+        Ok(())
+    })?;
 
-    Ok(public_account(new_account))
+    let _ = app.emit("accounts_changed", ());
+    Ok(public_account(created.expect("account created inside closure")))
 }
 
 #[tauri::command]
@@ -895,29 +1076,30 @@ pub async fn add_microsoft_account_oauth(app: AppHandle) -> Result<Account, Stri
     let profile = get_minecraft_profile(&client, &mc_access_token).await?;
     let expires_at = chrono::Utc::now().timestamp() + expires_in;
 
-    let mut data = load_accounts_data(&app)?;
-    let is_active = data.accounts.is_empty();
-    if is_active {
+    let mut created: Option<Account> = None;
+    with_accounts_data(&app, |data| {
         for acc in &mut data.accounts {
             acc.is_active = false;
         }
-    }
 
-    let new_account = Account {
-        id: Uuid::new_v4().to_string(),
-        username: profile.name,
-        account_type: "Microsoft".to_string(),
-        is_active,
-        uuid: Some(profile.id),
-        access_token: Some(mc_access_token),
-        refresh_token,
-        expires_at: Some(expires_at),
-    };
+        let new_account = Account {
+            id: Uuid::new_v4().to_string(),
+            username: profile.name,
+            account_type: "Microsoft".to_string(),
+            is_active: true,
+            uuid: Some(profile.id),
+            access_token: Some(mc_access_token),
+            refresh_token: refresh_token.clone(),
+            expires_at: Some(expires_at),
+            needs_relogin: false,
+        };
 
-    data.accounts.push(new_account.clone());
-    save_accounts_data(&app, &data)?;
+        created = Some(upsert_account(data, new_account));
+        Ok(())
+    })?;
 
-    Ok(public_account(new_account))
+    let _ = app.emit("accounts_changed", ());
+    Ok(public_account(created.expect("account created inside closure")))
 }
 
 const TOKEN_REFRESH_SKEW_SECONDS: i64 = 5 * 60;
@@ -940,7 +1122,7 @@ fn refresh_token_required(account: &Account) -> Result<&str, String> {
 /// after every provider step succeeds, so a rotated refresh token is not left
 /// half-applied when Xbox or Minecraft authentication subsequently fails.
 pub async fn refresh_account_tokens(
-    _app: &AppHandle,
+    app: &AppHandle,
     account: &mut Account,
 ) -> Result<bool, String> {
     let now = chrono::Utc::now().timestamp();
@@ -970,9 +1152,18 @@ pub async fn refresh_account_tokens(
                 .await
                 .map_err(|error| format!("Ely.by token refresh failed: {error}"))?;
             if !res.status().is_success() {
+                let status = res.status();
+                if status.is_client_error() {
+                    // Провайдер окончательно отверг refresh: сессия мертва.
+                    mark_account_needs_relogin(app, &account.id);
+                    account.needs_relogin = true;
+                    account.access_token = None;
+                    account.refresh_token = None;
+                    account.expires_at = None;
+                }
                 return Err(format!(
                     "Ely.by rejected the token refresh (HTTP {}). Please sign in again.",
-                    res.status()
+                    status
                 ));
             }
 
@@ -1002,9 +1193,18 @@ pub async fn refresh_account_tokens(
                 .await
                 .map_err(|error| format!("Microsoft token refresh failed: {error}"))?;
             if !res.status().is_success() {
+                let status = res.status();
+                if status.is_client_error() {
+                    // Провайдер окончательно отверг refresh: сессия мертва.
+                    mark_account_needs_relogin(app, &account.id);
+                    account.needs_relogin = true;
+                    account.access_token = None;
+                    account.refresh_token = None;
+                    account.expires_at = None;
+                }
                 return Err(format!(
                     "Microsoft rejected the token refresh (HTTP {}). Please sign in again.",
-                    res.status()
+                    status
                 ));
             }
 
@@ -1017,15 +1217,23 @@ pub async fn refresh_account_tokens(
                 .ok_or("Microsoft token refresh response has no access token")?;
             let rotated_refresh_token = token_data["refresh_token"].as_str().map(str::to_string);
 
+            // MSA инвалидирует старый refresh token сразу после обмена, поэтому
+            // сохраняем новый ДО XBL/XSTS/Minecraft: иначе сбой на любом шаге ниже
+            // оставит аккаунт без рабочего refresh token.
+            if let Some(rotated) = rotated_refresh_token.as_ref() {
+                refreshed_account.refresh_token = Some(rotated.clone());
+                let snapshot = refreshed_account.clone();
+                if let Err(error) = persist_refreshed_credentials(app, &snapshot) {
+                    log::warn!("Failed to persist rotated Microsoft refresh token: {error}");
+                }
+            }
+
             let (xbl_token, uhs) = authenticate_xbox_live(&client, microsoft_access_token).await?;
             let xsts_token = authenticate_xsts(&client, &xbl_token).await?;
             let (minecraft_access_token, expires_in) =
                 authenticate_minecraft(&client, &uhs, &xsts_token).await?;
 
             refreshed_account.access_token = Some(minecraft_access_token);
-            if let Some(rotated_refresh_token) = rotated_refresh_token {
-                refreshed_account.refresh_token = Some(rotated_refresh_token);
-            }
             refreshed_account.expires_at = Some(now + expires_in);
         }
         _ => unreachable!("online account types were checked before refreshing"),
@@ -1036,19 +1244,39 @@ pub async fn refresh_account_tokens(
 }
 
 fn persist_refreshed_credentials(app: &AppHandle, refreshed: &Account) -> Result<(), String> {
-    let mut data = load_accounts_data(app)?;
-    let stored = data
-        .accounts
-        .iter_mut()
-        .find(|account| account.id == refreshed.id)
-        .ok_or_else(|| "Account was removed while its session was being refreshed".to_string())?;
+    with_accounts_data(app, |data| {
+        let stored = data
+            .accounts
+            .iter_mut()
+            .find(|account| account.id == refreshed.id)
+            .ok_or_else(|| "Account was removed while its session was being refreshed".to_string())?;
 
-    // Only replace values obtained from the refresh flow. This avoids clobbering
-    // a concurrent profile or active-account change with an older in-memory copy.
-    stored.access_token = refreshed.access_token.clone();
-    stored.refresh_token = refreshed.refresh_token.clone();
-    stored.expires_at = refreshed.expires_at;
-    save_accounts_data(app, &data)
+        // Only replace values obtained from the refresh flow. This avoids clobbering
+        // a concurrent profile or active-account change with an older in-memory copy.
+        stored.access_token = refreshed.access_token.clone();
+        stored.refresh_token = refreshed.refresh_token.clone();
+        stored.expires_at = refreshed.expires_at;
+        // Сессия подтверждена провайдером: сбой расшифровки уже не актуален.
+        stored.needs_relogin = false;
+        Ok(())
+    })
+}
+
+/// Провайдер окончательно отверг refresh token: помечаем аккаунт как требующий
+/// повторного входа и вычищаем мёртвые токены из хранилища.
+fn mark_account_needs_relogin(app: &AppHandle, id: &str) {
+    let result = with_accounts_data(app, |data| {
+        if let Some(stored) = data.accounts.iter_mut().find(|account| account.id == id) {
+            stored.needs_relogin = true;
+            stored.access_token = None;
+            stored.refresh_token = None;
+            stored.expires_at = None;
+        }
+        Ok(())
+    });
+    if let Err(error) = result {
+        log::warn!("Failed to mark account {id} as needing re-login: {error}");
+    }
 }
 
 /// Refreshes an account and persists the new credentials before the launcher
@@ -1073,6 +1301,12 @@ pub async fn validate_and_refresh_account(app: AppHandle, id: String) -> Result<
         .find(|account| account.id == id)
         .ok_or_else(|| "Account not found".to_string())?;
     refresh_account_tokens_and_persist(&app, &mut account).await?;
+
+    if account.needs_relogin
+        || (account.account_type != "Offline" && account.access_token.is_none())
+    {
+        return Err("The account session has expired. Please sign in again.".to_string());
+    }
 
     Ok(public_account(account))
 }

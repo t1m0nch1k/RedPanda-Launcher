@@ -83,6 +83,8 @@
     }
   },
   "settings": {
+    "tab_general": "常规",
+    "tab_java": "Java 与内存",
     "title": "设置",
     "language": "语言",
     "java_path": "Java 路径（留空自动检测）",
@@ -229,6 +231,7 @@
     "add": "添加...",
     "no_saved": "没有保存的账号",
     "add_account": "添加账号",
+    "needs_relogin": "需要重新登录",
     "offline_title": "离线 (盗版)",
     "offline_desc": "仅可访问离线服务器",
     "ms_title": "Microsoft 许可证",
@@ -239,12 +242,20 @@
     "nickname_placeholder": "例如：Notch",
     "adding": "添加中...",
     "waiting_auth": "等待授权...",
-    "continue_browser": "请在打开的浏览器窗口中继续登录。"
+    "continue_browser": "请在打开的浏览器窗口中继续登录。",
+    "added": "账号已添加：",
+    "ms_success": "Microsoft 账号已成功添加",
+    "ms_code_title": "在 Microsoft 输入代码",
+    "ms_code_step1": "打开",
+    "ms_code_step2": "并输入确认代码：",
+    "ms_declined": "你拒绝了授权请求",
+    "ms_expired": "代码已过期。请重新登录。"
   },
   "common": {
     "close": "关闭",
     "error": "错误",
     "success": "成功",
+    "copied": "已复制",
     "loading": "加载中...",
     "back": "返回",
     "save": "保存",
@@ -270,6 +281,13 @@
     "confirm": "确认安装"
   },
   "wardrobe": {
+    "elyby_info": "对于 Ely.by 账号，皮肤和披风在 Ely.by 网站的个人资料中设置。游戏内启动器会通过 authlib-injector 自动应用你的皮肤。",
+    "open_elyby": "在浏览器中打开 Ely.by 衣橱",
+    "sync_elyby": "从 Ely.by 同步",
+    "syncing": "同步中…",
+    "synced": "皮肤已成功从 Ely.by 同步！",
+    "no_modded_instances_warning": "安装本地皮肤需要模组加载器（Fabric、Forge、Quilt 或 NeoForge）。原版不支持本地皮肤注入。",
+    "create_modded_hint": "创建一个 Fabric 实例，或在实例设置中选择模组加载器。",
     "title": "皮肤衣柜",
     "rotate": "拖动旋转 · 滚动缩放",
     "file": "01 / 选择皮肤",

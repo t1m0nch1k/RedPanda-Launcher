@@ -49,11 +49,29 @@ pub async fn start_oauth_flow(
     let result: Result<std::io::Result<String>, tokio::time::error::Elapsed> = timeout(Duration::from_secs(300), async {
         loop {
             let (mut socket, _) = listener.accept().await?;
-            let mut buffer = [0; 2048];
+            let mut buffer: Vec<u8> = Vec::with_capacity(2048);
+            let mut chunk = [0u8; 2048];
 
-            if let Ok(bytes_read) = socket.read(&mut buffer).await {
-                if bytes_read > 0 {
-                    let request_line = String::from_utf8_lossy(&buffer[..bytes_read]);
+            // Один «зависший» клиент не должен блокировать колбэк: читаем с
+            // таймаутом на соединение и ограничиваем запрос 16 КиБ.
+            loop {
+                match tokio::time::timeout(Duration::from_secs(5), socket.read(&mut chunk)).await {
+                    Ok(Ok(0)) => break,
+                    Ok(Ok(bytes_read)) => {
+                        buffer.extend_from_slice(&chunk[..bytes_read]);
+                        if buffer.windows(4).any(|window| window == b"\r\n\r\n")
+                            || buffer.len() >= 16 * 1024
+                        {
+                            break;
+                        }
+                    }
+                    Ok(Err(_)) | Err(_) => break,
+                }
+            }
+
+            if !buffer.is_empty() {
+                {
+                    let request_line = String::from_utf8_lossy(&buffer);
 
                     if let Some(line) = request_line.lines().next() {
                         let mut code = None;
@@ -73,10 +91,11 @@ pub async fn start_oauth_flow(
                                     let _ = socket.write_all(response.as_bytes()).await;
                                     continue;
                                 }
-                                code = url
-                                    .query_pairs()
-                                    .find(|(key, _)| key == "code")
-                                    .map(|(_, value)| value.into_owned());
+                                // Authorization codes are opaque and may contain '+'
+                                // (Ely.by issues base64 codes). `query_pairs` applies
+                                // form decoding, turning '+' into a space and corrupting
+                                // the code, so we percent-decode the raw value ourselves.
+                                code = extract_query_param_raw(target, "code");
                             }
                         }
 
@@ -130,5 +149,52 @@ pub async fn start_oauth_flow(
         Ok(Ok(code)) => Ok((code, redirect_uri, code_verifier)),
         Ok(Err(e)) => Err(format!("Socket error: {}", e)),
         Err(_) => Err("Timeout waiting for authorization".to_string()),
+    }
+}
+
+/// Extracts a query parameter from a raw request target without applying
+/// `application/x-www-form-urlencoded` semantics, so a literal `+` stays `+`.
+fn extract_query_param_raw(target: &str, name: &str) -> Option<String> {
+    let query = target.split_once('?')?.1;
+    let query = query.split('#').next().unwrap_or(query);
+    for pair in query.split('&') {
+        let (key, value) = match pair.split_once('=') {
+            Some(parts) => parts,
+            None => continue,
+        };
+        if key == name {
+            return Some(percent_decode_keep_plus(value));
+        }
+    }
+    None
+}
+
+fn percent_decode_keep_plus(input: &str) -> String {
+    let bytes = input.as_bytes();
+    let mut out: Vec<u8> = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' && index + 2 < bytes.len() {
+            if let (Some(high), Some(low)) = (
+                hex_digit(bytes[index + 1]),
+                hex_digit(bytes[index + 2]),
+            ) {
+                out.push(high * 16 + low);
+                index += 3;
+                continue;
+            }
+        }
+        out.push(bytes[index]);
+        index += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+fn hex_digit(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
     }
 }

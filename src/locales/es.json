@@ -83,6 +83,8 @@
     }
   },
   "settings": {
+    "tab_general": "General",
+    "tab_java": "Java y memoria",
     "title": "Ajustes",
     "language": "Idioma",
     "java_path": "Ruta de Java (dejar vacío para auto-detectar)",
@@ -229,6 +231,7 @@
     "add": "Añadir...",
     "no_saved": "No hay cuentas guardadas",
     "add_account": "Añadir cuenta",
+    "needs_relogin": "Se requiere iniciar sesión",
     "offline_title": "Offline (No Premium)",
     "offline_desc": "Acceso solo a servidores offline",
     "ms_title": "Licencia de Microsoft",
@@ -239,12 +242,20 @@
     "nickname_placeholder": "Ej.: Notch",
     "adding": "Añadiendo...",
     "waiting_auth": "Esperando autorización...",
-    "continue_browser": "Continúa el inicio de sesión en la ventana del navegador."
+    "continue_browser": "Continúa el inicio de sesión en la ventana del navegador.",
+    "added": "Cuenta añadida:",
+    "ms_success": "Cuenta Microsoft añadida correctamente",
+    "ms_code_title": "Introduce el código en Microsoft",
+    "ms_code_step1": "Abre",
+    "ms_code_step2": "e introduce el código de confirmación:",
+    "ms_declined": "Rechazaste la solicitud de autorización",
+    "ms_expired": "El código ha expirado. Intenta iniciar sesión de nuevo."
   },
   "common": {
     "close": "Cerrar",
     "error": "Error",
     "success": "Éxito",
+    "copied": "Copiado",
     "loading": "Cargando...",
     "back": "Atrás",
     "save": "Guardar",
@@ -270,6 +281,13 @@
     "confirm": "Confirmar instalación"
   },
   "wardrobe": {
+    "elyby_info": "Para cuentas de Ely.by, los skins y capas se configuran en el perfil de tu sitio Ely.by. En el juego, el launcher conecta automáticamente tu skin mediante authlib-injector.",
+    "open_elyby": "Abrir el vestuario de Ely.by en el navegador",
+    "sync_elyby": "Sincronizar desde Ely.by",
+    "syncing": "Sincronizando…",
+    "synced": "¡Skin sincronizado correctamente desde Ely.by!",
+    "no_modded_instances_warning": "Instalar un skin local requiere un cargador de mods (Fabric, Forge, Quilt o NeoForge). Vanilla puro no admite la inyección de skins locales.",
+    "create_modded_hint": "Crea una instancia de Fabric o elige un cargador de mods en los ajustes de la instancia.",
     "title": "Vestuario",
     "rotate": "Arrastra para girar · desplaza para ampliar",
     "file": "01 / Elige un skin",

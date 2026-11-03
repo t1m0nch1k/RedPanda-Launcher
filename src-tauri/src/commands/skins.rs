@@ -1,15 +1,26 @@
 use crate::engine::skins::{self, SkinPreview};
+
 #[tauri::command]
 pub async fn preview_skin(path: String) -> Result<SkinPreview, String> {
     skins::preview_file(path).await
 }
+
 #[tauri::command]
-pub fn get_account_skin(
+pub async fn get_account_skin(
     app: tauri::AppHandle,
     account_id: String,
 ) -> Result<Option<SkinPreview>, String> {
-    skins::get_saved(&app, &account_id)
+    skins::get_saved(&app, &account_id).await
 }
+
+#[tauri::command]
+pub async fn refresh_account_skin(
+    app: tauri::AppHandle,
+    account_id: String,
+) -> Result<Option<SkinPreview>, String> {
+    skins::refresh_account_skin(&app, &account_id).await
+}
+
 #[tauri::command]
 pub async fn apply_skin(
     app: tauri::AppHandle,

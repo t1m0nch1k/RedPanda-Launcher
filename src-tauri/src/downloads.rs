@@ -5,45 +5,62 @@ use std::collections::HashMap;
 use std::path::Path;
 use tokio::io::AsyncWriteExt;
 
+/// Hosts, с которых лаунчер готов скачивать артефакты (и куда готов идти по редиректам).
+fn is_trusted_host(host: &str) -> bool {
+    host == "modrinth.com"
+        || host.ends_with(".modrinth.com")
+        || host == "curseforge.com"
+        || host.ends_with(".curseforge.com")
+        || host == "forgecdn.net"
+        || host.ends_with(".forgecdn.net")
+        || host == "api.github.com"
+        || host == "github.com"
+        || host == "objects.githubusercontent.com"
+        || host == "github-releases.githubusercontent.com"
+        || host == "release-assets.githubusercontent.com"
+        || host == "api.adoptium.net"
+        || host == "launchermeta.mojang.com"
+        || host == "meta.fabricmc.net"
+        || host == "meta.quiltmc.org"
+        || host == "maven.neoforged.net"
+        || host == "bmclapi2.bangbang93.com"
+        || host == "authserver.ely.by"
+        || host == "account.ely.by"
+        || host == "login.live.com"
+        || host == "user.auth.xboxlive.com"
+        || host == "xsts.auth.xboxlive.com"
+        || host == "api.minecraftservices.com"
+}
+
+/// Проверяет исходный URL до первого запроса: только HTTPS и доверенный хост.
+fn validate_download_url(url: &str) -> Result<(), String> {
+    let parsed =
+        reqwest::Url::parse(url).map_err(|error| format!("Invalid download URL: {error}"))?;
+    if parsed.scheme() != "https" {
+        return Err(format!("Refusing a non-HTTPS download URL: {url}"));
+    }
+    match parsed.host_str() {
+        Some(host) if is_trusted_host(host) => Ok(()),
+        _ => Err(format!("Refusing a download from an untrusted host: {url}")),
+    }
+}
+
 /// Creates an artifact client whose redirects stay on supported providers.
 pub fn trusted_download_client(user_agent: &str) -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(120))
         .redirect(reqwest::redirect::Policy::custom(|attempt| {
             if attempt.previous().len() >= 5 {
-                return attempt.stop();
+                return attempt.error("too many redirects");
+            }
+            // Только HTTPS: иначе on-path атакующий может подменить тело ответа
+            // (включая GitHub release JSON и его digest).
+            if attempt.url().scheme() != "https" {
+                return attempt.error("insecure redirect scheme");
             }
             match attempt.url().host_str() {
-                Some(host)
-                    if host == "modrinth.com"
-                        || host.ends_with(".modrinth.com")
-                        || host == "api.modrinth.com"
-                        || host == "curseforge.com"
-                        || host.ends_with(".curseforge.com")
-                        || host == "api.curseforge.com"
-                        || host == "forgecdn.net"
-                        || host.ends_with(".forgecdn.net")
-                        || host == "api.github.com"
-                        || host == "github.com"
-                        || host == "objects.githubusercontent.com"
-                        || host == "github-releases.githubusercontent.com"
-                        || host == "release-assets.githubusercontent.com"
-                        || host == "api.adoptium.net"
-                        || host == "launchermeta.mojang.com"
-                        || host == "meta.fabricmc.net"
-                        || host == "meta.quiltmc.org"
-                        || host == "maven.neoforged.net"
-                        || host == "bmclapi2.bangbang93.com"
-                        || host == "authserver.ely.by"
-                        || host == "account.ely.by"
-                        || host == "login.live.com"
-                        || host == "user.auth.xboxlive.com"
-                        || host == "xsts.auth.xboxlive.com"
-                        || host == "api.minecraftservices.com" =>
-                {
-                    attempt.follow()
-                }
-                _ => attempt.stop(),
+                Some(host) if is_trusted_host(host) => attempt.follow(),
+                _ => attempt.error("redirect to an unsupported host"),
             }
         }))
         .user_agent(user_agent)
@@ -176,6 +193,7 @@ async fn download_to_file_with_checksum(
     algorithm: ChecksumAlgorithm,
     expected_checksum: &str,
 ) -> Result<u64, String> {
+    validate_download_url(url)?;
     let expected_checksum = validate_checksum(algorithm, expected_checksum)?;
     let response = {
         let mut response = None;

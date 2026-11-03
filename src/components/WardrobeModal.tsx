@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, ImagePlus, Loader2, Shirt, Upload, X } from "lucide-react";
+import { Check, ImagePlus, Loader2, Shirt, Upload, X, ExternalLink, RefreshCw, AlertTriangle, Sparkles } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { Account, SkinPreview, command, getErrorMessage } from "../lib/ipc";
 import SkinViewer from "./SkinViewer";
 import { useTranslation } from "react-i18next";
+import { toast } from "./Toast";
 
 interface SkinInstance { id: string; name: string; game_version: string; loader_type: string }
+
 export default function WardrobeModal({ account, selectedInstance, onClose, onApplied }: {
   account: Account; selectedInstance: string | null; onClose: () => void; onApplied: (skin: SkinPreview) => void;
 }) {
@@ -18,24 +21,35 @@ export default function WardrobeModal({ account, selectedInstance, onClose, onAp
   const [instanceId, setInstanceId] = useState(selectedInstance || "");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
   const pending = useRef(false);
   const chosen = useRef(false);
+
   useEffect(() => {
     let disposed = false;
     const previous = document.activeElement as HTMLElement | null;
     closeRef.current?.focus();
-    Promise.all([command<SkinPreview | null>("get_account_skin", { accountId: account.id }), command<SkinInstance[]>("get_instances")]).then(([skin, list]) => {
+    Promise.all([
+      command<SkinPreview | null>("get_account_skin", { accountId: account.id }),
+      command<SkinInstance[]>("get_instances")
+    ]).then(([skin, list]) => {
       if (disposed) return;
-      if (!chosen.current) { setPreview(skin); if (skin?.model) setModel(skin.model); }
+      if (!chosen.current && skin) {
+        setPreview(skin);
+        if (skin.model) setModel(skin.model as "classic" | "slim");
+      }
       const compatible = list.filter(i => i.loader_type !== "Vanilla");
       setInstances(compatible);
       setInstanceId(compatible.some(i => i.id === selectedInstance) ? selectedInstance! : compatible[0]?.id || "");
-    }).catch(e => { if (!disposed) setError(getErrorMessage(e)); });
+    }).catch(e => {
+      if (!disposed) setError(getErrorMessage(e));
+    });
     return () => { disposed = true; previous?.focus(); };
   }, [account.id, selectedInstance]);
+
   const pick = async () => {
     setError(""); setSuccess(false); setLoading(true);
     try {
@@ -47,19 +61,50 @@ export default function WardrobeModal({ account, selectedInstance, onClose, onAp
     } catch (e) { setError(getErrorMessage(e)); }
     finally { setLoading(false); }
   };
+
+  const syncFromElyBy = async () => {
+    setSyncing(true); setError(""); setSuccess(false);
+    try {
+      const refreshed = await command<SkinPreview | null>("refresh_account_skin", { accountId: account.id });
+      if (refreshed) {
+        setPreview(refreshed);
+        chosen.current = false;
+        setPath("");
+        toast.success(t("wardrobe.synced"));
+        onApplied(refreshed);
+      } else {
+        toast.info("Скин в профиле Ely.by не найден. Установите его на сайте ely.by.");
+      }
+    } catch (e) {
+      setError(getErrorMessage(e));
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const apply = async () => {
     if (pending.current) return;
     pending.current = true;
     setBusy(true); setError(""); setSuccess(false);
     try {
-      const skin = await command<SkinPreview>("apply_skin", { accountId: account.id, path, expectedSha256: preview?.sha256, model, mode, instanceId: mode === "local" ? instanceId : null });
+      const skin = await command<SkinPreview>("apply_skin", {
+        accountId: account.id,
+        path,
+        expectedSha256: preview?.sha256,
+        model,
+        mode,
+        instanceId: mode === "local" ? instanceId : null
+      });
       setPreview(skin); setSuccess(true); onApplied(skin);
+      toast.success(t(mode === "profile" ? "wardrobe.success_profile" : "wardrobe.success_local"));
     } catch (e) { setError(getErrorMessage(e)); }
     finally { pending.current = false; setBusy(false); }
   };
+
   const currentSkin = preview?.data_url || (account.account_type === "ElyBy" ? `https://skinsystem.ely.by/skins/${encodeURIComponent(account.username)}.png` : `https://minotar.net/skin/${account.uuid || encodeURIComponent(account.username)}`);
+
   return <div className="deck-modal-backdrop" onKeyDown={e => {
-    if (e.key === "Escape" && !busy && !loading) onClose();
+    if (e.key === "Escape" && !busy && !loading && !syncing) onClose();
     if (e.key === "Tab") {
       const controls = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), select:not(:disabled)'));
       if (controls.length === 0) { e.preventDefault(); return; }
@@ -76,11 +121,11 @@ export default function WardrobeModal({ account, selectedInstance, onClose, onAp
             <Shirt size={20} className="text-[#f55e1d]" />
           </div>
           <div className="flex-1">
-            <span className="deck-modal-eyebrow">REDPANDA / {account.username}</span>
+            <span className="deck-modal-eyebrow">REDPANDA / {account.username} ({account.account_type})</span>
             <h2 id="wardrobe-title" className="deck-modal-title">{t("wardrobe.title")}</h2>
           </div>
         </div>
-        <button ref={closeRef} onClick={onClose} disabled={busy || loading} aria-label={t("common.close")} className="deck-modal-close disabled:opacity-40"><X size={17} /></button>
+        <button ref={closeRef} onClick={onClose} disabled={busy || loading || syncing} aria-label={t("common.close")} className="deck-modal-close disabled:opacity-40"><X size={17} /></button>
       </header>
       <div className="grid grid-cols-[280px_1fr] max-[700px]:grid-cols-1 min-h-0 overflow-y-auto custom-scrollbar bg-[#16110e]">
         <div className="bg-[#120e0c] border-r border-[#33241b] flex flex-col items-center justify-center p-4 relative">
@@ -90,18 +135,127 @@ export default function WardrobeModal({ account, selectedInstance, onClose, onAp
           <span className="mt-3 text-[10px] font-mono border border-[#382921] bg-[#1a1410] px-3 py-1 text-[#f5ece5] uppercase tracking-wider relative rounded">{model} / {preview ? `${preview.width} × ${preview.height}` : "3D PREVIEW"}</span>
         </div>
         <div className="p-5 space-y-4">
-          <div><h3 className="text-xs font-mono font-bold text-white uppercase tracking-wider mb-2 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-[#f55e1d]" />{t("wardrobe.file")}</h3><button onClick={pick} disabled={busy || loading} className="w-full border border-dashed border-[#f55e1d]/50 bg-[#241710] hover:bg-[#301d14] rounded px-4 py-3 flex items-center gap-3 text-left disabled:opacity-40 transition-colors">{loading ? <Loader2 className="animate-spin text-primary" /> : <ImagePlus className="text-primary" />}<div><p className="text-sm text-white font-semibold">{path ? path.split(/[\\/]/).pop() : t("wardrobe.choose")}</p><p className="text-xs text-[#a69284] font-mono mt-1">PNG · 64×64 / 64×32 · {t("wardrobe.limit")}</p></div></button></div>
-          <fieldset disabled={busy || loading}><legend className="text-xs font-mono font-bold text-white uppercase tracking-wider mb-2">{t("wardrobe.model")}</legend><div className="grid grid-cols-2 gap-2">{(["classic", "slim"] as const).map(value => <button key={value} disabled={value === "slim" && preview?.height === 32} aria-pressed={model === value} onClick={() => { setModel(value); setSuccess(false); }} className={`p-2.5 rounded border text-left transition-all disabled:opacity-40 ${model === value ? "border-[#f55e1d] bg-[#2d1b13] text-white shadow-[0_0_12px_rgba(245,94,29,0.2)]" : "border-[#382921] bg-[#1a1410] text-[#a69284] hover:text-white"}`}><span className="text-sm font-semibold block">{value === "classic" ? "Classic" : "Slim"}</span><p className="text-xs mt-1 font-mono">{t(value === "classic" ? "wardrobe.classic" : "wardrobe.slim")}</p></button>)}</div></fieldset>
-          <div><label htmlFor="skin-mode" className="text-xs font-mono font-bold text-white uppercase tracking-wider block mb-2">{t("wardrobe.destination")}</label><select id="skin-mode" value={mode} disabled={busy || loading} onChange={e => { setMode(e.target.value); setSuccess(false); }} className="w-full bg-[#120e0c] border border-[#382921] focus:border-[#f55e1d] rounded p-2.5 text-xs font-mono text-white focus:outline-none">{account.account_type === "Microsoft" && <option value="profile">{t("wardrobe.profile")}</option>}<option value="local">{t("wardrobe.local")}</option></select>
-          {mode === "local" && <><label htmlFor="skin-instance" className="sr-only">{t("wardrobe.instance")}</label><select id="skin-instance" value={instanceId} disabled={busy || loading} onChange={e => { setInstanceId(e.target.value); setSuccess(false); }} className="w-full mt-2 bg-[#120e0c] border border-[#382921] focus:border-[#f55e1d] rounded p-2.5 text-xs font-mono text-white focus:outline-none">{instances.length === 0 && <option value="">{t("wardrobe.no_instance")}</option>}{instances.map(i => <option key={i.id} value={i.id}>{i.name} · {i.game_version} {i.loader_type}</option>)}</select></>}
-          <p className="text-xs text-[#a69284] font-mono leading-relaxed mt-2">{t(mode === "profile" ? "wardrobe.profile_description" : "wardrobe.local_description")}</p></div>
+          {account.account_type === "ElyBy" && (
+            <div className="p-3.5 rounded bg-[#1e1511] border border-[#f55e1d]/30 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-mono font-bold text-[#f55e1d] uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles size={14} /> Ely.by Профиль
+                </span>
+                <button
+                  type="button"
+                  onClick={syncFromElyBy}
+                  disabled={syncing || busy || loading}
+                  className="text-[11px] font-mono text-[#f55e1d] hover:text-white flex items-center gap-1.5 transition-colors disabled:opacity-40 bg-[#291b14] px-2.5 py-1 rounded border border-[#f55e1d]/30"
+                >
+                  <RefreshCw size={12} className={syncing ? "animate-spin" : ""} />
+                  {syncing ? t("wardrobe.syncing") : t("wardrobe.sync_elyby")}
+                </button>
+              </div>
+              <p className="text-xs text-[#a69284] font-mono leading-relaxed">
+                {t("wardrobe.elyby_info")}
+              </p>
+              <button
+                type="button"
+                onClick={() => void openUrl("https://account.ely.by/skins")}
+                className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-mono font-medium text-white bg-[#251710] hover:bg-[#321c14] border border-[#f55e1d]/40 rounded transition-all shadow-sm"
+              >
+                <ExternalLink size={14} className="text-[#f55e1d]" />
+                {t("wardrobe.open_elyby")}
+              </button>
+            </div>
+          )}
+
+          <div>
+            <h3 className="text-xs font-mono font-bold text-white uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#f55e1d]" />{t("wardrobe.file")}
+            </h3>
+            <button onClick={pick} disabled={busy || loading || syncing} className="w-full border border-dashed border-[#f55e1d]/50 bg-[#241710] hover:bg-[#301d14] rounded px-4 py-3 flex items-center gap-3 text-left disabled:opacity-40 transition-colors">
+              {loading ? <Loader2 className="animate-spin text-primary" /> : <ImagePlus className="text-primary" />}
+              <div>
+                <p className="text-sm text-white font-semibold">{path ? path.split(/[\\/]/).pop() : t("wardrobe.choose")}</p>
+                <p className="text-xs text-[#a69284] font-mono mt-1">PNG · 64×64 / 64×32 · {t("wardrobe.limit")}</p>
+              </div>
+            </button>
+          </div>
+
+          <fieldset disabled={busy || loading || syncing}>
+            <legend className="text-xs font-mono font-bold text-white uppercase tracking-wider mb-2">{t("wardrobe.model")}</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {(["classic", "slim"] as const).map(value => (
+                <button
+                  key={value}
+                  disabled={value === "slim" && preview?.height === 32}
+                  aria-pressed={model === value}
+                  onClick={() => { setModel(value); setSuccess(false); }}
+                  className={`p-2.5 rounded border text-left transition-all disabled:opacity-40 ${model === value ? "border-[#f55e1d] bg-[#2d1b13] text-white shadow-[0_0_12px_rgba(245,94,29,0.2)]" : "border-[#382921] bg-[#1a1410] text-[#a69284] hover:text-white"}`}
+                >
+                  <span className="text-sm font-semibold block">{value === "classic" ? "Classic" : "Slim"}</span>
+                  <p className="text-xs mt-1 font-mono">{t(value === "classic" ? "wardrobe.classic" : "wardrobe.slim")}</p>
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
+          <div>
+            <label htmlFor="skin-mode" className="text-xs font-mono font-bold text-white uppercase tracking-wider block mb-2">{t("wardrobe.destination")}</label>
+            <select
+              id="skin-mode"
+              value={mode}
+              disabled={busy || loading || syncing}
+              onChange={e => { setMode(e.target.value); setSuccess(false); }}
+              className="w-full bg-[#120e0c] border border-[#382921] focus:border-[#f55e1d] rounded p-2.5 text-xs font-mono text-white focus:outline-none"
+            >
+              {account.account_type === "Microsoft" && <option value="profile">{t("wardrobe.profile")}</option>}
+              <option value="local">{t("wardrobe.local")}</option>
+            </select>
+
+            {mode === "local" && (
+              <>
+                <label htmlFor="skin-instance" className="sr-only">{t("wardrobe.instance")}</label>
+                <select
+                  id="skin-instance"
+                  value={instanceId}
+                  disabled={busy || loading || syncing || instances.length === 0}
+                  onChange={e => { setInstanceId(e.target.value); setSuccess(false); }}
+                  className="w-full mt-2 bg-[#120e0c] border border-[#382921] focus:border-[#f55e1d] rounded p-2.5 text-xs font-mono text-white focus:outline-none"
+                >
+                  {instances.length === 0 && <option value="">{t("wardrobe.no_instance")}</option>}
+                  {instances.map(i => <option key={i.id} value={i.id}>{i.name} · {i.game_version} {i.loader_type}</option>)}
+                </select>
+
+                {instances.length === 0 && (
+                  <div className="mt-2.5 p-3 rounded border border-amber-500/30 bg-amber-950/20 text-amber-200 text-xs font-mono space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold">
+                      <AlertTriangle size={15} className="text-amber-400 shrink-0" />
+                      {t("wardrobe.no_modded_instances_warning")}
+                    </div>
+                    <p className="text-[#a69284] text-[11px] leading-relaxed">
+                      {t("wardrobe.create_modded_hint")}
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+
+            <p className="text-xs text-[#a69284] font-mono leading-relaxed mt-2">
+              {t(mode === "profile" ? "wardrobe.profile_description" : "wardrobe.local_description")}
+            </p>
+          </div>
+
           {error && <p role="alert" className="text-xs font-mono text-red-300 bg-red-950/30 border border-red-500/30 rounded p-3">{error}</p>}
           {success && <p role="status" className="text-xs font-mono text-green-300 bg-emerald-950/30 border border-emerald-500/30 rounded flex items-start gap-2 p-3"><Check size={16} className="shrink-0 text-emerald-400" />{t(mode === "profile" ? "wardrobe.success_profile" : "wardrobe.success_local")}</p>}
         </div>
       </div>
       <footer className="deck-modal-footer">
         <p className="text-xs text-[#a69284] font-mono">{preview ? `${preview.width} × ${preview.height} · ${model === "classic" ? "Classic" : "Slim"}` : t("wardrobe.choose")}</p>
-        <button onClick={apply} disabled={!path || busy || loading || (mode === "local" && !instanceId)} className="deck-play-btn disabled:opacity-40">{busy ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}{t(busy ? "wardrobe.applying" : "wardrobe.apply")}</button>
+        <button
+          onClick={apply}
+          disabled={!path || busy || loading || syncing || (mode === "local" && !instanceId)}
+          className="deck-play-btn disabled:opacity-40"
+        >
+          {busy ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+          {t(busy ? "wardrobe.applying" : "wardrobe.apply")}
+        </button>
       </footer>
     </section>
   </div>;

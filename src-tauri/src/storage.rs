@@ -76,13 +76,32 @@ pub fn read_json_with_backup<T: DeserializeOwned>(path: &Path) -> Result<T, Stri
                 path.extension().and_then(|e| e.to_str()).unwrap_or("json"),
                 uuid::Uuid::new_v4()
             ));
+            // Сначала готовим восстановленную копию на диске, и только потом
+            // убираем повреждённый файл: сбой записи не должен оставить нас
+            // вообще без accounts.json (иначе аккаунты молча исчезнут).
+            let recovered = path.with_extension(format!(
+                "{}.recovered-{}",
+                path.extension().and_then(|e| e.to_str()).unwrap_or("json"),
+                uuid::Uuid::new_v4()
+            ));
+            atomic_write(&recovered, backup_text.as_bytes())?;
+
             fs::rename(path, &corrupt).map_err(|e| {
+                let _ = fs::remove_file(&recovered);
                 format!(
                     "Не удалось сохранить повреждённый файл {}: {e}",
                     path.display()
                 )
             })?;
-            atomic_write(path, backup_text.as_bytes())?;
+            if let Err(error) = replace_file(&recovered, path) {
+                // Возвращаем повреждённый файл на место, чтобы не потерять и его.
+                let _ = fs::rename(&corrupt, path);
+                let _ = fs::remove_file(&recovered);
+                return Err(format!(
+                    "Не удалось восстановить {}: {error}",
+                    path.display()
+                ));
+            }
             log::warn!(
                 "Restored {} from backup; corrupt file moved to {}",
                 path.display(),

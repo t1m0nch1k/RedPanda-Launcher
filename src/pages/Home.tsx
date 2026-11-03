@@ -24,6 +24,7 @@ const ModrinthBrowser = lazy(() => import("../components/ModrinthBrowser"));
 const CurseForgeBrowser = lazy(() => import("../components/CurseForgeBrowser"));
 const ModpackBuilderModal = lazy(() => import("../components/ModpackBuilderModal"));
 const WardrobeModal = lazy(() => import("../components/WardrobeModal"));
+const AccountsModal = lazy(() => import("../components/AccountsModal"));
 const ServerBrowserModal = lazy(() => import("../components/ServerBrowserModal"));
 
 interface Instance {
@@ -110,6 +111,8 @@ export default memo(function Home({
   const [showCurseForgeModpackBrowser, setShowCurseForgeModpackBrowser] = useState(false);
   const [showModpackBuilder, setShowModpackBuilder] = useState(false);
   const [showWardrobe, setShowWardrobe] = useState(false);
+  const [wardrobeAccount, setWardrobeAccount] = useState<Account | null>(null);
+  const [showAccountsModal, setShowAccountsModal] = useState(false);
   const [showServerBrowser, setShowServerBrowser] = useState(false);
   
   const [deletingInstance, setDeletingInstance] = useState<{isOpen: boolean, id: string | null}>({isOpen: false, id: null});
@@ -162,13 +165,25 @@ export default memo(function Home({
   // Accounts information
   useEffect(() => {
     let disposed = false;
-    invoke<Account[]>("get_accounts").then(accs => {
-      if (!disposed) {
-        setAccountsCount(accs.length || 1);
-        setActiveAccountObj(accs.find(a => a.is_active) || null);
-      }
-    }).catch(console.error);
-    return () => { disposed = true; };
+    const fetchAccounts = () => {
+      invoke<Account[]>("get_accounts").then(accs => {
+        if (!disposed) {
+          setAccountsCount(accs.length);
+          setActiveAccountObj(accs.find(a => a.is_active) || null);
+        }
+      }).catch(console.error);
+    };
+
+    fetchAccounts();
+
+    const unlistenPromise = listen("accounts_changed", () => {
+      fetchAccounts();
+    });
+
+    return () => { 
+      disposed = true; 
+      void unlistenPromise.then(unlisten => unlisten()).catch(() => {});
+    };
   }, [activeUsername, activeAccountId]);
 
   // Fetch installed mods count for current instance
@@ -274,6 +289,8 @@ export default memo(function Home({
     let unlisten: any;
     let mrpackUnlisten: any;
     let dragUnlisten: any;
+    let cancelled = false;
+    let batchResetTimer: ReturnType<typeof setTimeout> | null = null;
 
     const setupListener = async () => {
       unlisten = await listen("launcher-event", (event: any) => {
@@ -387,6 +404,7 @@ export default memo(function Home({
         }
       });
       
+      if (cancelled) { unlisten(); return; }
       mrpackUnlisten = await listen("mrpack-progress", (event: any) => {
         const payload = event.payload;
         if (payload) {
@@ -397,15 +415,18 @@ export default memo(function Home({
           setDownloadSpeed(0);
           
           if (payload.current >= payload.total && payload.total > 0) {
-            setTimeout(() => {
+            if (batchResetTimer) clearTimeout(batchResetTimer);
+            batchResetTimer = setTimeout(() => {
+              batchResetTimer = null;
               setIsLaunching(false);
               setDownloadAction("");
-              loadInstances();
+              void loadInstances();
             }, 1000);
           }
         }
       });
       
+      if (cancelled) { mrpackUnlisten(); return; }
       dragUnlisten = await listen("tauri://drag-drop", async (event: any) => {
         const payload = event.payload as any;
         if (payload && payload.paths && payload.paths.length > 0) {
@@ -479,8 +500,13 @@ export default memo(function Home({
       });
     };
     
-    setupListener();
+    void setupListener().catch(err => console.error("Failed to set up launcher listeners", err));
     return () => {
+      cancelled = true;
+      if (batchResetTimer) {
+        clearTimeout(batchResetTimer);
+        batchResetTimer = null;
+      }
       if (unlisten) unlisten();
       if (mrpackUnlisten) mrpackUnlisten();
       if (dragUnlisten) dragUnlisten();
@@ -565,6 +591,7 @@ export default memo(function Home({
             onAccountChange={(username, id) => {
               onAccountChange?.(username, id);
             }} 
+            onOpenAccountsModal={() => setShowAccountsModal(true)}
           />
 
           <button 
@@ -636,10 +663,10 @@ export default memo(function Home({
               <span>Моды</span>
             </button>
             <button 
-              className="hub-nav-item"
-              onClick={() => setShowWardrobe(true)}
+              className={`hub-nav-item ${showAccountsModal ? "is-active" : ""}`}
+              onClick={() => setShowAccountsModal(true)}
             >
-              <Folder size={18} />
+              <User size={18} />
               <span>Профили</span>
             </button>
             <button 
@@ -910,7 +937,7 @@ export default memo(function Home({
 
           <button 
             className="hub-shortcut-btn"
-            onClick={() => setShowWardrobe(true)}
+            onClick={() => setShowAccountsModal(true)}
           >
             <div className="hub-shortcut-btn-left">
               <User size={17} />
@@ -991,13 +1018,31 @@ export default memo(function Home({
         />
       )}
 
-      {showWardrobe && activeAccountObj && (
+      {showAccountsModal && (
+        <Suspense fallback={null}>
+          <AccountsModal 
+            onClose={() => setShowAccountsModal(false)}
+            onOpenWardrobe={(acc) => {
+              setWardrobeAccount(acc);
+              setShowWardrobe(true);
+            }}
+            onAccountSelect={(username, id) => {
+              onAccountChange?.(username, id);
+            }}
+          />
+        </Suspense>
+      )}
+
+      {showWardrobe && (wardrobeAccount || activeAccountObj) && (
         <Suspense fallback={null}>
           <WardrobeModal 
-            key={activeAccountObj.id} 
-            account={activeAccountObj} 
+            key={(wardrobeAccount || activeAccountObj)!.id} 
+            account={(wardrobeAccount || activeAccountObj)!} 
             selectedInstance={selectedInstance} 
-            onClose={() => setShowWardrobe(false)} 
+            onClose={() => {
+              setShowWardrobe(false);
+              setWardrobeAccount(null);
+            }} 
             onApplied={() => {}} 
           />
         </Suspense>

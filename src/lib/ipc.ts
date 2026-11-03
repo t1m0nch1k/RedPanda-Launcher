@@ -12,6 +12,8 @@ export interface Account {
   account_type: "Offline" | "Microsoft" | "ElyBy" | string;
   is_active: boolean;
   uuid?: string;
+  /** Токены аккаунта не удалось расшифровать: требуется повторный вход. */
+  needs_relogin?: boolean;
 }
 
 export interface InstallTask {
@@ -85,15 +87,31 @@ export function getErrorMessage(error: unknown): string {
   return typeof error === "string" ? error : "Операция не выполнена";
 }
 
+/** Ошибка IPC: всегда настоящий Error (со стеком), но с полем `code` как у AppError. */
+export class IpcError extends Error implements AppError {
+  code: string;
+  details?: Record<string, unknown>;
+
+  constructor(message: string, code = "operation_failed", details?: Record<string, unknown>) {
+    super(message);
+    this.name = "IpcError";
+    this.code = code;
+    this.details = details;
+  }
+}
+
 export function command<T>(name: string, args?: Record<string, unknown>): Promise<T> {
   return invoke<T>(name, args).catch((error: unknown) => {
+    if (error instanceof IpcError) throw error;
     if (typeof error === "object" && error !== null && "code" in error && "message" in error) {
-      throw error;
+      const { code, message, details } = error as AppError;
+      throw new IpcError(
+        typeof message === "string" ? message : getErrorMessage(message),
+        typeof code === "string" ? code : "operation_failed",
+        details,
+      );
     }
-    throw {
-      code: "operation_failed",
-      message: getErrorMessage(error),
-    } satisfies AppError;
+    throw new IpcError(getErrorMessage(error));
   });
 }
 
@@ -106,9 +124,24 @@ export interface InstallPlan {
   conflicts: string[];
   warnings: string[];
 }
-export interface SkinPreview { data_url: string; sha256: string; width: number; height: number; model?: "classic" | "slim" }
+export interface SkinPreview { data_url: string; avatar_data_url?: string; sha256: string; width: number; height: number; model?: "classic" | "slim" }
 export const previewModInstall = (instanceId: string, source: string, id: string, projectType: string) =>
   command<InstallPlan>("preview_mod_install", { instanceId, source, id, projectType });
 export const executeModInstall = (planId: string) => command<void>("execute_mod_install", { planId });
 
 export const discardModInstall = (planId: string) => command<void>("discard_mod_install", { planId });
+
+/* ---------------- Microsoft device-code login ---------------- */
+
+export interface DeviceCodeInfo {
+  user_code: string;
+  verification_uri: string;
+  device_code: string;
+  interval: number;
+  /** Время жизни кода в секундах (Microsoft отдаёт 900). */
+  expires_in?: number;
+}
+
+export const microsoftDeviceCode = () => command<DeviceCodeInfo>("microsoft_device_code");
+export const pollMicrosoftDeviceCode = (deviceCode: string) =>
+  command<Account>("poll_microsoft_device_code", { deviceCode });

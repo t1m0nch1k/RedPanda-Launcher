@@ -21,7 +21,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data: https://minotar.net https://skinsystem.ely.by https://cdn.modrinth.com https://media.forgecdn.net https://edge.forgecdn.net; connect-src 'self' ipc: http://ipc.localhost https://minotar.net https://skinsystem.ely.by; font-src 'self' data:; object-src 'none'; base-uri 'none';",
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data: https://minotar.net https://skinsystem.ely.by http://ely.by https://ely.by http://*.ely.by https://*.ely.by https://cdn.modrinth.com https://media.forgecdn.net https://edge.forgecdn.net; connect-src 'self' ipc: http://ipc.localhost https://minotar.net https://skinsystem.ely.by http://ely.by https://ely.by; font-src 'self' data:; object-src 'none'; base-uri 'none';",
       "assetProtocol": {
         "enable": true,
         "scope": [
