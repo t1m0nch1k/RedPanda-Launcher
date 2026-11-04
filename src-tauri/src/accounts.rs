@@ -495,7 +495,9 @@ pub fn add_offline_account(app: AppHandle, username: String) -> Result<Account, 
     })?;
 
     let _ = app.emit("accounts_changed", ());
-    Ok(public_account(created.expect("account created inside closure")))
+    Ok(public_account(
+        created.expect("account created inside closure"),
+    ))
 }
 
 #[tauri::command]
@@ -616,7 +618,9 @@ pub async fn add_elyby_account(
     })?;
 
     let _ = app.emit("accounts_changed", ());
-    Ok(public_account(created.expect("account created inside closure")))
+    Ok(public_account(
+        created.expect("account created inside closure"),
+    ))
 }
 
 #[derive(Serialize, Clone)]
@@ -671,7 +675,10 @@ pub async fn microsoft_device_code() -> Result<DeviceCodeInfo, String> {
         user_code: user_code.to_string(),
         verification_uri: verification_uri.to_string(),
         device_code: device_code.to_string(),
-        interval: json["interval"].as_u64().filter(|value| *value > 0).unwrap_or(5),
+        interval: json["interval"]
+            .as_u64()
+            .filter(|value| *value > 0)
+            .unwrap_or(5),
         expires_in: json["expires_in"]
             .as_u64()
             .filter(|value| *value > 0)
@@ -913,7 +920,9 @@ pub async fn poll_microsoft_device_code(
 
     // Список на фронте мог уже «закрыть» окно входа: уведомляем UI об изменениях vault.
     let _ = app.emit("accounts_changed", ());
-    Ok(public_account(created.expect("account created inside closure")))
+    Ok(public_account(
+        created.expect("account created inside closure"),
+    ))
 }
 
 #[tauri::command]
@@ -946,7 +955,10 @@ pub async fn add_elyby_account_oauth(app: AppHandle) -> Result<Account, String> 
         .send()
         .await
         .map_err(|e| format!("Network error: {}", e))?;
-    log::info!("Ely.by: token exchange responded with {}", token_res.status());
+    log::info!(
+        "Ely.by: token exchange responded with {}",
+        token_res.status()
+    );
 
     if !token_res.status().is_success() {
         let status = token_res.status();
@@ -992,7 +1004,9 @@ pub async fn add_elyby_account_oauth(app: AppHandle) -> Result<Account, String> 
         let status = profile_res.status();
         let body = profile_res.text().await.unwrap_or_default();
         log::warn!("Ely.by profile fetch failed: HTTP {status} body={body}");
-        return Err(format!("Ely.by profile request failed (HTTP {status}): {body}"));
+        return Err(format!(
+            "Ely.by profile request failed (HTTP {status}): {body}"
+        ));
     }
 
     let profile_data: serde_json::Value = profile_res
@@ -1026,7 +1040,9 @@ pub async fn add_elyby_account_oauth(app: AppHandle) -> Result<Account, String> 
     })?;
 
     let _ = app.emit("accounts_changed", ());
-    Ok(public_account(created.expect("account created inside closure")))
+    Ok(public_account(
+        created.expect("account created inside closure"),
+    ))
 }
 
 #[tauri::command]
@@ -1099,7 +1115,9 @@ pub async fn add_microsoft_account_oauth(app: AppHandle) -> Result<Account, Stri
     })?;
 
     let _ = app.emit("accounts_changed", ());
-    Ok(public_account(created.expect("account created inside closure")))
+    Ok(public_account(
+        created.expect("account created inside closure"),
+    ))
 }
 
 const TOKEN_REFRESH_SKEW_SECONDS: i64 = 5 * 60;
@@ -1249,7 +1267,9 @@ fn persist_refreshed_credentials(app: &AppHandle, refreshed: &Account) -> Result
             .accounts
             .iter_mut()
             .find(|account| account.id == refreshed.id)
-            .ok_or_else(|| "Account was removed while its session was being refreshed".to_string())?;
+            .ok_or_else(|| {
+                "Account was removed while its session was being refreshed".to_string()
+            })?;
 
         // Only replace values obtained from the refresh flow. This avoids clobbering
         // a concurrent profile or active-account change with an older in-memory copy.

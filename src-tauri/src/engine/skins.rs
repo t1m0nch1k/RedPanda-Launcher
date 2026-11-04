@@ -97,7 +97,12 @@ pub fn extract_avatar_png(skin_bytes: &[u8]) -> Result<Vec<u8>, String> {
             png::ColorType::Rgba => {
                 let idx = base * 4;
                 if idx + 3 < raw_pixels.len() {
-                    [raw_pixels[idx], raw_pixels[idx + 1], raw_pixels[idx + 2], raw_pixels[idx + 3]]
+                    [
+                        raw_pixels[idx],
+                        raw_pixels[idx + 1],
+                        raw_pixels[idx + 2],
+                        raw_pixels[idx + 3],
+                    ]
                 } else {
                     [0, 0, 0, 0]
                 }
@@ -105,7 +110,12 @@ pub fn extract_avatar_png(skin_bytes: &[u8]) -> Result<Vec<u8>, String> {
             png::ColorType::Rgb => {
                 let idx = base * 3;
                 if idx + 2 < raw_pixels.len() {
-                    [raw_pixels[idx], raw_pixels[idx + 1], raw_pixels[idx + 2], 255]
+                    [
+                        raw_pixels[idx],
+                        raw_pixels[idx + 1],
+                        raw_pixels[idx + 2],
+                        255,
+                    ]
                 } else {
                     [0, 0, 0, 0]
                 }
@@ -159,7 +169,9 @@ pub fn extract_avatar_png(skin_bytes: &[u8]) -> Result<Vec<u8>, String> {
         encoder.set_color(png::ColorType::Rgba);
         encoder.set_depth(png::BitDepth::Eight);
         let mut writer = encoder.write_header().map_err(|e| e.to_string())?;
-        writer.write_image_data(&out_pixels).map_err(|e| e.to_string())?;
+        writer
+            .write_image_data(&out_pixels)
+            .map_err(|e| e.to_string())?;
     }
     Ok(out_png)
 }
@@ -220,7 +232,10 @@ pub async fn get_saved(app: &AppHandle, account_id: &str) -> Result<Option<SkinP
             .timeout(std::time::Duration::from_secs(10))
             .build()
             .map_err(|e| e.to_string())?;
-        let url = format!("http://skinsystem.ely.by/skins/{}.png", account.username.trim());
+        let url = format!(
+            "http://skinsystem.ely.by/skins/{}.png",
+            account.username.trim()
+        );
         if let Ok(resp) = client.get(&url).send().await {
             if resp.status().is_success() {
                 if let Ok(bytes) = resp.bytes().await {
@@ -309,7 +324,10 @@ fn local_config(
             "model": if model == "classic" { "default" } else { "slim" }
         }),
     );
-    if !list.iter().any(|entry| entry["name"].as_str() == Some("Mojang")) {
+    if !list
+        .iter()
+        .any(|entry| entry["name"].as_str() == Some("Mojang"))
+    {
         list.push(serde_json::json!({
             "name": "Mojang",
             "type": "MojangAPI"
@@ -349,7 +367,8 @@ fn has_skin_loader(game_dir: &Path) -> Result<bool, String> {
                 }
                 if metadata.ends_with(".json") || metadata == "mcmod.info" {
                     if let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) {
-                        let matches_id = |id: &str| id.to_lowercase().starts_with("customskinloader");
+                        let matches_id =
+                            |id: &str| id.to_lowercase().starts_with("customskinloader");
                         if value["id"].as_str().is_some_and(matches_id)
                             || value["quilt_loader"]["id"].as_str().is_some_and(matches_id)
                             || value.as_array().is_some_and(|items| {

@@ -175,10 +175,9 @@ fn percent_decode_keep_plus(input: &str) -> String {
     let mut index = 0;
     while index < bytes.len() {
         if bytes[index] == b'%' && index + 2 < bytes.len() {
-            if let (Some(high), Some(low)) = (
-                hex_digit(bytes[index + 1]),
-                hex_digit(bytes[index + 2]),
-            ) {
+            if let (Some(high), Some(low)) =
+                (hex_digit(bytes[index + 1]), hex_digit(bytes[index + 2]))
+            {
                 out.push(high * 16 + low);
                 index += 3;
                 continue;
