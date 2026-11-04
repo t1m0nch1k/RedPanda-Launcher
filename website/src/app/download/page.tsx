@@ -10,7 +10,7 @@ import {
   IconArrowUpRight
 } from "@tabler/icons-react";
 
-const RELEASE_VERSION = "0.3.3";
+const RELEASE_VERSION = "0.3.4";
 const RELEASE_TAG = `v${RELEASE_VERSION}`;
 
 export const metadata = {
@@ -36,7 +36,7 @@ export default function DownloadPage() {
             Скачать RedPanda Launcher
           </h1>
           <p className="text-muted text-sm sm:text-base max-w-2xl mx-auto leading-relaxed font-mono">
-            Последняя опубликованная версия <span className="text-primary font-bold">v{RELEASE_VERSION}</span> с управлением модами и автономным установщиком. Версия 0.3.3 с гардеробом и предпросмотром установки модов готовится к публичному выпуску.
+            Последняя опубликованная версия <span className="text-primary font-bold">v{RELEASE_VERSION}</span> с окном аккаунтов Microsoft и Ely.by, обновлением скинов без перезапуска и автономным установщиком.
           </p>
         </div>
 
