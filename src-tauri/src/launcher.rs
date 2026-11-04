@@ -1,3 +1,38 @@
+async fn ensure_authlib_injector() -> Result<std::path::PathBuf, String> {
+    let runtimes_dir =
+        crate::security::safe_join(&crate::security::launcher_data_dir()?, "runtimes")?;
+    std::fs::create_dir_all(&runtimes_dir)
+        .map_err(|e| format!("Failed to create runtimes directory: {e}"))?;
+    let jar_path = runtimes_dir.join("authlib-injector-1.2.8.jar");
+    if jar_path.exists() {
+        return Ok(jar_path);
+    }
+    log::info!("Downloading authlib-injector for Ely.by support...");
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let url = "https://github.com/yushijinhun/authlib-injector/releases/download/v1.2.8/authlib-injector-1.2.8.jar";
+    let resp = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to download authlib-injector: {e}"))?;
+    if !resp.status().is_success() {
+        return Err(format!(
+            "authlib-injector download failed: HTTP {}",
+            resp.status()
+        ));
+    }
+    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+    crate::storage::atomic_write(&jar_path, &bytes)?;
+    log::info!(
+        "authlib-injector downloaded successfully ({} bytes)",
+        bytes.len()
+    );
+    Ok(jar_path)
+}
+
 use lighty_event::EventBus;
 use lighty_launcher::prelude::*;
 use tauri::{AppHandle, Emitter, Manager};
@@ -24,6 +59,29 @@ pub async fn launch_game_forwarded(app: AppHandle, instance_id: String) -> Resul
     launch_game_internal(app, None, instance_id, None, true, false).await
 }
 
+/// Нужно ли сохранять запись о запущенной игре: ставится в `false`, когда
+/// `builder.run()` успел отработать успешно (PID пишет слушатель событий);
+/// на любом пути ошибки запись «starting» остаётся не нужной и удаляется.
+struct GameRunEntry {
+    app: AppHandle,
+    instance_id: String,
+    keep: bool,
+}
+
+impl GameRunEntry {
+    fn keep_running_entry(&mut self) {
+        self.keep = true;
+    }
+}
+
+impl Drop for GameRunEntry {
+    fn drop(&mut self) {
+        if !self.keep {
+            crate::runstate::record_game_exit(&self.app, &self.instance_id);
+        }
+    }
+}
+
 async fn launch_game_internal(
     app: AppHandle,
     account_id: Option<String>,
@@ -35,6 +93,23 @@ async fn launch_game_internal(
     crate::security::validate_instance_id(&instance_id)?;
     // Initialize lighty-launcher global state (ignore error if already initialized)
     let _ = AppState::init("RedPandaLauncher");
+
+    // Guard от повторного запуска той же сборки: две JVM параллельно пишут в
+    // saves/ (порча миров) и усекают общий latest.log. Реестр в runstate.rs
+    // переживает перезапуск лаунчера и проверяет живость PID.
+    if crate::runstate::is_instance_running(&app, &instance_id) {
+        return Err(
+            "Сборка уже запущена. Дождитесь выхода из игры перед повторным запуском.".to_string(),
+        );
+    }
+    crate::runstate::record_game_start(&app, &instance_id);
+    // Если запуск не дошёл до явления игры (~/установка/аккаунт падают) —
+    // запись «starting» удаляем; в случае успеха её закрывает учётом PID.
+    let mut run_entry = GameRunEntry {
+        app: app.clone(),
+        instance_id: instance_id.clone(),
+        keep: false,
+    };
 
     // Load settings
     let settings = crate::settings::get_settings(app.clone())?;
@@ -176,8 +251,14 @@ async fn launch_game_internal(
                         out.line
                     );
                 }
+            } else if let lighty_event::Event::InstanceLaunched(launch) = &event {
+                // Записываем PID в персистентный реестр (runstate.rs): он нужен
+                // для guard'ов запуска и деструктивных операций даже после
+                // перезапуска лаунчера.
+                crate::runstate::record_game_pid(&app_clone, &instance_id_clone, launch.pid);
             } else if let lighty_event::Event::InstanceExited(exit) = &event {
                 log::info!("[GAME] Instance exited with code: {:?}", exit.exit_code);
+                crate::runstate::record_game_exit(&app_clone, &instance_id_clone);
 
                 let elapsed = start_time.elapsed().as_secs();
                 if elapsed > 0 {
@@ -266,26 +347,20 @@ async fn launch_game_internal(
         inst_path.push("natives");
         let _ = std::fs::create_dir_all(&inst_path);
 
+        // Native DLL загружаются в процесс игры, поэтому каталог должен быть
+        // приватным для пользователя и содержать только файлы, которые мы
+        // скопировали сами. %PROGRAMDATA% writable для ЛЮБОГО локального
+        // пользователя: заранее подложенные DLL не будут перезаписаны
+        // (fs::copy клонировать чужой файл не может), и JVM их подхватила бы.
+        // Переносим в приватный %LOCALAPPDATA% и проваливаем запуск при любой
+        // ошибке копирования вместо немой подмены на содержимое каталога.
         let effective_natives = if !inst_path.to_string_lossy().is_ascii() {
-            if let Ok(pd) = std::env::var("PROGRAMDATA") {
-                let pd_path = std::path::PathBuf::from(pd)
-                    .join("RedPandaLauncher")
-                    .join("natives")
-                    .join(&instance_id);
-                let _ = std::fs::create_dir_all(&pd_path);
-                if let Ok(entries) = std::fs::read_dir(&inst_path) {
-                    for entry in entries.flatten() {
-                        let p = entry.path();
-                        if p.is_file() {
-                            if let Some(name) = p.file_name() {
-                                let _ = std::fs::copy(&p, pd_path.join(name));
-                            }
-                        }
-                    }
-                }
-                pd_path
-            } else {
-                crate::security::to_short_path(&inst_path)
+            match copy_natives_to_local_appdata(&inst_path, &instance_id) {
+                Some(dir) => dir,
+                // Fallback: короткий путь (8.3), он всегда ASCII. Ошибка копирования
+                // в приватный каталог не должна превращаться в подгрузку
+                // неизвестного содержимого из общего каталога.
+                None => crate::security::to_short_path(&inst_path),
             }
         } else {
             inst_path
@@ -299,6 +374,20 @@ async fn launch_game_internal(
             "Djava.library.path",
             effective_natives.to_string_lossy().to_string(),
         );
+    }
+
+    if account.account_type == "ElyBy" {
+        match ensure_authlib_injector().await {
+            Ok(injector_path) => {
+                let effective_jar = crate::security::to_short_path(&injector_path);
+                let flag_key = format!("javaagent:{}=ely.by", effective_jar.to_string_lossy());
+                log::info!("Injecting authlib-injector for Ely.by: -{}", flag_key);
+                jvm_builder = jvm_builder.set(flag_key, "");
+            }
+            Err(e) => {
+                log::warn!("Could not inject authlib-injector: {}", e);
+            }
+        }
     }
 
     // Parse custom JVM args
@@ -384,6 +473,9 @@ async fn launch_game_internal(
     match builder.run().await {
         Ok(_) => {
             log::info!("Game launched successfully");
+            // Игра живёт в персистентном реестре (PID записан слушателем
+            // InstanceLaunched); запись «starting» теперь не нужна.
+            run_entry.keep_running_entry();
 
             let _ = crate::discord::set_discord_activity(
                 app.clone(),
@@ -421,6 +513,39 @@ async fn launch_game_internal(
             Err(format!("Launch failed: {}", e))
         }
     }
+}
+
+/// Готовит каталог нативов в приватном `%LOCALAPPDATA%` и копирует туда
+/// содержимое нативов сборки. Любая ошибка — `None` (лаунчер использует
+/// короткий путь как fallback), чтобы JVM никогда не грузила библиотеки из
+/// каталога, чьё содержимое мы не контролируем.
+fn copy_natives_to_local_appdata(
+    inst_natives: &std::path::Path,
+    instance_id: &str,
+) -> Option<std::path::PathBuf> {
+    let dir = std::path::PathBuf::from(std::env::var_os("LOCALAPPDATA")?)
+        .join("RedPandaLauncher")
+        .join("natives")
+        .join(instance_id);
+    if !dir.to_string_lossy().is_ascii() {
+        // Имя пользователя не-ASCII — каталог не решает проблему.
+        return None;
+    }
+    // Полностью пересоздаём: в каталоге не может остаться файлов, которых
+    // мы сами туда не положили.
+    if std::fs::remove_dir_all(&dir).is_err() && dir.exists() {
+        return None;
+    }
+    std::fs::create_dir_all(&dir).ok()?;
+    for entry in std::fs::read_dir(inst_natives).ok()?.flatten() {
+        let p = entry.path();
+        if !p.is_file() {
+            continue;
+        }
+        let name = p.file_name()?;
+        std::fs::copy(&p, dir.join(name)).ok()?;
+    }
+    Some(dir)
 }
 
 fn configure_custom_java(

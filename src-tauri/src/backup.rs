@@ -1,6 +1,7 @@
 use chrono::Local;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
+use tauri::AppHandle;
 use zip::ZipWriter;
 
 pub fn backup_saves(instance_dir: &Path) -> Result<(), String> {
@@ -120,7 +121,14 @@ pub async fn list_backups(instance_id: String) -> Result<Vec<String>, String> {
 }
 
 #[tauri::command]
-pub async fn restore_backup(instance_id: String, filename: String) -> Result<(), String> {
+pub async fn restore_backup(
+    app: AppHandle,
+    instance_id: String,
+    filename: String,
+) -> Result<(), String> {
+    if crate::runstate::is_instance_running(&app, &instance_id) {
+        return Err(crate::runstate::BUSY_INSTANCE_MESSAGE.to_string());
+    }
     let instance = crate::security::instance_dir(&instance_id)?;
     let filename = crate::security::validate_filename(&filename)?;
     let backup = crate::security::safe_join(&instance.join("backups"), &filename)?;

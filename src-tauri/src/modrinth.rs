@@ -436,13 +436,16 @@ pub async fn check_mod_updates(
 }
 #[tauri::command]
 pub async fn update_mod(
-    _app: AppHandle,
+    app: AppHandle,
     instance_id: String,
     old_file_name: String,
     new_file_name: String,
     download_url: String,
     expected_sha1: Option<String>,
 ) -> Result<(), String> {
+    if crate::runstate::is_instance_running(&app, &instance_id) {
+        return Err(crate::runstate::BUSY_INSTANCE_MESSAGE.to_string());
+    }
     let mut path = crate::security::instance_dir(&instance_id)?;
     path.push("mods");
     let old_file_name = crate::security::validate_filename(&old_file_name)?;
@@ -461,7 +464,12 @@ pub async fn update_mod(
 
     let old_path = crate::security::safe_join(&path, &old_file_name)?;
     if old_path != new_path && old_path.exists() {
-        fs::remove_file(old_path).map_err(|e| e.to_string())?;
+        if let Err(remove_error) = fs::remove_file(old_path) {
+            // Не оставляем в mods/ второй jar того же мода: откатываем
+            // скачанный файл и возвращаем исходную ошибку.
+            let _ = fs::remove_file(&new_path);
+            return Err(remove_error.to_string());
+        }
     }
 
     Ok(())

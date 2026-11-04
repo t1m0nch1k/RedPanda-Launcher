@@ -6,6 +6,7 @@ import { BattlePromo } from "./BattlePromo";
 import { ModpackBuilderPromo } from "./ModpackBuilderPromo";
 import { FiveMinutesPromo } from "./FiveMinutesPromo";
 import { SilentCyberPromo } from "./SilentCyberPromo";
+import { HiggsfieldPromo } from "./HiggsfieldPromo";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -20,7 +21,7 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
         defaultProps={{
           version: "v0.2.2",
-          siteUrl: "redlauncher.ru"
+          siteUrl: "redlauncher.ru",
         }}
       />
 
@@ -34,7 +35,7 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
         defaultProps={{
           version: "v0.3.0",
-          siteUrl: "redlauncher.ru"
+          siteUrl: "redlauncher.ru",
         }}
       />
 
@@ -48,7 +49,7 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
         defaultProps={{
           version: "v0.2.2",
-          siteUrl: "redlauncher.ru"
+          siteUrl: "redlauncher.ru",
         }}
       />
 
@@ -62,7 +63,7 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
         defaultProps={{
           version: "v0.3.0",
-          siteUrl: "redlauncher.ru"
+          siteUrl: "redlauncher.ru",
         }}
       />
 
@@ -75,7 +76,7 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
         defaultProps={{
           version: "v0.3.0",
-          siteUrl: "redlauncher.ru"
+          siteUrl: "redlauncher.ru",
         }}
       />
 
@@ -89,7 +90,7 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
         defaultProps={{
           version: "v0.3.0",
-          siteUrl: "redlauncher.ru"
+          siteUrl: "redlauncher.ru",
         }}
       />
 
@@ -103,7 +104,7 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
         defaultProps={{
           version: "v0.3.2",
-          siteUrl: "redlauncher.ru"
+          siteUrl: "redlauncher.ru",
         }}
       />
 
@@ -136,6 +137,20 @@ export const RemotionRoot: React.FC = () => {
           siteUrl: "redlauncher.ru",
           voiceover: false,
           includeBeat: false,
+        }}
+      />
+
+      {/* Promo Option 9: Higgsfield AI Scenes + Remotion (17s) */}
+      <Composition
+        id="HiggsfieldPromo"
+        component={HiggsfieldPromo}
+        durationInFrames={510}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          version: "v0.3.2",
+          siteUrl: "redlauncher.ru",
         }}
       />
     </>

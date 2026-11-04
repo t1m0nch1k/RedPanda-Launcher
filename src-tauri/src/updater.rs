@@ -266,6 +266,17 @@ pub async fn download_and_install_update(
     verify_manifest_signature(expected_manifest.as_bytes(), &expected_signature)?;
     let manifest: UpdateManifest = serde_json::from_str(&expected_manifest)
         .map_err(|e| format!("Некорректный подписанный manifest обновления: {e}"))?;
+
+    // Подпись подтверждает только аутентичность manifest, но не то, что это
+    // обновление ДОЛЖНО ставиться: любой старый релизный manifest остаётся
+    // действительным навсегда и позволил бы молча откатить патч. Ставим
+    // только версии строго новее текущей.
+    if !is_version_newer(manifest.version.trim_start_matches('v'), CURRENT_VERSION) {
+        return Err(format!(
+            "Отказ от обновления: подписанный manifest описывает версию {}, которая не новее текущей {} (защита от даунгрейда).",
+            manifest.version, CURRENT_VERSION
+        ));
+    }
     let expected_asset_name = expected_asset_name
         .filter(|value| !value.trim().is_empty())
         .ok_or_else(|| "Для обновления отсутствует имя installer asset".to_string())?;

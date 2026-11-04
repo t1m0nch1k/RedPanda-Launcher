@@ -14,6 +14,7 @@ pub mod java;
 pub mod launcher;
 mod modrinth;
 mod oauth;
+mod runstate;
 pub mod security;
 pub mod settings;
 pub mod storage;

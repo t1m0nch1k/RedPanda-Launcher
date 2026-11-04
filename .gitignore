@@ -16,6 +16,7 @@ dist-ssr
 .vscode/*
 !.vscode/extensions.json
 .idea
+.commandcode/
 .DS_Store
 *.sw?
 
@@ -37,3 +38,5 @@ installer/src-tauri/gen/
 graphify-out/
 backups/
 website-redesign-test/
+design-mockups/
+RedPanda-*.png

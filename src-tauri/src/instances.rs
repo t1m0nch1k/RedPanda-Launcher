@@ -451,6 +451,9 @@ pub async fn add_instance(
 #[tauri::command]
 pub async fn remove_instance(app: AppHandle, id: String) -> Result<(), String> {
     crate::security::validate_instance_id(&id)?;
+    if crate::runstate::is_instance_running(&app, &id) {
+        return Err(crate::runstate::BUSY_INSTANCE_MESSAGE.to_string());
+    }
     let _guard = INSTANCES_MUTEX
         .lock()
         .map_err(|_| "Failed to lock instances mutex".to_string())?;
@@ -884,7 +887,14 @@ pub async fn diagnose_instance(
 }
 
 #[tauri::command]
-pub async fn delete_mod(instance_id: String, filename: String) -> Result<(), String> {
+pub async fn delete_mod(
+    app: AppHandle,
+    instance_id: String,
+    filename: String,
+) -> Result<(), String> {
+    if crate::runstate::is_instance_running(&app, &instance_id) {
+        return Err(crate::runstate::BUSY_INSTANCE_MESSAGE.to_string());
+    }
     let mut path = crate::security::instance_dir(&instance_id)?;
     path.push("mods");
     let filename = crate::security::validate_filename(&filename)?;
@@ -919,7 +929,14 @@ pub async fn get_installed_resourcepacks(instance_id: String) -> Result<Vec<ModI
 }
 
 #[tauri::command]
-pub async fn delete_resourcepack(instance_id: String, filename: String) -> Result<(), String> {
+pub async fn delete_resourcepack(
+    app: AppHandle,
+    instance_id: String,
+    filename: String,
+) -> Result<(), String> {
+    if crate::runstate::is_instance_running(&app, &instance_id) {
+        return Err(crate::runstate::BUSY_INSTANCE_MESSAGE.to_string());
+    }
     let mut path = crate::security::instance_dir(&instance_id)?;
     path.push("resourcepacks");
     let filename = crate::security::validate_filename(&filename)?;
@@ -954,7 +971,14 @@ pub async fn get_installed_shaders(instance_id: String) -> Result<Vec<ModInfo>, 
 }
 
 #[tauri::command]
-pub async fn delete_shader(instance_id: String, filename: String) -> Result<(), String> {
+pub async fn delete_shader(
+    app: AppHandle,
+    instance_id: String,
+    filename: String,
+) -> Result<(), String> {
+    if crate::runstate::is_instance_running(&app, &instance_id) {
+        return Err(crate::runstate::BUSY_INSTANCE_MESSAGE.to_string());
+    }
     let mut path = crate::security::instance_dir(&instance_id)?;
     path.push("shaderpacks");
     let filename = crate::security::validate_filename(&filename)?;
