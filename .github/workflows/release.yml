@@ -78,6 +78,11 @@ jobs:
   security-audit:
     name: Release dependency audit
     runs-on: ubuntu-latest
+    # advisories are reported by a dedicated job so a fresh advisory in the
+    # RustSec database can never silently block publishing a signed release
+    permissions:
+      contents: read
+      issues: write
     steps:
       - uses: actions/checkout@v4
       - name: Audit launcher Rust dependencies
@@ -92,7 +97,9 @@ jobs:
           working-directory: installer/src-tauri
 
   publish-custom-installer:
-    needs: [quality-gate, security-audit]
+    # security-audit intentionally stays out of `needs`: it runs in parallel and
+    # reports findings without gating the publish job (it used to skip every release)
+    needs: [quality-gate]
     permissions:
       contents: write
     runs-on: windows-latest
