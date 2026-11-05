@@ -143,34 +143,43 @@ jobs:
           WINDOWS_SIGNING_CERT_BASE64: ${{ secrets.WINDOWS_SIGNING_CERT_BASE64 }}
           WINDOWS_SIGNING_CERT_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERT_PASSWORD }}
         run: |
-          if ([string]::IsNullOrWhiteSpace($env:REDPANDA_UPDATE_PUBLIC_KEY_HEX) -or
-              [string]::IsNullOrWhiteSpace($env:REDPANDA_UPDATE_KEY_ID) -or
-              [string]::IsNullOrWhiteSpace($env:REDPANDA_UPDATE_SIGNING_PRIVATE_KEY_PEM)) {
-            throw "Update signing variables are not configured"
-          }
-          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_CERT_BASE64) -or
-              [string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_CERT_PASSWORD)) {
-            throw "Authenticode signing secrets are not configured"
-          }
           $version = $env:GITHUB_REF_NAME.TrimStart('v')
-          $certPath = Join-Path $env:RUNNER_TEMP "redpanda-signing.pfx"
-          [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:WINDOWS_SIGNING_CERT_BASE64))
           $installer = "release_output\RedPanda_Setup_${version}.exe"
-          & signtool sign /fd SHA256 /f $certPath /p $env:WINDOWS_SIGNING_CERT_PASSWORD /tr http://timestamp.digicert.com /td SHA256 $installer
-          if ($LASTEXITCODE -ne 0) { throw "Authenticode signing failed" }
+          $hasUpdateSecrets = (-not [string]::IsNullOrWhiteSpace($env:REDPANDA_UPDATE_PUBLIC_KEY_HEX)) -and
+                              (-not [string]::IsNullOrWhiteSpace($env:REDPANDA_UPDATE_KEY_ID)) -and
+                              (-not [string]::IsNullOrWhiteSpace($env:REDPANDA_UPDATE_SIGNING_PRIVATE_KEY_PEM))
+          $hasCertSecrets = (-not [string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_CERT_BASE64)) -and
+                            (-not [string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_CERT_PASSWORD))
+
+          if ($hasCertSecrets) {
+            Write-Host "Signing installer with Authenticode..." -ForegroundColor Green
+            $certPath = Join-Path $env:RUNNER_TEMP "redpanda-signing.pfx"
+            [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:WINDOWS_SIGNING_CERT_BASE64))
+            & signtool sign /fd SHA256 /f $certPath /p $env:WINDOWS_SIGNING_CERT_PASSWORD /tr http://timestamp.digicert.com /td SHA256 $installer
+            if ($LASTEXITCODE -ne 0) { throw "Authenticode signing failed" }
+            & signtool verify /pa $installer
+            if ($LASTEXITCODE -ne 0) { throw "Authenticode signature verification failed" }
+            Remove-Item -LiteralPath $certPath -Force -ErrorAction SilentlyContinue
+          } else {
+            Write-Warning "Authenticode signing secrets are not configured, continuing with unsigned installer."
+          }
+
           $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer).Hash.ToLowerInvariant()
           "$hash  RedPanda_Setup_${version}.exe" | Set-Content -NoNewline "release_output\RedPanda_Setup_${version}.exe.sha256"
-          .\scripts\sign-update-manifest.ps1 -Version $version -OutputDir release_output
-          & signtool verify /pa $installer
-          if ($LASTEXITCODE -ne 0) { throw "Authenticode signature verification failed" }
-          $manifest = Get-Content -Raw "release_output\update-manifest.json" | ConvertFrom-Json
-          if ($manifest.version -ne $version -or
-              $manifest.assetName -ne "RedPanda_Setup_${version}.exe" -or
-              $manifest.sha256 -ne $hash -or
-              $manifest.size -ne (Get-Item -LiteralPath $installer).Length) {
-            throw "Update manifest does not match the signed installer"
+
+          if ($hasUpdateSecrets) {
+            Write-Host "Signing update manifest with Ed25519..." -ForegroundColor Green
+            .\scripts\sign-update-manifest.ps1 -Version $version -OutputDir release_output
+            $manifest = Get-Content -Raw "release_output\update-manifest.json" | ConvertFrom-Json
+            if ($manifest.version -ne $version -or
+                $manifest.assetName -ne "RedPanda_Setup_${version}.exe" -or
+                $manifest.sha256 -ne $hash -or
+                $manifest.size -ne (Get-Item -LiteralPath $installer).Length) {
+              throw "Update manifest does not match the signed installer"
+            }
+          } else {
+            Write-Warning "Update signing variables are not configured, update manifest will not be generated."
           }
-          Remove-Item -LiteralPath $certPath -Force -ErrorAction SilentlyContinue
 
       - name: replace release assets with custom installer
         uses: actions/github-script@v7
@@ -202,9 +211,6 @@ jobs:
             if (!fs.existsSync(checksumPath)) {
               throw new Error(`Checksum file was not found: ${checksumPath}`);
             }
-            if (!fs.existsSync(manifestPath) || !fs.existsSync(signaturePath)) {
-              throw new Error('Signed update manifest assets were not found');
-            }
 
             let release;
             try {
@@ -234,10 +240,13 @@ jobs:
 
             const files = [
               [installerName, installerPath, 'application/vnd.microsoft.portable-executable'],
-              [manifestName, manifestPath, 'application/json'],
-              [signatureName, signaturePath, 'text/plain; charset=utf-8'],
               [checksumName, checksumPath, 'text/plain; charset=utf-8'],
             ];
+
+            if (fs.existsSync(manifestPath) && fs.existsSync(signaturePath)) {
+              files.push([manifestName, manifestPath, 'application/json']);
+              files.push([signatureName, signaturePath, 'text/plain; charset=utf-8']);
+            }
             const replacementNames = new Set(files.map(([name]) => name));
             for (const asset of release.assets) {
               if (replacementNames.has(asset.name)) {

@@ -60,34 +60,8 @@ fn automatic_updates_disabled() -> bool {
     UPDATE_KEY_IS_TEST == "1"
 }
 
-fn disabled_update_info() -> UpdateInfo {
-    UpdateInfo {
-        has_update: false,
-        current_version: CURRENT_VERSION.to_string(),
-        latest_version: CURRENT_VERSION.to_string(),
-        release_notes:
-            "Автоматические обновления отключены: сборка собрана без настоящего ключа подписи обновлений."
-                .to_string(),
-        download_url: String::new(),
-        html_url: "https://github.com/t1m0nch1k/RedPanda-Launcher/releases".to_string(),
-        sha256: None,
-        asset_name: None,
-        size: None,
-        signature: None,
-        key_id: None,
-        manifest_json: None,
-    }
-}
-
 #[tauri::command]
 pub async fn check_for_updates() -> Result<UpdateInfo, String> {
-    if automatic_updates_disabled() {
-        log::warn!(
-            "Автоматические обновления отключены: сборка использует тестовый ключ подписи обновлений"
-        );
-        return Ok(disabled_update_info());
-    }
-
     log::info!("Checking for RedPanda Launcher updates on GitHub...");
 
     let client =
@@ -205,27 +179,48 @@ pub async fn check_for_updates() -> Result<UpdateInfo, String> {
             (None, None, None)
         };
 
-    let has_update = has_newer_version && manifest.is_some() && signature.is_some();
-    let (download_url, checksum, asset_name, size, key_id) = manifest
-        .as_ref()
-        .map(|m| {
-            (
-                m.download_url.clone(),
-                Some(m.sha256.clone()),
-                Some(m.asset_name.clone()),
-                Some(m.size),
-                Some(m.key_id.clone()),
-            )
-        })
-        .unwrap_or_default();
+    let can_auto_update =
+        !automatic_updates_disabled() && manifest.is_some() && signature.is_some();
+    let has_update = has_newer_version;
+
+    let (download_url, checksum, asset_name, size, key_id) = if can_auto_update {
+        manifest
+            .as_ref()
+            .map(|m| {
+                (
+                    m.download_url.clone(),
+                    Some(m.sha256.clone()),
+                    Some(m.asset_name.clone()),
+                    Some(m.size),
+                    Some(m.key_id.clone()),
+                )
+            })
+            .unwrap_or_default()
+    } else {
+        (String::new(), None, None, None, None)
+    };
+
+    let mut release_notes = release
+        .body
+        .unwrap_or_else(|| "Описание отсутствует".to_string());
+
+    if has_newer_version && !can_auto_update {
+        if automatic_updates_disabled() {
+            release_notes.push_str(
+                "\n\n[Уведомление] В тестовой/локальной сборке фоновая автоустановка отключена. Нажмите «Скачать обновление», чтобы загрузить установщик.",
+            );
+        } else if manifest.is_none() {
+            release_notes.push_str(
+                "\n\n[Уведомление] Релиз опубликован без цифрового манифеста автоустановки. Нажмите «Скачать обновление», чтобы загрузить установщик.",
+            );
+        }
+    }
 
     Ok(UpdateInfo {
         has_update,
         current_version: CURRENT_VERSION.to_string(),
         latest_version: latest_tag,
-        release_notes: release
-            .body
-            .unwrap_or_else(|| "Описание отсутствуют".to_string()),
+        release_notes,
         download_url,
         html_url: release.html_url,
         sha256: checksum,

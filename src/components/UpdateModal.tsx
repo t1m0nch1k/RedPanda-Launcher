@@ -17,6 +17,11 @@ export default function UpdateModal({ updateInfo, onClose }: UpdateModalProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleInstall = async () => {
+    if (!updateInfo.download_url || !updateInfo.signature) {
+      await openUrl(updateInfo.html_url || "https://redlauncher.ru/download");
+      onClose();
+      return;
+    }
     setIsDownloading(true);
     setErrorMessage(null);
     try {
@@ -115,7 +120,10 @@ export default function UpdateModal({ updateInfo, onClose }: UpdateModalProps) {
                 </>
               ) : (
                 <>
-                  <Download size={14} /> Установить сейчас
+                  <Download size={14} />{" "}
+                  {updateInfo.download_url && updateInfo.signature
+                    ? "Установить сейчас"
+                    : "Скачать обновление"}
                 </>
               )}
             </button>
