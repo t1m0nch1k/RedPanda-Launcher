@@ -1,12 +1,14 @@
 import { useState, useEffect, useMemo } from "react";
 import { 
-  X, Puzzle, Palette, Settings as SettingsIcon, Trash2, Plus, Loader2, 
+  X, Puzzle, Palette, Camera, Settings as SettingsIcon, Trash2, Plus, Loader2, 
   RefreshCw, ArrowUpCircle, Globe, Gamepad2, Check, Power, Stethoscope, 
   CheckCircle2, AlertTriangle, XCircle, Search, FolderOpen, HardDrive, 
   Cpu, Sliders, ExternalLink
 } from "lucide-react";
 import ModrinthBrowser from "./ModrinthBrowser";
 import CurseForgeBrowser from "./CurseForgeBrowser";
+import WorldsTab from "./instance_tabs/WorldsTab";
+import ScreenshotsTab from "./instance_tabs/ScreenshotsTab";
 import { InstallTask, command, getErrorMessage } from "../lib/ipc";
 import { toast } from "./Toast";
 import { useTranslation } from "react-i18next";
@@ -68,14 +70,14 @@ interface CurseForgeVersionSummary {
 
 interface InstanceManagerModalProps {
   instance: Instance;
-  initialTab?: "mods" | "resources" | "diagnostics" | "settings" | "multiplayer";
+  initialTab?: "mods" | "resources" | "worlds" | "screenshots" | "diagnostics" | "settings" | "multiplayer";
   onClose: () => void;
   onDelete: () => void;
 }
 
 export default function InstanceManagerModal({ instance, initialTab = "mods", onClose, onDelete }: InstanceManagerModalProps) {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<"mods" | "resources" | "diagnostics" | "settings" | "multiplayer">(initialTab);
+  const [activeTab, setActiveTab] = useState<"mods" | "resources" | "worlds" | "screenshots" | "diagnostics" | "settings" | "multiplayer">(initialTab);
   const [showModrinth, setShowModrinth] = useState(false);
   const [showCurseForge, setShowCurseForge] = useState(false);
   const [modrinthProjectType, setModrinthProjectType] = useState<"mod" | "resourcepack" | "shader">("mod");
@@ -562,6 +564,30 @@ export default function InstanceManagerModal({ instance, initialTab = "mods", on
             </button>
 
             <button
+              onClick={() => setActiveTab("worlds")}
+              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-mono font-bold transition-all text-left ${
+                activeTab === "worlds"
+                  ? "bg-gradient-to-r from-[#2c1b12] to-[#1e140e] border border-[#f55e1d]/60 text-white shadow-[0_0_12px_rgba(245,94,29,0.2)]"
+                  : "text-[#a69284] hover:text-white hover:bg-[#1f1712] border border-transparent"
+              }`}
+            >
+              <Globe size={16} className={activeTab === "worlds" ? "text-[#f55e1d]" : "text-[#78675c]"} />
+              <span>Миры и сейвы</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("screenshots")}
+              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-mono font-bold transition-all text-left ${
+                activeTab === "screenshots"
+                  ? "bg-gradient-to-r from-[#2c1b12] to-[#1e140e] border border-[#f55e1d]/60 text-white shadow-[0_0_12px_rgba(245,94,29,0.2)]"
+                  : "text-[#a69284] hover:text-white hover:bg-[#1f1712] border border-transparent"
+              }`}
+            >
+              <Camera size={16} className={activeTab === "screenshots" ? "text-[#f55e1d]" : "text-[#78675c]"} />
+              <span>Скриншоты</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab("settings")}
               className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-mono font-bold transition-all text-left ${
                 activeTab === "settings"
@@ -632,6 +658,8 @@ export default function InstanceManagerModal({ instance, initialTab = "mods", on
                   {activeTab === "settings" && t("instance_manager.instance_settings")}
                   {activeTab === "diagnostics" && t("instance_manager.diagnostics")}
                   {activeTab === "multiplayer" && "Игра по сети (e4mc / e4steam)"}
+                  {activeTab === "worlds" && "Сохранения и миры"}
+                  {activeTab === "screenshots" && "Галерея скриншотов"}
                 </h3>
                 <p className="text-[11px] text-[#8e7a6d] font-mono mt-0.5">
                   {activeTab === "mods" && `Установлено модов: ${installedMods.length} • активных: ${enabledModsCount}`}
@@ -639,6 +667,8 @@ export default function InstanceManagerModal({ instance, initialTab = "mods", on
                   {activeTab === "settings" && "Конфигурация памяти, Java и графики"}
                   {activeTab === "diagnostics" && "Проверка файлов на конфликты и ошибки"}
                   {activeTab === "multiplayer" && "Сетевая игра с друзьями без белого IP"}
+                  {activeTab === "worlds" && "Управление одиночными мирами, бэкапы, экспорт и импорт"}
+                  {activeTab === "screenshots" && "Снимки экрана из игры, быстрый просмотр и копирование"}
                 </p>
               </div>
             </div>
@@ -654,6 +684,16 @@ export default function InstanceManagerModal({ instance, initialTab = "mods", on
 
           {/* Dynamic Tab Body */}
           <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-[#15100d]">
+            {/* === WORLDS TAB === */}
+            {activeTab === "worlds" && (
+              <WorldsTab instanceId={instance.id} />
+            )}
+
+            {/* === SCREENSHOTS TAB === */}
+            {activeTab === "screenshots" && (
+              <ScreenshotsTab instanceId={instance.id} />
+            )}
+
             {/* === TAB 1: MODS === */}
             {activeTab === "mods" && (
               <div className="flex flex-col h-full gap-4">

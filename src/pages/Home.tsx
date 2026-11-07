@@ -1,6 +1,6 @@
 import { Account } from "../lib/ipc";
 import { 
-  Plus, Play, Anvil, Feather, TreePine, Hammer, Settings, Loader2, Folder, 
+  Plus, Play, Anvil, Camera, Feather, TreePine, Hammer, Settings, Loader2, Folder, 
   FileText, Trash2, Copy, ExternalLink, ChevronRight, 
   Box, Blocks, Layers, Puzzle, User, Pickaxe, Globe, X, AlertCircle, Home as HomeIcon,
   MessageCircle, Send, GitBranch, Sparkles, Minus, Square
@@ -105,7 +105,7 @@ export default memo(function Home({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const [managingInstance, setManagingInstance] = useState<string | null>(null);
-  const [managerInitialTab, setManagerInitialTab] = useState<"mods" | "resources" | "diagnostics" | "settings" | "multiplayer">("mods");
+  const [managerInitialTab, setManagerInitialTab] = useState<"mods" | "resources" | "worlds" | "screenshots" | "diagnostics" | "settings" | "multiplayer">("mods");
   
   const [showModpackBrowser, setShowModpackBrowser] = useState(false);
   const [showCurseForgeModpackBrowser, setShowCurseForgeModpackBrowser] = useState(false);
@@ -1173,6 +1173,28 @@ export default memo(function Home({
             onClick={(e) => { e.stopPropagation(); setManagingInstance(contextMenu.instanceId); setContextMenu(null); }}
           >
             <Settings size={14} className="text-[#a69284] group-hover:text-[#f55e1d] transition-colors" /> {t("home.context_menu.settings")}
+          </button>
+          <button 
+            className="w-full text-left px-3.5 py-1.5 hover:bg-[#261d17] text-xs text-[#f5ece5] flex items-center gap-2.5 transition-colors group"
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              setManagingInstance(contextMenu.instanceId); 
+              setManagerInitialTab("worlds");
+              setContextMenu(null); 
+            }}
+          >
+            <Globe size={14} className="text-[#a69284] group-hover:text-[#f55e1d] transition-colors" /> Миры и сейвы
+          </button>
+          <button 
+            className="w-full text-left px-3.5 py-1.5 hover:bg-[#261d17] text-xs text-[#f5ece5] flex items-center gap-2.5 transition-colors group"
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              setManagingInstance(contextMenu.instanceId); 
+              setManagerInitialTab("screenshots");
+              setContextMenu(null); 
+            }}
+          >
+            <Camera size={14} className="text-[#a69284] group-hover:text-[#f55e1d] transition-colors" /> Скриншоты
           </button>
           <button 
             className="w-full text-left px-3.5 py-1.5 hover:bg-[#261d17] text-xs text-[#f5ece5] flex items-center gap-2.5 transition-colors group"

@@ -3890,6 +3890,7 @@ dependencies = [
  "dirs",
  "discord-rich-presence",
  "ed25519-dalek",
+ "flate2",
  "futures",
  "hex",
  "lazy_static",

@@ -183,6 +183,15 @@ pub fn run() {
             commands::skins::get_account_skin,
             commands::skins::refresh_account_skin,
             commands::skins::apply_skin,
+            commands::worlds::get_instance_worlds,
+            commands::worlds::backup_instance_world,
+            commands::worlds::export_instance_world,
+            commands::worlds::import_instance_world,
+            commands::worlds::duplicate_instance_world,
+            commands::worlds::delete_instance_world,
+            commands::screenshots::get_instance_screenshots,
+            commands::screenshots::delete_instance_screenshot,
+            commands::screenshots::read_instance_screenshot_data_url,
             builder::build_custom_modpack,
         ])
         .run(tauri::generate_context!())

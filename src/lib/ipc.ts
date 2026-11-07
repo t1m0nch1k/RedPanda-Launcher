@@ -145,3 +145,53 @@ export interface DeviceCodeInfo {
 export const microsoftDeviceCode = () => command<DeviceCodeInfo>("microsoft_device_code");
 export const pollMicrosoftDeviceCode = (deviceCode: string) =>
   command<Account>("poll_microsoft_device_code", { deviceCode });
+
+
+/* ---------------- Worlds & Saves ---------------- */
+
+export interface WorldSummary {
+  folder_name: string;
+  name: string;
+  game_type: 'Survival' | 'Creative' | 'Adventure' | 'Spectator' | 'Hardcore' | string;
+  last_played: number;
+  version_name: string;
+  seed?: number | null;
+  size_bytes: number;
+  icon_data_url?: string | null;
+}
+
+export const getInstanceWorlds = (instanceId: string) =>
+  command<WorldSummary[]>('get_instance_worlds', { instanceId });
+
+export const backupInstanceWorld = (instanceId: string, worldFolder: string) =>
+  command<string>('backup_instance_world', { instanceId, worldFolder });
+
+export const exportInstanceWorld = (instanceId: string, worldFolder: string, targetPath: string) =>
+  command<void>('export_instance_world', { instanceId, worldFolder, targetPath });
+
+export const importInstanceWorld = (instanceId: string, zipPath: string) =>
+  command<string>('import_instance_world', { instanceId, zipPath });
+
+export const duplicateInstanceWorld = (instanceId: string, worldFolder: string, newName: string) =>
+  command<string>('duplicate_instance_world', { instanceId, worldFolder, newName });
+
+export const deleteInstanceWorld = (instanceId: string, worldFolder: string) =>
+  command<void>('delete_instance_world', { instanceId, worldFolder });
+
+/* ---------------- Screenshots ---------------- */
+
+export interface ScreenshotInfo {
+  filename: string;
+  path: string;
+  created_at: number;
+  size_bytes: number;
+}
+
+export const getInstanceScreenshots = (instanceId: string) =>
+  command<ScreenshotInfo[]>('get_instance_screenshots', { instanceId });
+
+export const deleteInstanceScreenshot = (instanceId: string, filename: string) =>
+  command<void>('delete_instance_screenshot', { instanceId, filename });
+
+export const readInstanceScreenshotDataUrl = (instanceId: string, filename: string) =>
+  command<string>('read_instance_screenshot_data_url', { instanceId, filename });
