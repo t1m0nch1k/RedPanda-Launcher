@@ -390,6 +390,24 @@ async fn launch_game_internal(
         }
     }
 
+    if account.account_type == "ElyBy" || account.account_type == "Offline" {
+        if let Err(e) = crate::engine::skins::ensure_modded_skin_support(
+            &app,
+            &instance_id,
+            &account.account_type,
+            &account.id,
+            &username,
+        )
+        .await
+        {
+            log::warn!(
+                "Could not ensure skin support for modded instance {}: {}",
+                instance_id,
+                e
+            );
+        }
+    }
+
     // Parse custom JVM args
     for arg in jvm_args_str.split_whitespace() {
         if arg.starts_with('-') {
@@ -425,6 +443,10 @@ async fn launch_game_internal(
         .with_arguments()
         .set("width", window_width.to_string())
         .set("height", window_height.to_string());
+
+    if account.account_type == "ElyBy" {
+        arg_builder = arg_builder.set("user_type", "mojang");
+    }
 
     if settings.fullscreen {
         arg_builder = arg_builder.set("fullscreen", "");

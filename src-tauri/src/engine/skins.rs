@@ -326,6 +326,15 @@ fn local_config(
     );
     if !list
         .iter()
+        .any(|entry| entry["name"].as_str() == Some("ElyBy"))
+    {
+        list.push(serde_json::json!({
+            "name": "ElyBy",
+            "type": "ElyByAPI"
+        }));
+    }
+    if !list
+        .iter()
         .any(|entry| entry["name"].as_str() == Some("Mojang"))
     {
         list.push(serde_json::json!({
@@ -397,6 +406,194 @@ fn has_skin_loader(game_dir: &Path) -> Result<bool, String> {
         }
     }
     Ok(false)
+}
+
+pub async fn install_custom_skin_loader_if_missing(
+    app: AppHandle,
+    instance_id: &str,
+    game_version: &str,
+    loader_type: &str,
+    game_dir: &Path,
+) -> Result<(), String> {
+    if has_skin_loader(game_dir)? {
+        return Ok(());
+    }
+    let versions = crate::modrinth::get_modrinth_versions(
+        "customskinloader".into(),
+        game_version.to_string(),
+        loader_type.to_string(),
+        "mod".into(),
+    )
+    .await?;
+    let version = versions.first().ok_or(
+        "Для этой версии Minecraft и загрузчика нет совместимого CustomSkinLoader",
+    )?;
+    let plan = super::content::install::preview(
+        app.clone(),
+        instance_id.to_string(),
+        "modrinth".into(),
+        version.id.clone(),
+        "mod".into(),
+    )
+    .await?;
+    super::content::install::execute(app.clone(), plan.id).await?;
+    Ok(())
+}
+
+pub async fn ensure_modded_skin_support(
+    app: &AppHandle,
+    instance_id: &str,
+    account_type: &str,
+    account_id: &str,
+    username: &str,
+) -> Result<(), String> {
+    let instances = crate::instances::get_instances(app.clone()).await?;
+    let instance = match instances.into_iter().find(|i| i.id == instance_id) {
+        Some(i) => i,
+        None => return Ok(()),
+    };
+
+    if instance.loader_type == "Vanilla" {
+        return Ok(());
+    }
+
+    let game_dir = crate::security::instance_dir(instance_id)?;
+
+    let folder = account_folder(account_id);
+    let local_skin_exists = if let Ok(ref f) = folder {
+        crate::security::safe_join(f, "skin.png")
+            .map(|p| p.exists())
+            .unwrap_or(false)
+    } else {
+        false
+    };
+
+    if account_type != "ElyBy" && !local_skin_exists {
+        return Ok(());
+    }
+
+    if let Err(e) = install_custom_skin_loader_if_missing(
+        app.clone(),
+        instance_id,
+        &instance.game_version,
+        &instance.loader_type,
+        &game_dir,
+    )
+    .await
+    {
+        log::warn!(
+            "Could not auto-install CustomSkinLoader for {}: {}",
+            instance_id,
+            e
+        );
+    }
+
+    let csl_dir = crate::security::safe_join(&game_dir, "CustomSkinLoader")?;
+    let _ = fs::create_dir_all(&csl_dir);
+    let config_path = crate::security::safe_join(&csl_dir, "CustomSkinLoader.json")?;
+
+    let mut config: serde_json::Value = if config_path.exists() {
+        crate::storage::read_json_with_backup(&config_path).unwrap_or_else(|_| {
+            serde_json::json!({
+                "enable": true,
+                "enableCache": true,
+                "loadlist": []
+            })
+        })
+    } else {
+        serde_json::json!({
+            "enable": true,
+            "enableCache": true,
+            "loadlist": []
+        })
+    };
+
+    if !config.is_object() {
+        config = serde_json::json!({
+            "enable": true,
+            "enableCache": true,
+            "loadlist": []
+        });
+    }
+
+    config["enable"] = serde_json::json!(true);
+    config["enableCache"] = serde_json::json!(true);
+
+    if config.get("loadlist").is_none() || !config["loadlist"].is_array() {
+        config["loadlist"] = serde_json::json!([]);
+    }
+
+    let list = config["loadlist"].as_array_mut().unwrap();
+
+    if let Ok(ref account_dir) = folder {
+        let local_skin_png = crate::security::safe_join(account_dir, "skin.png")?;
+        if local_skin_png.exists() {
+            if let Ok(bytes) = fs::read(&local_skin_png) {
+                let skin_dest = crate::security::safe_join(
+                    &csl_dir,
+                    &format!("RedPanda/{account_id}/{username}.png"),
+                )?;
+                let _ = crate::storage::atomic_write(&skin_dest, &bytes);
+                let model = if let Ok(meta) = crate::storage::read_json_with_backup::<SavedSkin>(
+                    &crate::security::safe_join(account_dir, "skin.json")?,
+                ) {
+                    if meta.model == "slim" {
+                        "slim"
+                    } else {
+                        "default"
+                    }
+                } else {
+                    "default"
+                };
+
+                let name = format!("RedPanda-{account_id}");
+                list.retain(|entry| entry["name"].as_str() != Some(&name));
+                list.insert(
+                    0,
+                    serde_json::json!({
+                        "name": name,
+                        "type": "Legacy",
+                        "checkPNG": false,
+                        "skin": format!("RedPanda/{account_id}/{{USERNAME}}.png"),
+                        "model": model
+                    }),
+                );
+            }
+        }
+    }
+
+    if !list.iter().any(|entry| entry["name"].as_str() == Some("ElyBy")) {
+        let insert_idx = if !list.is_empty()
+            && list[0]["name"]
+                .as_str()
+                .is_some_and(|n| n.starts_with("RedPanda-"))
+        {
+            1
+        } else {
+            0
+        };
+        list.insert(
+            insert_idx,
+            serde_json::json!({
+                "name": "ElyBy",
+                "type": "ElyByAPI"
+            }),
+        );
+    }
+
+    if !list.iter().any(|entry| entry["name"].as_str() == Some("Mojang")) {
+        list.push(serde_json::json!({
+            "name": "Mojang",
+            "type": "MojangAPI"
+        }));
+    }
+
+    let _ = crate::storage::atomic_write(
+        &config_path,
+        &serde_json::to_vec_pretty(&config).map_err(|e| e.to_string())?,
+    );
+
+    Ok(())
 }
 
 pub async fn apply(
@@ -487,27 +684,14 @@ pub async fn apply(
         };
         let config = local_config(config, &account_id, &model)?;
         // Leave a manually installed helper version in place; install only when absent.
-        if !has_skin_loader(&game_dir)? {
-            let versions = crate::modrinth::get_modrinth_versions(
-                "customskinloader".into(),
-                instance.game_version.clone(),
-                instance.loader_type.clone(),
-                "mod".into(),
-            )
-            .await?;
-            let version = versions.first().ok_or(
-                "Для этой версии Minecraft и загрузчика нет совместимого CustomSkinLoader",
-            )?;
-            let plan = super::content::install::preview(
-                app.clone(),
-                id.clone(),
-                "modrinth".into(),
-                version.id.clone(),
-                "mod".into(),
-            )
-            .await?;
-            super::content::install::execute(app.clone(), plan.id).await?;
-        }
+        install_custom_skin_loader_if_missing(
+            app.clone(),
+            &id,
+            &instance.game_version,
+            &instance.loader_type,
+            &game_dir,
+        )
+        .await?;
         let skin_path = crate::security::safe_join(
             &game_dir,
             &format!(
@@ -580,8 +764,13 @@ mod tests {
             serde_json::json!({"cacheExpiry":60,"loadlist":[{"name":"Mojang","type":"MojangAPI"}]});
         let first = local_config(initial, "id", "classic").unwrap();
         let second = local_config(first, "id", "slim").unwrap();
-        assert_eq!(second["loadlist"].as_array().unwrap().len(), 2);
+        assert_eq!(second["loadlist"].as_array().unwrap().len(), 3);
         assert_eq!(second["loadlist"][0]["model"], "slim");
+        assert!(second["loadlist"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["name"] == "ElyBy"));
         assert_eq!(second["cacheExpiry"], 60);
     }
 }
