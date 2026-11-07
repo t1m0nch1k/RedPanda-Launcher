@@ -1,6 +1,6 @@
 [package]
 name = "redpanda-installer"
-version = "0.3.4"
+version = "0.3.5"
 description = "RedPanda Launcher Custom GUI Installer"
 authors = ["t1m0nch1k"]
 edition = "2021"
