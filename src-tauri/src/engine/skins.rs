@@ -425,9 +425,9 @@ pub async fn install_custom_skin_loader_if_missing(
         "mod".into(),
     )
     .await?;
-    let version = versions.first().ok_or(
-        "Для этой версии Minecraft и загрузчика нет совместимого CustomSkinLoader",
-    )?;
+    let version = versions
+        .first()
+        .ok_or("Для этой версии Minecraft и загрузчика нет совместимого CustomSkinLoader")?;
     let plan = super::content::install::preview(
         app.clone(),
         instance_id.to_string(),
@@ -562,7 +562,10 @@ pub async fn ensure_modded_skin_support(
         }
     }
 
-    if !list.iter().any(|entry| entry["name"].as_str() == Some("ElyBy")) {
+    if !list
+        .iter()
+        .any(|entry| entry["name"].as_str() == Some("ElyBy"))
+    {
         let insert_idx = if !list.is_empty()
             && list[0]["name"]
                 .as_str()
@@ -581,7 +584,10 @@ pub async fn ensure_modded_skin_support(
         );
     }
 
-    if !list.iter().any(|entry| entry["name"].as_str() == Some("Mojang")) {
+    if !list
+        .iter()
+        .any(|entry| entry["name"].as_str() == Some("Mojang"))
+    {
         list.push(serde_json::json!({
             "name": "Mojang",
             "type": "MojangAPI"
