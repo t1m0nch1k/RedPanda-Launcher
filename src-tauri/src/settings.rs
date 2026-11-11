@@ -36,6 +36,22 @@ pub struct AppSettings {
     pub custom_mascot_path: String,
     pub mascot_preset: String,
     pub accent_color: String,
+    pub custom_theme_bg: String,
+    pub custom_theme_card: String,
+    pub custom_theme_border: String,
+    pub custom_theme_text: String,
+    pub accent_glow_intensity: String,
+    pub button_style: String,
+    pub custom_bg_dim: u32,
+    pub bg_effect: String,
+    pub mascot_mode: String,
+    pub mascot_quote: String,
+    pub mascot_bounce: bool,
+    pub ui_corner_radius: String,
+    pub ui_glassmorphism: String,
+    pub ui_font: String,
+    pub sound_effects: bool,
+    pub sound_volume: u32,
     /// Legacy field kept only long enough to remove keys written by older
     /// launcher versions. It is never serialized or used for requests.
     #[serde(rename = "curseforge_api_key", default, skip_serializing)]
@@ -70,6 +86,22 @@ impl Default for AppSettings {
             custom_mascot_path: "".to_string(),
             mascot_preset: "default".to_string(),
             accent_color: "#F55E1D".to_string(),
+            custom_theme_bg: "".to_string(),
+            custom_theme_card: "".to_string(),
+            custom_theme_border: "".to_string(),
+            custom_theme_text: "".to_string(),
+            accent_glow_intensity: "medium".to_string(),
+            button_style: "gradient".to_string(),
+            custom_bg_dim: 0,
+            bg_effect: "none".to_string(),
+            mascot_mode: "full".to_string(),
+            mascot_quote: "Больше, чем просто игра".to_string(),
+            mascot_bounce: true,
+            ui_corner_radius: "default".to_string(),
+            ui_glassmorphism: "balanced".to_string(),
+            ui_font: "default".to_string(),
+            sound_effects: true,
+            sound_volume: 70,
             legacy_curseforge_api_key: String::new(),
             discord_rpc: true,
             auto_backup_worlds: false,
@@ -247,17 +279,24 @@ fn validate_settings(settings: &AppSettings) -> Result<(), String> {
     {
         return Err("Некорректный размер окна".to_string());
     }
-    if settings.custom_bg_opacity > 100 || settings.custom_bg_blur > 100 {
-        return Err("Параметры изображения должны быть в диапазоне 0..100".to_string());
+    if settings.custom_bg_opacity > 100
+        || settings.custom_bg_blur > 100
+        || settings.custom_bg_dim > 100
+        || settings.sound_volume > 100
+    {
+        return Err("Параметры изображения и звука должны быть в диапазоне 0..100".to_string());
     }
-    if !matches!(settings.theme.as_str(), "dark" | "light") {
+    if settings.theme.is_empty()
+        || settings.theme.len() > 32
+        || !settings.theme.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+    {
         return Err("Неизвестная тема интерфейса".to_string());
     }
     if settings.jvm_args.len() > 8_192 {
         return Err("Строка JVM-параметров слишком длинная".to_string());
     }
-    if !(settings.accent_color.is_empty()
-        || (settings.accent_color.starts_with('#') && settings.accent_color.len() == 7))
+    if !settings.accent_color.is_empty()
+        && (!settings.accent_color.starts_with('#') || settings.accent_color.len() != 7)
     {
         return Err("Цвет акцента должен быть в формате #RRGGBB".to_string());
     }
@@ -419,4 +458,20 @@ fn check_java(path: &Path) -> Option<JavaInstallation> {
         version,
         vendor,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validates_all_supported_themes() {
+        let mut settings = AppSettings::default();
+        for theme in ["dark", "light", "midnight", "cyberpunk", "emerald"] {
+            settings.theme = theme.to_string();
+            assert!(validate_settings(&settings).is_ok());
+        }
+        settings.theme = "invalid_theme".to_string();
+        assert!(validate_settings(&settings).is_err());
+    }
 }

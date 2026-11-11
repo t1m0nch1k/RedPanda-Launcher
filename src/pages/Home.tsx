@@ -49,6 +49,10 @@ interface HomeProps {
   onOpenLogs?: () => void;
   updateInfo?: any;
   onOpenUpdateModal?: () => void;
+  mascotSrc?: string;
+  mascotMode?: string;
+  mascotQuote?: string;
+  mascotBounce?: boolean;
 }
 
 const getLoaderIcon = (loader: string) => {
@@ -96,7 +100,11 @@ export default memo(function Home({
   onOpenFolder,
   onOpenLogs,
   updateInfo,
-  onOpenUpdateModal
+  onOpenUpdateModal,
+  mascotSrc,
+  mascotMode = "full",
+  mascotQuote = "Больше, чем просто игра",
+  mascotBounce = true
 }: HomeProps) {
   const { t } = useTranslation();
   const appWindow = getCurrentWindow();
@@ -680,12 +688,16 @@ export default memo(function Home({
         </div>
 
         {/* Mascot Bottom Card */}
-        <div className="hub-mascot-card">
-          <img src="/logo.png" alt="" />
-          <span className="hub-mascot-text">
-            Больше, чем просто игра
-          </span>
-        </div>
+        {mascotMode !== "hidden" && (
+          <div className={`hub-mascot-card ${mascotBounce ? "mascot-bounce" : ""} ${mascotMode === "compact" ? "hub-mascot-compact" : ""}`}>
+            <img src={mascotSrc || "/pandas_png/clasped.png"} alt="RedPanda Mascot" />
+            {mascotMode !== "compact" && (
+              <span className="hub-mascot-text">
+                {mascotQuote || "Больше, чем просто игра"}
+              </span>
+            )}
+          </div>
+        )}
       </aside>
 
       {/* 2. CENTER MAIN COLUMN */}

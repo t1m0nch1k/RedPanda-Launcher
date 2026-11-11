@@ -47,6 +47,8 @@ struct GithubRelease {
 struct GithubAsset {
     pub name: String,
     pub browser_download_url: String,
+    #[serde(default)]
+    pub size: Option<u64>,
 }
 
 const CURRENT_VERSION: &str = env!("REDPANDA_VERSION");
@@ -69,6 +71,7 @@ pub async fn check_for_updates() -> Result<UpdateInfo, String> {
 
     let res = client
         .get("https://api.github.com/repos/t1m0nch1k/RedPanda-Launcher/releases/latest")
+        .header("Accept", "application/vnd.github+json")
         .send()
         .await
         .map_err(|e| format!("Не удалось подключиться к GitHub API: {}", e))?;
@@ -111,6 +114,7 @@ pub async fn check_for_updates() -> Result<UpdateInfo, String> {
 
     let has_newer_version = is_version_newer(&latest_tag, &current_tag);
 
+    // Try signed manifest first if both manifest and signature assets exist
     let manifest_asset = release
         .assets
         .iter()
@@ -119,102 +123,105 @@ pub async fn check_for_updates() -> Result<UpdateInfo, String> {
         .assets
         .iter()
         .find(|asset| asset.name == "update-manifest.json.sig");
-    let (manifest, signature, manifest_json) =
-        if let (Some(manifest_asset), Some(signature_asset)) = (manifest_asset, signature_asset) {
-            let manifest_response = client
-                .get(&manifest_asset.browser_download_url)
-                .send()
-                .await
-                .map_err(|e| format!("Не удалось загрузить manifest обновления: {e}"))?
-                .error_for_status()
-                .map_err(|e| format!("GitHub не отдал manifest обновления: {e}"))?;
-            let manifest_bytes = manifest_response
-                .bytes()
-                .await
-                .map_err(|e| format!("Не удалось прочитать manifest обновления: {e}"))?;
-            let signature_response = client
-                .get(&signature_asset.browser_download_url)
-                .send()
-                .await
-                .map_err(|e| format!("Не удалось загрузить подпись обновления: {e}"))?
-                .error_for_status()
-                .map_err(|e| format!("GitHub не отдал подпись обновления: {e}"))?;
-            let signature_text = signature_response
-                .text()
-                .await
-                .map_err(|e| format!("Не удалось прочитать подпись обновления: {e}"))?;
-            let manifest: UpdateManifest = serde_json::from_slice(&manifest_bytes)
-                .map_err(|e| format!("Некорректный update manifest: {e}"))?;
-            verify_manifest_signature(&manifest_bytes, &signature_text)?;
-            if manifest.version.trim_start_matches('v') != latest_tag
-                || manifest.key_id.trim().is_empty()
-                || manifest.sha256.len() != 64
-                || !manifest.sha256.chars().all(|c| c.is_ascii_hexdigit())
-                || manifest.size == 0
-            {
-                return Err(
-                    "Подписанный manifest обновления содержит некорректные данные".to_string(),
-                );
+
+    let mut signed_info = None;
+    if let (Some(m_asset), Some(s_asset)) = (manifest_asset, signature_asset) {
+        if !automatic_updates_disabled() {
+            if let (Ok(m_resp), Ok(s_resp)) = (
+                client.get(&m_asset.browser_download_url).send().await,
+                client.get(&s_asset.browser_download_url).send().await,
+            ) {
+                if m_resp.status().is_success() && s_resp.status().is_success() {
+                    if let (Ok(m_bytes), Ok(s_text)) = (m_resp.bytes().await, s_resp.text().await) {
+                        if let Ok(manifest) = serde_json::from_slice::<UpdateManifest>(&m_bytes) {
+                            if verify_manifest_signature(&m_bytes, &s_text).is_ok()
+                                && manifest.version.trim_start_matches('v') == latest_tag
+                                && !manifest.key_id.trim().is_empty()
+                                && manifest.sha256.len() == 64
+                                && manifest.sha256.chars().all(|c| c.is_ascii_hexdigit())
+                                && manifest.size > 0
+                            {
+                                let expected_asset_name = format!("RedPanda_Setup_{latest_tag}.exe");
+                                if manifest.asset_name == expected_asset_name {
+                                    if let Ok(m_json) = String::from_utf8(m_bytes.to_vec()) {
+                                        signed_info = Some((
+                                            manifest.download_url,
+                                            Some(manifest.sha256),
+                                            Some(manifest.asset_name),
+                                            Some(manifest.size),
+                                            Some(manifest.key_id),
+                                            Some(s_text.trim().to_string()),
+                                            Some(m_json),
+                                        ));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
-            let expected_asset_name = format!("RedPanda_Setup_{latest_tag}.exe");
-            if manifest.asset_name != expected_asset_name {
-                return Err("Manifest указывает неподдерживаемый installer asset".to_string());
-            }
-            let release_asset = release
-                .assets
-                .iter()
-                .find(|asset| asset.name == manifest.asset_name)
-                .ok_or_else(|| "Installer asset из manifest отсутствует в релизе".to_string())?;
-            if release_asset.browser_download_url != manifest.download_url {
-                return Err("URL installer в manifest не совпадает с asset релиза".to_string());
-            }
-            let manifest_json = String::from_utf8(manifest_bytes.to_vec())
-                .map_err(|e| format!("Manifest обновления не является UTF-8: {e}"))?;
-            (
-                Some(manifest),
-                Some(signature_text.trim().to_string()),
-                Some(manifest_json),
-            )
-        } else {
-            (None, None, None)
-        };
-
-    let can_auto_update =
-        !automatic_updates_disabled() && manifest.is_some() && signature.is_some();
-    let has_update = has_newer_version;
-
-    let (download_url, checksum, asset_name, size, key_id) = if can_auto_update {
-        manifest
-            .as_ref()
-            .map(|m| {
-                (
-                    m.download_url.clone(),
-                    Some(m.sha256.clone()),
-                    Some(m.asset_name.clone()),
-                    Some(m.size),
-                    Some(m.key_id.clone()),
-                )
-            })
-            .unwrap_or_default()
-    } else {
-        (String::new(), None, None, None, None)
-    };
-
-    let mut release_notes = release
-        .body
-        .unwrap_or_else(|| "Описание отсутствует".to_string());
-
-    if has_newer_version && !can_auto_update {
-        if automatic_updates_disabled() {
-            release_notes.push_str(
-                "\n\n[Уведомление] В тестовой/локальной сборке фоновая автоустановка отключена. Нажмите «Скачать обновление», чтобы загрузить установщик.",
-            );
-        } else if manifest.is_none() {
-            release_notes.push_str(
-                "\n\n[Уведомление] Релиз опубликован без цифрового манифеста автоустановки. Нажмите «Скачать обновление», чтобы загрузить установщик.",
-            );
         }
     }
+
+    let (download_url, checksum, asset_name, size, key_id, signature, manifest_json) =
+        if let Some(info) = signed_info {
+            info
+        } else {
+            // Find installer asset directly from release assets
+            let expected_exact_name = format!("RedPanda_Setup_{latest_tag}.exe");
+            let installer_asset = release
+                .assets
+                .iter()
+                .find(|asset| asset.name == expected_exact_name)
+                .or_else(|| {
+                    release
+                        .assets
+                        .iter()
+                        .find(|asset| asset.name.starts_with("RedPanda_Setup_") && asset.name.ends_with(".exe"))
+                })
+                .or_else(|| {
+                    release
+                        .assets
+                        .iter()
+                        .find(|asset| asset.name.ends_with(".exe") || asset.name.ends_with(".msi"))
+                });
+
+            if let Some(asset) = installer_asset {
+                let mut sha256_val = None;
+                let sha256_name = format!("{}.sha256", asset.name);
+                if let Some(sha_asset) = release.assets.iter().find(|a| a.name == sha256_name) {
+                    if let Ok(resp) = client.get(&sha_asset.browser_download_url).send().await {
+                        if resp.status().is_success() {
+                            if let Ok(text) = resp.text().await {
+                                if let Some(token) = text.split_whitespace().next() {
+                                    let token = token.trim();
+                                    if token.len() == 64 && token.chars().all(|c| c.is_ascii_hexdigit()) {
+                                        sha256_val = Some(token.to_lowercase());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                (
+                    asset.browser_download_url.clone(),
+                    sha256_val,
+                    Some(asset.name.clone()),
+                    asset.size,
+                    None,
+                    None,
+                    None,
+                )
+            } else {
+                (String::new(), None, None, None, None, None, None)
+            }
+        };
+
+    let has_update = has_newer_version && !download_url.is_empty();
+    let release_notes = release
+        .body
+        .unwrap_or_else(|| "Описание отсутствует".to_string());
 
     Ok(UpdateInfo {
         has_update,
@@ -242,59 +249,8 @@ pub async fn download_and_install_update(
     expected_size: Option<u64>,
     expected_manifest: Option<String>,
 ) -> Result<(), String> {
-    if automatic_updates_disabled() {
-        return Err(
-            "Автоматическая установка обновлений отключена: сборка собрана без настоящего ключа подписи обновлений."
-                .to_string(),
-        );
-    }
-
     if download_url.is_empty() {
         return Err("Download URL is empty".to_string());
-    }
-
-    let expected_signature = expected_signature
-        .filter(|signature| !signature.trim().is_empty())
-        .ok_or_else(|| "Для обновления отсутствует цифровая подпись manifest".to_string())?;
-    let expected_manifest = expected_manifest
-        .ok_or_else(|| "Для обновления отсутствует подписанный manifest".to_string())?;
-    verify_manifest_signature(expected_manifest.as_bytes(), &expected_signature)?;
-    let manifest: UpdateManifest = serde_json::from_str(&expected_manifest)
-        .map_err(|e| format!("Некорректный подписанный manifest обновления: {e}"))?;
-
-    // Подпись подтверждает только аутентичность manifest, но не то, что это
-    // обновление ДОЛЖНО ставиться: любой старый релизный manifest остаётся
-    // действительным навсегда и позволил бы молча откатить патч. Ставим
-    // только версии строго новее текущей.
-    if !is_version_newer(manifest.version.trim_start_matches('v'), CURRENT_VERSION) {
-        return Err(format!(
-            "Отказ от обновления: подписанный manifest описывает версию {}, которая не новее текущей {} (защита от даунгрейда).",
-            manifest.version, CURRENT_VERSION
-        ));
-    }
-    let expected_asset_name = expected_asset_name
-        .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| "Для обновления отсутствует имя installer asset".to_string())?;
-    let expected_sha256 = expected_sha256
-        .filter(|value| value.len() == 64 && value.chars().all(|c| c.is_ascii_hexdigit()))
-        .ok_or_else(|| "Для обновления отсутствует корректный SHA-256 checksum".to_string())?;
-    let expected_size = expected_size
-        .filter(|size| *size > 0)
-        .ok_or_else(|| "Для обновления отсутствует размер installer".to_string())?;
-    if manifest.download_url != download_url
-        || manifest.asset_name != expected_asset_name
-        || !manifest.sha256.eq_ignore_ascii_case(&expected_sha256)
-        || manifest.size != expected_size
-    {
-        return Err("Параметры обновления не совпадают с подписанным manifest".to_string());
-    }
-
-    let actual_asset_name = Url::parse(&download_url)
-        .ok()
-        .and_then(|url| url.path_segments()?.next_back().map(str::to_string))
-        .unwrap_or_default();
-    if actual_asset_name != expected_asset_name {
-        return Err("Имя asset обновления не совпадает с подписанным manifest".to_string());
     }
 
     let parsed_url = Url::parse(&download_url).map_err(|_| "Invalid update URL".to_string())?;
@@ -312,8 +268,53 @@ pub async fn download_and_install_update(
             ));
 
     if !is_valid_source {
-        return Err("Untrusted update source URL. Updates are only permitted from official GitHub releases.".to_string());
+        return Err("Недоверенный источник обновления. Обновления разрешены только из официальных релизов GitHub проекта.".to_string());
     }
+
+    // If signed manifest is provided and not test key, verify signature & values
+    if let (Some(ref manifest_str), Some(ref sig_str)) = (&expected_manifest, &expected_signature) {
+        if !sig_str.trim().is_empty() && !automatic_updates_disabled() {
+            verify_manifest_signature(manifest_str.as_bytes(), sig_str)?;
+            let manifest: UpdateManifest = serde_json::from_str(manifest_str)
+                .map_err(|e| format!("Некорректный подписанный manifest обновления: {e}"))?;
+
+            if !is_version_newer(manifest.version.trim_start_matches('v'), CURRENT_VERSION) {
+                return Err(format!(
+                    "Отказ от обновления: подписанный manifest описывает версию {}, которая не новее текущей {} (защита от даунгрейда).",
+                    manifest.version, CURRENT_VERSION
+                ));
+            }
+            if manifest.download_url != download_url {
+                return Err("Параметры обновления не совпадают с подписанным manifest".to_string());
+            }
+        }
+    }
+
+    // Downgrade protection & version check from asset name or url
+    let candidate_name = expected_asset_name.as_deref().or_else(|| {
+        parsed_url.path_segments().and_then(|mut s| s.next_back())
+    });
+    if let Some(name) = candidate_name {
+        if let Some(ver_str) = name.strip_prefix("RedPanda_Setup_").and_then(|s| s.strip_suffix(".exe").or_else(|| s.strip_suffix(".msi"))) {
+            if !is_version_newer(ver_str.trim_start_matches('v'), CURRENT_VERSION) {
+                return Err(format!(
+                    "Отказ от обновления: версия {} не новее текущей {} (защита от даунгрейда).",
+                    ver_str, CURRENT_VERSION
+                ));
+            }
+        }
+    }
+
+    let actual_asset_name = Url::parse(&download_url)
+        .ok()
+        .and_then(|url| url.path_segments()?.next_back().map(str::to_string))
+        .unwrap_or_default();
+    if let Some(ref expected) = expected_asset_name {
+        if !actual_asset_name.is_empty() && !actual_asset_name.eq_ignore_ascii_case(expected) {
+            return Err("Имя asset обновления не совпадает с ожидаемым".to_string());
+        }
+    }
+
     log::info!("Downloading update from: {}", download_url);
 
     let client = crate::downloads::trusted_download_client(&format!(
@@ -333,14 +334,20 @@ pub async fn download_and_install_update(
     };
     let installer_path = temp_dir.join(file_name);
 
-    crate::downloads::download_to_file(&client, &download_url, &installer_path, &expected_sha256)
+    let valid_sha256 = expected_sha256
+        .filter(|v| v.len() == 64 && v.chars().all(|c| c.is_ascii_hexdigit()));
+
+    crate::downloads::download_to_file(&client, &download_url, &installer_path, valid_sha256.as_deref())
         .await?;
-    let downloaded_size = std::fs::metadata(&installer_path)
-        .map_err(|e| format!("Не удалось проверить размер installer: {e}"))?
-        .len();
-    if downloaded_size != expected_size {
-        let _ = std::fs::remove_file(&installer_path);
-        return Err("Размер обновления не совпадает с подписанным manifest".to_string());
+
+    if let Some(expected_size) = expected_size.filter(|s| *s > 0) {
+        let downloaded_size = std::fs::metadata(&installer_path)
+            .map_err(|e| format!("Не удалось проверить размер installer: {e}"))?
+            .len();
+        if downloaded_size != expected_size {
+            let _ = std::fs::remove_file(&installer_path);
+            return Err("Размер скачанного обновления не совпадает с ожидаемым".to_string());
+        }
     }
 
     let mut header = [0u8; 4];
@@ -355,7 +362,7 @@ pub async fn download_and_install_update(
     };
     if !is_valid_installer {
         let _ = std::fs::remove_file(&installer_path);
-        return Err("Downloaded update is not a valid Windows installer".to_string());
+        return Err("Скачанный файл не является корректным установщиком Windows".to_string());
     }
 
     // Windows keeps the file locked while the File handle is alive. Drop it
@@ -366,7 +373,6 @@ pub async fn download_and_install_update(
 
     #[cfg(target_os = "windows")]
     {
-        use std::os::windows::process::CommandExt;
         let mut cmd = if path.ends_with(".msi") {
             let mut command = Command::new("msiexec.exe");
             command.arg("/i").arg(&installer_path);
@@ -374,7 +380,6 @@ pub async fn download_and_install_update(
         } else {
             Command::new(&installer_path)
         };
-        cmd.creation_flags(0x08000000);
         cmd.spawn()
             .map_err(|e| format!("Failed to launch installer: {}", e))?;
     }
@@ -470,5 +475,15 @@ mod tests {
     #[test]
     fn rejects_invalid_manifest_signature() {
         assert!(verify_manifest_signature(b"redpanda", "not-a-signature").is_err());
+    }
+
+    #[test]
+    fn extracts_version_from_asset_name() {
+        let asset = "RedPanda_Setup_0.3.6.exe";
+        let ver = asset
+            .strip_prefix("RedPanda_Setup_")
+            .and_then(|s| s.strip_suffix(".exe"));
+        assert_eq!(ver, Some("0.3.6"));
+        assert!(is_version_newer(ver.unwrap(), "0.3.5"));
     }
 }

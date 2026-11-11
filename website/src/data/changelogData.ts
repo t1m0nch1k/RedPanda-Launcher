@@ -16,19 +16,41 @@ export interface LauncherRelease {
   changes: ReleaseChange[];
 }
 
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.4";
-const LATEST_RELEASE_TAG = "v0.3.4";
-const RELEASE_VERSION = "0.3.4";
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.5";
+const LATEST_RELEASE_TAG = "v0.3.5";
+const RELEASE_VERSION = "0.3.5";
 
 export const LAUNCHER_RELEASES: LauncherRelease[] = [
   {
     version: `v${APP_VERSION}`,
-    date: "4 ноября 2026",
-    title: "Аккаунты, скины и защищённые обновления",
-    tagline: "Вход в Microsoft и Ely.by вынесен в отдельное окно аккаунтов: переключение профилей и обновление скина без перезапуска лаунчера. Вместе с этим — исправления сессий, загрузок и восстановления данных по итогам аудита кода.",
+    date: "7 ноября 2026",
+    title: "Скины Ely.by и оффлайн-скины в модах",
+    tagline: "Автоматическая поддержка и установка CustomSkinLoader для сборок с модами: скины аккаунтов Ely.by и локальные скины теперь корректно отображаются в Forge, Fabric и NeoForge без ручной настройки.",
     downloadUrl: `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/${LATEST_RELEASE_TAG}/RedPanda_Setup_${RELEASE_VERSION}.exe`,
     fileSize: "Windows 10/11 x64",
     isLatest: true,
+    highlights: [
+      "Скины Ely.by в модах: автоматическое подключение Ely.by API через CustomSkinLoader при запуске сборок Fabric, Forge и NeoForge",
+      "Автоустановка CustomSkinLoader: лаунчер сам находит и докачивает нужную версию с Modrinth, если она отсутствует в сборке",
+      "Оффлайн и локальные скины: перенос и синхронизация скина профиля в конфигурацию загрузчика скинов с поддержкой моделей classic и slim",
+      "Совместимость с серверами: корректная передача параметров сессии и типа пользователя для стабильной авторизации",
+      "Окно аккаунтов и гардероб: управление профилями Microsoft / Ely.by и 3D-предпросмотр скинов"
+    ],
+    changes: [
+      { type: "feat", title: "Поддержка Ely.by в модовых сборках", description: "Интеграция CustomSkinLoader для аккаунтов Ely.by в сборках Fabric, Forge и NeoForge." },
+      { type: "feat", title: "Автоматическая загрузка CustomSkinLoader", description: "Лаунчер определяет отсутствие мод-загрузчика скинов и автоматически устанавливает совместимую версию из каталога Modrinth." },
+      { type: "feat", title: "Синхронизация локальных скинов", description: "Оффлайн-скины и кастомные скины аккаунтов автоматически подгружаются в CustomSkinLoader." },
+      { type: "fix", title: "Формат user_type для Ely.by", description: "Корректный параметр типа пользователя при запуске игры для правильной валидации на поддерживаемых серверах." }
+    ]
+  },
+  {
+    version: "v0.3.4",
+    date: "4 ноября 2026",
+    title: "Аккаунты, скины и защищённые обновления",
+    tagline: "Вход в Microsoft и Ely.by вынесен в отдельное окно аккаунтов: переключение профилей и обновление скина без перезапуска лаунчера. Вместе с этим — исправления сессий, загрузок и восстановления данных по итогам аудита кода.",
+    downloadUrl: "https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.3.4/RedPanda_Setup_0.3.4.exe",
+    fileSize: "Windows 10/11 x64",
+    isLatest: false,
     highlights: [
       "Окно аккаунтов: вход через Microsoft и Ely.by, переключение и удаление профилей в одном месте",
       "Скин активного аккаунта обновляется прямо из гардероба, 3D-предпросмотр остаётся",

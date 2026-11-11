@@ -193,8 +193,26 @@ async fn download_to_file_with_checksum(
     algorithm: ChecksumAlgorithm,
     expected_checksum: &str,
 ) -> Result<u64, String> {
+    download_to_file_with_optional_checksum(
+        client,
+        url,
+        destination,
+        Some((algorithm, expected_checksum)),
+    )
+    .await
+}
+
+async fn download_to_file_with_optional_checksum(
+    client: &reqwest::Client,
+    url: &str,
+    destination: &Path,
+    checksum: Option<(ChecksumAlgorithm, &str)>,
+) -> Result<u64, String> {
     validate_download_url(url)?;
-    let expected_checksum = validate_checksum(algorithm, expected_checksum)?;
+    let validated_checksum = match checksum {
+        Some((algo, exp)) => Some((algo, validate_checksum(algo, exp)?)),
+        None => None,
+    };
     let response = {
         let mut response = None;
         for attempt in 0..3 {
@@ -256,9 +274,11 @@ async fn download_to_file_with_checksum(
         while let Some(chunk) = stream.next().await {
             let chunk = chunk.map_err(|error| format!("Ошибка чтения загрузки: {error}"))?;
             total = checked_download_size(total, chunk.len(), MAX_DOWNLOAD_BYTES as u64)?;
-            sha1.update(&chunk);
-            sha256.update(&chunk);
-            sha512.update(&chunk);
+            if validated_checksum.is_some() {
+                sha1.update(&chunk);
+                sha256.update(&chunk);
+                sha512.update(&chunk);
+            }
             file.write_all(&chunk)
                 .await
                 .map_err(|error| format!("Не удалось записать загрузку: {error}"))?;
@@ -271,13 +291,15 @@ async fn download_to_file_with_checksum(
             .map_err(|error| format!("Не удалось сохранить загрузку: {error}"))?;
         drop(file);
 
-        let actual = match algorithm {
-            ChecksumAlgorithm::Sha1 => hex::encode(sha1.finalize()),
-            ChecksumAlgorithm::Sha256 => hex::encode(sha256.finalize()),
-            ChecksumAlgorithm::Sha512 => hex::encode(sha512.finalize()),
-        };
-        if actual != expected_checksum {
-            return Err("Checksum загружаемого файла не совпадает".to_string());
+        if let Some((algo, ref expected)) = validated_checksum {
+            let actual = match algo {
+                ChecksumAlgorithm::Sha1 => hex::encode(sha1.finalize()),
+                ChecksumAlgorithm::Sha256 => hex::encode(sha256.finalize()),
+                ChecksumAlgorithm::Sha512 => hex::encode(sha512.finalize()),
+            };
+            if !actual.eq_ignore_ascii_case(expected) {
+                return Err("Checksum загружаемого файла не совпадает".to_string());
+            }
         }
         replace_download_file(&temporary, destination).await?;
         Ok(total)
@@ -296,14 +318,13 @@ pub async fn download_to_file(
     client: &reqwest::Client,
     url: &str,
     destination: &Path,
-    expected_sha256: &str,
+    expected_sha256: Option<&str>,
 ) -> Result<u64, String> {
-    download_to_file_with_checksum(
+    download_to_file_with_optional_checksum(
         client,
         url,
         destination,
-        ChecksumAlgorithm::Sha256,
-        expected_sha256,
+        expected_sha256.map(|s| (ChecksumAlgorithm::Sha256, s)),
     )
     .await
 }

@@ -78,8 +78,14 @@ if (-not (Test-Path $InstallerExe)) {
 $FinalSetupExe = Join-Path $OutDir "RedPanda_Setup_${Version}.exe"
 Copy-Item -Path $InstallerExe -Destination $FinalSetupExe -Force
 
+$HashFile = "$FinalSetupExe.sha256"
+$Hash = (Get-FileHash -Algorithm SHA256 -Path $FinalSetupExe).Hash.ToLowerInvariant()
+"$Hash  RedPanda_Setup_${Version}.exe" | Set-Content -NoNewline $HashFile
+
 Write-Host "`n==================================================" -ForegroundColor Green
 Write-Host "  SUCCESS: Custom Installer Generated!" -ForegroundColor Green
 Write-Host "  File: $FinalSetupExe" -ForegroundColor Green
+Write-Host "  SHA256: $Hash" -ForegroundColor Green
+Write-Host "  Checksum File: $HashFile" -ForegroundColor Green
 Write-Host "  Size: $([math]::Round((Get-Item $FinalSetupExe).Length / 1MB, 2)) MB" -ForegroundColor Green
 Write-Host "==================================================" -ForegroundColor Green

@@ -1,9 +1,15 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { X, Cpu, Monitor, Code, Coffee, ExternalLink, RefreshCw, Settings, Globe, Sun, Moon, Palette, Image, Smile, Trash2, Heart } from "lucide-react";
+import { THEMES, applyFullTheme } from "../lib/theme";
+import CustomizationTab from "./CustomizationTab";
+import { updateSoundConfig, playUiClick } from "../lib/audio";
+import { X, Cpu, Monitor, Code, Coffee, ExternalLink, RefreshCw, Settings, Globe, Sun, Palette, Heart } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { open } from "@tauri-apps/plugin-dialog";
 import { useTranslation } from "react-i18next";
+import { toast } from "./Toast";
+import { UpdateInfo } from "../lib/ipc";
+import packageInfo from "../../package.json";
+
 
 interface AppSettings {
   java_path: string;
@@ -22,9 +28,25 @@ interface AppSettings {
   custom_bg_path: string;
   custom_bg_opacity: number;
   custom_bg_blur: number;
+  custom_bg_dim?: number;
+  bg_effect?: string;
   custom_mascot_path: string;
   mascot_preset: string;
+  mascot_mode?: string;
+  mascot_quote?: string;
+  mascot_bounce?: boolean;
   accent_color: string;
+  accent_glow_intensity?: string;
+  button_style?: string;
+  ui_corner_radius?: string;
+  ui_glassmorphism?: string;
+  ui_font?: string;
+  custom_theme_bg?: string;
+  custom_theme_card?: string;
+  custom_theme_border?: string;
+  custom_theme_text?: string;
+  sound_effects?: boolean;
+  sound_volume?: number;
   discord_rpc: boolean;
   auto_backup_worlds: boolean;
   telegram_url?: string;
@@ -42,9 +64,10 @@ interface JavaInstallation {
 interface SettingsModalProps {
   onClose: () => void;
   onSettingsChanged?: () => void;
+  onOpenUpdateModal?: (info: UpdateInfo) => void;
 }
 
-export default function SettingsModal({ onClose, onSettingsChanged }: SettingsModalProps) {
+export default function SettingsModal({ onClose, onSettingsChanged, onOpenUpdateModal }: SettingsModalProps) {
   const { t, i18n } = useTranslation();
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [javas, setJavas] = useState<JavaInstallation[]>([]);
@@ -55,14 +78,18 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
   const handleManualUpdateCheck = async () => {
     setIsCheckingUpdate(true);
     try {
-      const info: any = await invoke("check_for_updates");
+      const info: UpdateInfo = await invoke("check_for_updates");
       if (info && info.has_update) {
-        alert(`Найдено обновление! Доступна версия v${info.latest_version}.`);
+        toast.info(`Доступно обновление v${info.latest_version}!`);
+        if (onOpenUpdateModal) {
+          onOpenUpdateModal(info);
+          onClose();
+        }
       } else {
-        alert(`У вас установлена самая свежая версия (v${info?.current_version || "0.3.2"})`);
+        toast.success(`У вас установлена актуальная версия (v${info?.current_version || packageInfo.version})`);
       }
     } catch (e) {
-      alert("Ошибка при проверке обновлений: " + e);
+      toast.error("Ошибка при проверке обновлений: " + e);
     } finally {
       setIsCheckingUpdate(false);
     }
@@ -77,8 +104,12 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
     try {
       const data: AppSettings = await invoke("get_settings");
       setSettings(data);
-      if (data.theme) {
-        document.documentElement.setAttribute("data-theme", data.theme);
+      applyFullTheme(data);
+      if (data.sound_effects !== undefined) {
+        updateSoundConfig({
+          enabled: data.sound_effects,
+          volume: data.sound_volume ?? 70,
+        });
       }
     } catch (e) {
       console.error("Failed to load settings", e);
@@ -95,48 +126,25 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
     }
   };
 
-  const updateSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
+  const updateSettingsBatch = (partial: Partial<AppSettings>) => {
     if (!settings) return;
-    const newSettings = { ...settings, [key]: value };
-    if (key === "theme") {
-      document.documentElement.setAttribute("data-theme", value as string);
-    }
-    if (key === "accent_color") {
-      document.documentElement.style.setProperty("--color-primary", value as string);
-      document.documentElement.style.setProperty("--color-primary-hover", value as string);
+    const newSettings = { ...settings, ...partial };
+    applyFullTheme(newSettings);
+    if (newSettings.sound_effects !== undefined) {
+      updateSoundConfig({
+        enabled: newSettings.sound_effects,
+        volume: newSettings.sound_volume ?? 70,
+      });
     }
     setSettings(newSettings);
     saveSettings(newSettings);
   };
 
-  const handleSelectBgImage = async () => {
-    try {
-      const selected = await open({
-        multiple: false,
-        filters: [{ name: "Image", extensions: ["png", "jpg", "jpeg", "webp"] }]
-      });
-      if (selected && typeof selected === "string") {
-        updateSetting("custom_bg_path", selected);
-      }
-    } catch (e) {
-      console.error("Failed to pick background image", e);
-    }
+  const updateSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
+    updateSettingsBatch({ [key]: value } as Partial<AppSettings>);
   };
 
-  const handleSelectMascotImage = async () => {
-    try {
-      const selected = await open({
-        multiple: false,
-        filters: [{ name: "Image", extensions: ["png", "jpg", "jpeg", "webp"] }]
-      });
-      if (selected && typeof selected === "string") {
-        updateSetting("custom_mascot_path", selected);
-        updateSetting("mascot_preset", "custom");
-      }
-    } catch (e) {
-      console.error("Failed to pick mascot image", e);
-    }
-  };
+
 
   const searchJava = async () => {
     setIsSearchingJava(true);
@@ -179,7 +187,7 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
           {/* Sidebar */}
           <div className="w-52 bg-[#17120e] border-r border-[#33241b] p-3 flex flex-col gap-1.5 shrink-0">
             <button 
-              onClick={() => setActiveTab("general")}
+              onClick={() => { playUiClick("tab"); setActiveTab("general"); }}
               className={`flex items-center gap-3 px-3.5 py-2.5 rounded text-xs font-mono font-bold transition-all text-left ${
                 activeTab === "general"
                   ? "bg-gradient-to-r from-[#2e1d15] to-[#201611] border border-[#f55e1d]/50 text-white shadow-[0_0_12px_rgba(245,94,29,0.15)]"
@@ -190,7 +198,7 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
               {t("settings.tab_general", "Общие")}
             </button>
             <button 
-              onClick={() => setActiveTab("java")}
+              onClick={() => { playUiClick("tab"); setActiveTab("java"); }}
               className={`flex items-center gap-3 px-3.5 py-2.5 rounded text-xs font-mono font-bold transition-all text-left ${
                 activeTab === "java"
                   ? "bg-gradient-to-r from-[#2e1d15] to-[#201611] border border-[#f55e1d]/50 text-white shadow-[0_0_12px_rgba(245,94,29,0.15)]"
@@ -201,7 +209,7 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
               {t("settings.tab_java", "Java и ОЗУ")}
             </button>
             <button 
-              onClick={() => setActiveTab("customization")}
+              onClick={() => { playUiClick("tab"); setActiveTab("customization"); }}
               className={`flex items-center gap-3 px-3.5 py-2.5 rounded text-xs font-mono font-bold transition-all text-left ${
                 activeTab === "customization"
                   ? "bg-gradient-to-r from-[#2e1d15] to-[#201611] border border-[#f55e1d]/50 text-white shadow-[0_0_12px_rgba(245,94,29,0.15)]"
@@ -212,7 +220,7 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
               Кастомизация
             </button>
             <button 
-              onClick={() => setActiveTab("integrations")}
+              onClick={() => { playUiClick("tab"); setActiveTab("integrations"); }}
               className={`flex items-center gap-3 px-3.5 py-2.5 rounded text-xs font-mono font-bold transition-all text-left ${
                 activeTab === "integrations"
                   ? "bg-gradient-to-r from-[#2e1d15] to-[#201611] border border-[#f55e1d]/50 text-white shadow-[0_0_12px_rgba(245,94,29,0.15)]"
@@ -254,31 +262,39 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
 
                 {/* Theme Selection */}
                 <section>
-                  <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <Sun size={16} /> Тема оформления
-                  </h3>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-muted uppercase tracking-wider flex items-center gap-2">
+                      <Sun size={16} /> Тема оформления
+                    </h3>
+                    <button
+                      onClick={() => { playUiClick("tab"); setActiveTab("customization"); }}
+                      className="text-xs text-primary hover:underline flex items-center gap-1 font-mono"
+                    >
+                      Все темы и цвета →
+                    </button>
+                  </div>
                   
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    <button
-                      onClick={() => updateSetting("theme", "dark")}
-                      className={`p-3 brutalist-border flex items-center justify-center gap-2 font-semibold text-xs transition-colors ${
-                        (settings.theme || "dark") === "dark" 
-                          ? "bg-primary text-background border-primary" 
-                          : "bg-background text-muted hover:text-white"
-                      }`}
-                    >
-                      <Moon size={14} /> Темная (Dark)
-                    </button>
-                    <button
-                      onClick={() => updateSetting("theme", "light")}
-                      className={`p-3 brutalist-border flex items-center justify-center gap-2 font-semibold text-xs transition-colors ${
-                        settings.theme === "light" 
-                          ? "bg-primary text-background border-primary" 
-                          : "bg-background text-muted hover:text-white"
-                      }`}
-                    >
-                      <Sun size={14} /> Светлая (Light)
-                    </button>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-4">
+                    {THEMES.map((th) => {
+                      const isActive = (settings.theme || "dark") === th.id;
+                      return (
+                        <button
+                          key={th.id}
+                          onClick={() => updateSetting("theme", th.id)}
+                          className={`p-2.5 brutalist-border flex items-center gap-2.5 text-xs font-semibold transition-all ${
+                            isActive 
+                              ? "bg-primary text-background border-primary shadow-[0_0_12px_rgba(245,94,29,0.25)] font-bold" 
+                              : "bg-background text-muted hover:text-white hover:border-[#4d3a2f]"
+                          }`}
+                        >
+                          <span 
+                            className="w-2.5 h-2.5 rounded-full shrink-0 border border-black/30" 
+                            style={{ backgroundColor: th.previewAccent }} 
+                          />
+                          <span className="truncate">{th.name}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </section>
 
@@ -292,7 +308,7 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
 
                   <div className="bg-background brutalist-border p-4 flex items-center justify-between">
                     <div>
-                      <div className="font-bold text-xs text-text">Версия v0.3.2 Stable</div>
+                      <div className="font-bold text-xs text-text">Версия v{packageInfo.version}</div>
                       <div className="text-[10px] text-muted font-mono mt-0.5">Build 2026.09.06</div>
                       <div className="text-[10px] text-muted mt-0.5">Автоматическая проверка релизов с GitHub</div>
                     </div>
@@ -552,170 +568,11 @@ export default function SettingsModal({ onClose, onSettingsChanged }: SettingsMo
             )}
 
             {activeTab === "customization" && (
-              <div className="flex flex-col gap-8">
-                
-                {/* Background customization */}
-                <section>
-                  <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <Image size={16} /> Пользовательский задний фон
-                  </h3>
-
-                  <div className="bg-background brutalist-border p-4 flex flex-col gap-4">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="text-xs text-muted truncate">
-                        {settings.custom_bg_path ? (
-                          <span className="text-white font-mono">{settings.custom_bg_path}</span>
-                        ) : (
-                          "Стандартный фон лаунчера"
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={handleSelectBgImage}
-                          className="px-3 py-1.5 bg-primary text-background font-bold text-xs brutalist-border hover:bg-primary-hover transition-colors flex items-center gap-1.5"
-                        >
-                          <Image size={14} /> Выбрать картинку
-                        </button>
-                        {settings.custom_bg_path && (
-                          <button
-                            onClick={() => updateSetting("custom_bg_path", "")}
-                            className="p-1.5 brutalist-border text-muted hover:text-red-400 hover:border-red-400 transition-colors"
-                            title="Сбросить фон"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {settings.custom_bg_path && (
-                      <div className="flex flex-col gap-4 pt-2 border-t border-border">
-                        <div>
-                          <div className="flex justify-between items-center text-xs font-semibold mb-2">
-                            <span className="text-muted">Непрозрачность (Opacity):</span>
-                            <span className="text-primary">{settings.custom_bg_opacity ?? 50}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="10" max="100" step="5"
-                            value={settings.custom_bg_opacity ?? 50}
-                            onChange={(e) => updateSetting("custom_bg_opacity", parseInt(e.target.value))}
-                            className="w-full accent-primary h-2 bg-card rounded-none appearance-none cursor-pointer"
-                          />
-                        </div>
-
-                        <div>
-                          <div className="flex justify-between items-center text-xs font-semibold mb-2">
-                            <span className="text-muted">Размытие (Blur):</span>
-                            <span className="text-primary">{settings.custom_bg_blur ?? 0}px</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0" max="20" step="1"
-                            value={settings.custom_bg_blur ?? 0}
-                            onChange={(e) => updateSetting("custom_bg_blur", parseInt(e.target.value))}
-                            className="w-full accent-primary h-2 bg-card rounded-none appearance-none cursor-pointer"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </section>
-
-                <hr className="border-border" />
-
-                {/* Mascot customization */}
-                <section>
-                  <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <Smile size={16} /> Маскот панды в верхнем углу
-                  </h3>
-
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    <button
-                      onClick={() => {
-                        updateSetting("mascot_preset", "default");
-                        updateSetting("custom_mascot_path", "");
-                      }}
-                      className={`p-3 brutalist-border flex items-center gap-3 transition-colors ${
-                        (settings.mascot_preset || "default") === "default" && !settings.custom_mascot_path
-                          ? "bg-primary/10 border-primary text-primary"
-                          : "bg-background text-muted hover:text-white"
-                      }`}
-                    >
-                      <img src="/pandas_png/clasped.png" alt="default" className="w-8 h-8 object-contain" />
-                      <div className="text-left">
-                        <div className="font-bold text-xs">RedPanda Original</div>
-                        <div className="text-[10px] text-muted">Классический маскот</div>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={handleSelectMascotImage}
-                      className={`p-3 brutalist-border flex items-center gap-3 transition-colors ${
-                        settings.mascot_preset === "custom" || settings.custom_mascot_path
-                          ? "bg-primary/10 border-primary text-primary"
-                          : "bg-background text-muted hover:text-white"
-                      }`}
-                    >
-                      <Smile size={24} className="text-primary shrink-0" />
-                      <div className="text-left overflow-hidden">
-                        <div className="font-bold text-xs truncate">Загрузить свой аватар</div>
-                        <div className="text-[10px] text-muted truncate">
-                          {settings.custom_mascot_path ? "Файл выбран" : "PNG / JPG / WebP"}
-                        </div>
-                      </div>
-                    </button>
-                  </div>
-                </section>
-
-                <hr className="border-border" />
-
-                {/* Color Palette */}
-                <section>
-                  <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <Palette size={16} /> Акцентный цвет лаунчера
-                  </h3>
-
-                  <div className="flex items-center gap-3 flex-wrap">
-                    {[
-                      { name: "RedPanda Orange", color: "#F55E1D" },
-                      { name: "Cyber Cyan", color: "#00F0FF" },
-                      { name: "Neon Pink", color: "#FF0055" },
-                      { name: "Emerald Green", color: "#10B981" },
-                      { name: "Deep Purple", color: "#8B5CF6" },
-                    ].map((preset) => (
-                      <button
-                        key={preset.color}
-                        onClick={() => updateSetting("accent_color", preset.color)}
-                        className={`px-3 py-2 brutalist-border text-xs font-bold flex items-center gap-2 transition-all ${
-                          (settings.accent_color || "#F55E1D").toLowerCase() === preset.color.toLowerCase()
-                            ? "border-primary scale-105"
-                            : "opacity-80 hover:opacity-100"
-                        }`}
-                        style={{ backgroundColor: preset.color, color: "#0E0F12" }}
-                      >
-                        {preset.name}
-                      </button>
-                    ))}
-
-                    {/* Custom Color Picker */}
-                    <div className="flex items-center gap-2 px-3 py-1.5 brutalist-border bg-card">
-                      <input
-                        type="color"
-                        id="custom_accent_color"
-                        value={settings.accent_color || "#F55E1D"}
-                        onChange={(e) => updateSetting("accent_color", e.target.value)}
-                        className="w-6 h-6 border-0 bg-transparent cursor-pointer rounded-none p-0"
-                        title="Выбрать свой цвет"
-                      />
-                      <label htmlFor="custom_accent_color" className="text-xs font-mono font-bold text-white uppercase cursor-pointer">
-                        {settings.accent_color || "#F55E1D"}
-                      </label>
-                    </div>
-                  </div>
-                </section>
-
-              </div>
+              <CustomizationTab
+                settings={settings}
+                updateSetting={updateSetting}
+                updateSettingsBatch={updateSettingsBatch}
+              />
             )}
 
             {activeTab === "integrations" && (
