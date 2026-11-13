@@ -24,11 +24,11 @@
   </p>
 </div>
 
-## 0.3.3 — предварительная версия
+## 0.3.5
 
 Предпросмотр установки модов Modrinth и CurseForge показывает файлы, обязательные зависимости и конфликты перед подтверждением. Гардероб позволяет выбрать PNG, модель Classic / Slim и посмотреть скин в 3D. Для Microsoft поддерживается загрузка в профиль Minecraft Java Edition; для сборок с модами — локальное применение через CustomSkinLoader, видимое только на этом компьютере.
 
-Архитектура новых функций описана в [ARCHITECTURE.md](ARCHITECTURE.md). Подписанный публичный установщик 0.3.3 пока не опубликован. Последняя опубликованная версия — [0.3.1](https://github.com/t1m0nch1k/RedPanda-Launcher/releases/tag/v0.3.1).
+Архитектура новых функций описана в [ARCHITECTURE.md](ARCHITECTURE.md). Последняя опубликованная версия — всегда доступна на [странице релизов](https://github.com/t1m0nch1k/RedPanda-Launcher/releases/latest).
 
 ## ✨ Highlights
 
@@ -61,8 +61,8 @@ Makes the launcher feel alive.
 
 ## 📥 Download
 
-- **[📥 Download Setup v0.3.1 (Windows)](https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.3.1/RedPanda_Setup_0.3.1.exe)**
-- **[📋 Release Notes & Checksums (v0.3.1)](https://github.com/t1m0nch1k/RedPanda-Launcher/releases/tag/v0.3.1)**
+- **[📥 Download Setup (Windows, latest)](https://github.com/t1m0nch1k/RedPanda-Launcher/releases/latest/download/RedPanda_Setup_0.3.5.exe)**
+- **[📋 Release Notes & Checksums (latest)](https://github.com/t1m0nch1k/RedPanda-Launcher/releases/latest)**
 - **[🌐 Official Website: redlauncher.ru](https://www.redlauncher.ru/)**
 
 ## 🗺️ Roadmap
@@ -73,7 +73,7 @@ Makes the launcher feel alive.
 - [x] Automatic Dependency Resolution
 - [x] e4mc & Steam P2P Multiplayer Tunneling
 - [x] 3D Skin & Cape Engine
-- [x] Standalone GUI Installer (`RedPanda_Setup_0.3.1.exe`)
+- [x] Standalone GUI Installer (`RedPanda_Setup_0.3.5.exe`)
 - [ ] Cloud Sync
 - [ ] Plugin System
 - [ ] Custom Themes Engine

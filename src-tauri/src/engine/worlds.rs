@@ -658,4 +658,75 @@ mod tests {
             assert!(meta.level_name.is_some());
         }
     }
+
+    fn build_synthetic_level_dat() -> Vec<u8> {
+        // level.dat = gzipped NBT: root TAG_Compound (empty name) -> "Data" compound.
+        let data = [
+            // root TAG_Compound, пустое имя
+            0x0A, 0x00, 0x00, // "Data" TAG_Compound, имя "Data" (4)
+            0x0A, 0x00, 0x04, b'D', b'a', b't', b'a',
+            // LevelName: TAG_String, имя "LevelName" (9), значение "My World" (8)
+            0x08, 0x00, 0x09, b'L', b'e', b'v', b'e', b'l', b'N', b'a', b'm', b'e', 0x00, 0x08,
+            b'M', b'y', b' ', b'W', b'o', b'r', b'l', b'd',
+            // GameType: TAG_Int, имя "GameType" (8), значение 1
+            0x03, 0x00, 0x08, b'G', b'a', b'm', b'e', b'T', b'y', b'p', b'e', 0x00, 0x00, 0x00,
+            0x01, // hardcore: TAG_Byte, имя "hardcore" (8), значение 1
+            0x01, 0x00, 0x08, b'h', b'a', b'r', b'd', b'c', b'o', b'r', b'e', 0x01,
+            // LastPlayed: TAG_Long, имя "LastPlayed" (10), значение 1000
+            0x04, 0x00, 0x0a, b'L', b'a', b's', b't', b'P', b'l', b'a', b'y', b'e', b'd', 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0xe8,
+            // RandomSeed: TAG_Long, имя "RandomSeed" (10), значение семени
+            0x04, 0x00, 0x0a, b'R', b'a', b'n', b'd', b'o', b'm', b'S', b'e', b'e', b'd', 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x2a, 0x9d,
+            // Version: TAG_Compound, имя "Version" (7)
+            0x0A, 0x00, 0x07, b'V', b'e', b'r', b's', b'i', b'o', b'n',
+            // Version.Name: TAG_String, имя "Name" (4), значение "1.21.4" (6)
+            0x08, 0x00, 0x04, b'N', b'a', b'm', b'e', 0x00, 0x06, b'1', b'.', b'2', b'1', b'.',
+            b'4', 0x00, // конец Version
+            0x00, // конец Data
+            0x00, // конец root
+        ];
+        data.to_vec()
+    }
+
+    #[test]
+    fn test_parse_level_dat_synthetic() {
+        use flate2::write::GzEncoder;
+        use flate2::Compression;
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(&build_synthetic_level_dat()).unwrap();
+        let compressed = encoder.finish().unwrap();
+
+        let file = NamedTempFile::new().unwrap();
+        std::fs::write(file.path(), &compressed).unwrap();
+
+        let meta = parse_level_dat(file.path()).expect("synthetic level.dat should parse");
+        assert_eq!(meta.level_name, Some("My World".to_string()));
+        assert_eq!(meta.game_type, Some(1));
+        assert!(meta.is_hardcore);
+        assert_eq!(meta.last_played_ms, Some(1000));
+        assert!(meta.seed.is_some());
+        assert_eq!(meta.version_name, Some("1.21.4".to_string()));
+    }
+
+    #[test]
+    fn test_parse_level_dat_rejects_non_compound_root() {
+        use flate2::write::GzEncoder;
+        use flate2::Compression;
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(&[0x01, 0x00, 0x00, 42]).unwrap(); // TAG_Byte корня — недопустимо
+        let compressed = encoder.finish().unwrap();
+
+        let file = NamedTempFile::new().unwrap();
+        std::fs::write(file.path(), &compressed).unwrap();
+
+        let err = parse_level_dat(file.path()).unwrap_err();
+        assert!(err.contains("Root tag is not compound"));
+    }
 }

@@ -376,4 +376,20 @@ mod tests {
         register_version(&mut map, "p2".into(), "v".into()).unwrap();
         assert_eq!(map.len(), 2);
     }
+
+    #[test]
+    fn register_version_conflict_reports_both_versions() {
+        let mut map = HashMap::new();
+        register_version(&mut map, "p".into(), "v1".into()).unwrap();
+        let err = register_version(&mut map, "p".into(), "v2".into()).unwrap_err();
+        assert!(err.contains("p"), "error should name the project: {err}");
+        assert!(
+            err.contains("v1"),
+            "error should name the pinned version: {err}"
+        );
+        assert!(
+            err.contains("v2"),
+            "error should name the conflicting version: {err}"
+        );
+    }
 }

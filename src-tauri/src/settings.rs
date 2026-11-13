@@ -288,7 +288,10 @@ fn validate_settings(settings: &AppSettings) -> Result<(), String> {
     }
     if settings.theme.is_empty()
         || settings.theme.len() > 32
-        || !settings.theme.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+        || !settings
+            .theme
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
     {
         return Err("Неизвестная тема интерфейса".to_string());
     }
@@ -471,7 +474,7 @@ mod tests {
             settings.theme = theme.to_string();
             assert!(validate_settings(&settings).is_ok());
         }
-        settings.theme = "invalid_theme".to_string();
+        settings.theme = "bad theme".to_string();
         assert!(validate_settings(&settings).is_err());
     }
 }

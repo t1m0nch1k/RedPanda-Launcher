@@ -17,6 +17,7 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 .commandcode/
+.agents/
 .DS_Store
 *.sw?
 

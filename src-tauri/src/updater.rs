@@ -141,7 +141,8 @@ pub async fn check_for_updates() -> Result<UpdateInfo, String> {
                                 && manifest.sha256.chars().all(|c| c.is_ascii_hexdigit())
                                 && manifest.size > 0
                             {
-                                let expected_asset_name = format!("RedPanda_Setup_{latest_tag}.exe");
+                                let expected_asset_name =
+                                    format!("RedPanda_Setup_{latest_tag}.exe");
                                 if manifest.asset_name == expected_asset_name {
                                     if let Ok(m_json) = String::from_utf8(m_bytes.to_vec()) {
                                         signed_info = Some((
@@ -174,10 +175,9 @@ pub async fn check_for_updates() -> Result<UpdateInfo, String> {
                 .iter()
                 .find(|asset| asset.name == expected_exact_name)
                 .or_else(|| {
-                    release
-                        .assets
-                        .iter()
-                        .find(|asset| asset.name.starts_with("RedPanda_Setup_") && asset.name.ends_with(".exe"))
+                    release.assets.iter().find(|asset| {
+                        asset.name.starts_with("RedPanda_Setup_") && asset.name.ends_with(".exe")
+                    })
                 })
                 .or_else(|| {
                     release
@@ -195,7 +195,9 @@ pub async fn check_for_updates() -> Result<UpdateInfo, String> {
                             if let Ok(text) = resp.text().await {
                                 if let Some(token) = text.split_whitespace().next() {
                                     let token = token.trim();
-                                    if token.len() == 64 && token.chars().all(|c| c.is_ascii_hexdigit()) {
+                                    if token.len() == 64
+                                        && token.chars().all(|c| c.is_ascii_hexdigit())
+                                    {
                                         sha256_val = Some(token.to_lowercase());
                                     }
                                 }
@@ -291,11 +293,14 @@ pub async fn download_and_install_update(
     }
 
     // Downgrade protection & version check from asset name or url
-    let candidate_name = expected_asset_name.as_deref().or_else(|| {
-        parsed_url.path_segments().and_then(|mut s| s.next_back())
-    });
+    let candidate_name = expected_asset_name
+        .as_deref()
+        .or_else(|| parsed_url.path_segments().and_then(|mut s| s.next_back()));
     if let Some(name) = candidate_name {
-        if let Some(ver_str) = name.strip_prefix("RedPanda_Setup_").and_then(|s| s.strip_suffix(".exe").or_else(|| s.strip_suffix(".msi"))) {
+        if let Some(ver_str) = name
+            .strip_prefix("RedPanda_Setup_")
+            .and_then(|s| s.strip_suffix(".exe").or_else(|| s.strip_suffix(".msi")))
+        {
             if !is_version_newer(ver_str.trim_start_matches('v'), CURRENT_VERSION) {
                 return Err(format!(
                     "Отказ от обновления: версия {} не новее текущей {} (защита от даунгрейда).",
@@ -334,11 +339,16 @@ pub async fn download_and_install_update(
     };
     let installer_path = temp_dir.join(file_name);
 
-    let valid_sha256 = expected_sha256
-        .filter(|v| v.len() == 64 && v.chars().all(|c| c.is_ascii_hexdigit()));
+    let valid_sha256 =
+        expected_sha256.filter(|v| v.len() == 64 && v.chars().all(|c| c.is_ascii_hexdigit()));
 
-    crate::downloads::download_to_file(&client, &download_url, &installer_path, valid_sha256.as_deref())
-        .await?;
+    crate::downloads::download_to_file(
+        &client,
+        &download_url,
+        &installer_path,
+        valid_sha256.as_deref(),
+    )
+    .await?;
 
     if let Some(expected_size) = expected_size.filter(|s| *s > 0) {
         let downloaded_size = std::fs::metadata(&installer_path)
