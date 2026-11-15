@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { THEMES, applyFullTheme } from "../lib/theme";
 import CustomizationTab from "./CustomizationTab";
 import { updateSoundConfig, playUiClick } from "../lib/audio";
-import { X, Cpu, Monitor, Code, Coffee, ExternalLink, RefreshCw, Settings, Globe, Sun, Palette, Heart } from "lucide-react";
+import { X, Cpu, Monitor, Code, Coffee, ExternalLink, RefreshCw, Settings, Globe, Sun, Palette, Heart, WifiOff } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useTranslation } from "react-i18next";
 import { toast } from "./Toast";
@@ -49,6 +49,8 @@ interface AppSettings {
   sound_volume?: number;
   discord_rpc: boolean;
   auto_backup_worlds: boolean;
+  offline_mode?: boolean;
+  check_updates_on_launch?: boolean;
   telegram_url?: string;
   github_url?: string;
   website_url?: string;
@@ -632,6 +634,67 @@ export default function SettingsModal({ onClose, onSettingsChanged, onOpenUpdate
                         </label>
                         <p className="text-[10px] text-muted mt-0.5">
                           Авто-сохранение папки saves перед запуском игры.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <hr className="border-border" />
+
+                {/* Offline Mode */}
+                <section>
+                  <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <WifiOff size={16} /> Оффлайн-режим
+                  </h3>
+                  <div className="bg-background brutalist-border p-4 flex flex-col gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex items-center h-5">
+                        <input
+                          id="offline_mode"
+                          type="checkbox"
+                          checked={settings.offline_mode ?? false}
+                          onChange={(e) => updateSetting("offline_mode", e.target.checked)}
+                          className="w-4 h-4 rounded-none border-border bg-background text-primary focus:ring-primary focus:ring-offset-background"
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <label htmlFor="offline_mode" className="text-sm font-medium text-white cursor-pointer">
+                          Запускаться без сети
+                        </label>
+                        <p className="text-[10px] text-muted mt-0.5">
+                          Отключить все сетевые запросы при старте и запуске игры.
+                          Обновления и авторизация онлайн-аккаунтов недоступны.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <hr className="border-border" />
+
+                {/* Check Updates on Launch */}
+                <section>
+                  <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <RefreshCw size={16} /> Проверка обновлений
+                  </h3>
+                  <div className="bg-background brutalist-border p-4 flex flex-col gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex items-center h-5">
+                        <input
+                          id="check_updates_on_launch"
+                          type="checkbox"
+                          checked={settings.check_updates_on_launch ?? false}
+                          onChange={(e) => updateSetting("check_updates_on_launch", e.target.checked)}
+                          className="w-4 h-4 rounded-none border-border bg-background text-primary focus:ring-primary focus:ring-offset-background"
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <label htmlFor="check_updates_on_launch" className="text-sm font-medium text-white cursor-pointer">
+                          Проверять обновления лаунчера при старте
+                        </label>
+                        <p className="text-[10px] text-muted mt-0.5">
+                          При выключенном режиме обновления проверяются только вручную.
                         </p>
                       </div>
                     </div>

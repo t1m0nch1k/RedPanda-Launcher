@@ -62,6 +62,10 @@ pub struct AppSettings {
     pub github_url: String,
     pub website_url: String,
     pub tiktok_url: String,
+    /// When true, the launcher avoids all network calls on startup and launch.
+    pub offline_mode: bool,
+    /// When true, the launcher checks for a new version on GitHub at startup.
+    pub check_updates_on_launch: bool,
 }
 
 impl Default for AppSettings {
@@ -109,6 +113,8 @@ impl Default for AppSettings {
             github_url: "https://github.com/t1m0nch1k/RedPanda-Launcher".to_string(),
             website_url: "https://www.redlauncher.ru".to_string(),
             tiktok_url: "https://www.tiktok.com/@redpanda_launcher".to_string(),
+            offline_mode: false,
+            check_updates_on_launch: false,
         }
     }
 }

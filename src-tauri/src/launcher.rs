@@ -125,56 +125,64 @@ async fn launch_game_internal(
     let mut loader_version = instance_data.loader_version.clone();
 
     if loader_type != "Vanilla" && loader_version.trim().is_empty() {
-        log::warn!(
-            "Instance '{}' has empty loader_version! Attempting auto-resolution...",
-            instance_id
-        );
-        if let Ok(versions) =
-            crate::versions::get_loader_versions(loader_type.clone(), version.clone()).await
-        {
-            if let Some(first) = versions.first() {
-                loader_version = first.clone();
-            }
-        }
-        if loader_version.trim().is_empty() {
-            loader_version = match loader_type.as_str() {
-                "Fabric" => "0.16.10".to_string(),
-                "Quilt" => "0.27.1".to_string(),
-                "Forge" => {
-                    if version == "1.16.5" {
-                        "36.2.39".to_string()
-                    } else if version == "1.12.2" {
-                        "14.23.5.2860".to_string()
-                    } else if version == "1.18.2" {
-                        "40.2.14".to_string()
-                    } else if version == "1.19.2" {
-                        "43.3.0".to_string()
-                    } else if version == "1.20.1" {
-                        "47.3.0".to_string()
-                    } else {
-                        "".to_string()
-                    }
-                }
-                "NeoForge" => {
-                    if version.starts_with("1.21") {
-                        "21.1.72".to_string()
-                    } else if version.starts_with("1.20.6") {
-                        "20.6.119".to_string()
-                    } else {
-                        "20.4.80".to_string()
-                    }
-                }
-                _ => "".to_string(),
-            };
-        }
-        if !loader_version.trim().is_empty() {
-            log::info!(
-                "Auto-resolved loader_version for '{}' to '{}'. Updating storage...",
-                instance_id,
-                loader_version
+        if settings.offline_mode {
+            log::warn!(
+                "Instance '{}' has empty loader_version but offline_mode is on; skipping auto-resolution.",
+                instance_id
             );
-            let _ =
-                crate::instances::update_loader_version(&app, &instance_id, &loader_version).await;
+        } else {
+            log::warn!(
+                "Instance '{}' has empty loader_version! Attempting auto-resolution...",
+                instance_id
+            );
+            if let Ok(versions) =
+                crate::versions::get_loader_versions(loader_type.clone(), version.clone()).await
+            {
+                if let Some(first) = versions.first() {
+                    loader_version = first.clone();
+                }
+            }
+            if loader_version.trim().is_empty() {
+                loader_version = match loader_type.as_str() {
+                    "Fabric" => "0.16.10".to_string(),
+                    "Quilt" => "0.27.1".to_string(),
+                    "Forge" => {
+                        if version == "1.16.5" {
+                            "36.2.39".to_string()
+                        } else if version == "1.12.2" {
+                            "14.23.5.2860".to_string()
+                        } else if version == "1.18.2" {
+                            "40.2.14".to_string()
+                        } else if version == "1.19.2" {
+                            "43.3.0".to_string()
+                        } else if version == "1.20.1" {
+                            "47.3.0".to_string()
+                        } else {
+                            "".to_string()
+                        }
+                    }
+                    "NeoForge" => {
+                        if version.starts_with("1.21") {
+                            "21.1.72".to_string()
+                        } else if version.starts_with("1.20.6") {
+                            "20.6.119".to_string()
+                        } else {
+                            "20.4.80".to_string()
+                        }
+                    }
+                    _ => "".to_string(),
+                };
+            }
+            if !loader_version.trim().is_empty() {
+                log::info!(
+                    "Auto-resolved loader_version for '{}' to '{}'. Updating storage...",
+                    instance_id,
+                    loader_version
+                );
+                let _ =
+                    crate::instances::update_loader_version(&app, &instance_id, &loader_version)
+                        .await;
+            }
         }
     }
 
@@ -315,8 +323,12 @@ async fn launch_game_internal(
     };
     let username = account.username.clone();
 
-    if crate::accounts::refresh_account_tokens_and_persist(&app, &mut account).await? {
-        log::info!("Refreshed auth tokens for user {}", username);
+    if !settings.offline_mode {
+        if crate::accounts::refresh_account_tokens_and_persist(&app, &mut account).await? {
+            log::info!("Refreshed auth tokens for user {}", username);
+        }
+    } else {
+        log::info!("Skipping token refresh (offline_mode is on)");
     }
 
     let profile = if let (Some(token), Some(uuid)) = (account.access_token, account.uuid) {
@@ -377,15 +389,19 @@ async fn launch_game_internal(
     }
 
     if account.account_type == "ElyBy" {
-        match ensure_authlib_injector().await {
-            Ok(injector_path) => {
-                let effective_jar = crate::security::to_short_path(&injector_path);
-                let flag_key = format!("javaagent:{}=ely.by", effective_jar.to_string_lossy());
-                log::info!("Injecting authlib-injector for Ely.by: -{}", flag_key);
-                jvm_builder = jvm_builder.set(flag_key, "");
-            }
-            Err(e) => {
-                log::warn!("Could not inject authlib-injector: {}", e);
+        if settings.offline_mode {
+            log::warn!("Skipping authlib-injector download (offline_mode is on)");
+        } else {
+            match ensure_authlib_injector().await {
+                Ok(injector_path) => {
+                    let effective_jar = crate::security::to_short_path(&injector_path);
+                    let flag_key = format!("javaagent:{}=ely.by", effective_jar.to_string_lossy());
+                    log::info!("Injecting authlib-injector for Ely.by: -{}", flag_key);
+                    jvm_builder = jvm_builder.set(flag_key, "");
+                }
+                Err(e) => {
+                    log::warn!("Could not inject authlib-injector: {}", e);
+                }
             }
         }
     }

@@ -87,15 +87,6 @@ export default function App() {
       })
       .catch(console.error);
 
-    // Auto check updates on launch
-    invoke<UpdateInfo>("check_for_updates")
-      .then((info) => {
-        if (info && info.has_update) {
-          setUpdateInfo(info);
-          setShowUpdateModal(true);
-        }
-      })
-      .catch((err) => console.log("Update check failed/skipped:", err));
   }, []);
 
   const handleOpenFolder = async () => {

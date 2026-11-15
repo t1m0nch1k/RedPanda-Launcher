@@ -63,7 +63,32 @@ fn automatic_updates_disabled() -> bool {
 }
 
 #[tauri::command]
-pub async fn check_for_updates() -> Result<UpdateInfo, String> {
+pub async fn check_for_updates(app: tauri::AppHandle) -> Result<UpdateInfo, String> {
+    // Respect offline mode and the per-launch update-check setting so the
+    // launcher works without any DNS / network access.
+    let settings = crate::settings::get_settings(app.clone()).unwrap_or_default();
+    if settings.offline_mode || !settings.check_updates_on_launch {
+        log::info!(
+            "Skipping update check (offline_mode={} or check_updates_on_launch={})",
+            settings.offline_mode,
+            settings.check_updates_on_launch
+        );
+        return Ok(UpdateInfo {
+            has_update: false,
+            current_version: CURRENT_VERSION.to_string(),
+            latest_version: CURRENT_VERSION.to_string(),
+            release_notes: "Проверка обновлений отключена в оффлайн-режиме.".to_string(),
+            download_url: String::new(),
+            html_url: "https://github.com/t1m0nch1k/RedPanda-Launcher/releases".to_string(),
+            sha256: None,
+            asset_name: None,
+            size: None,
+            signature: None,
+            key_id: None,
+            manifest_json: None,
+        });
+    }
+
     log::info!("Checking for RedPanda Launcher updates on GitHub...");
 
     let client =
