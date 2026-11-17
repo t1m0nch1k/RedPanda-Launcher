@@ -16,19 +16,39 @@ export interface LauncherRelease {
   changes: ReleaseChange[];
 }
 
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.5";
-const LATEST_RELEASE_TAG = "v0.3.5";
-const RELEASE_VERSION = "0.3.5";
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.6";
+const LATEST_RELEASE_TAG = "v0.3.6";
+const RELEASE_VERSION = "0.3.6";
 
 export const LAUNCHER_RELEASES: LauncherRelease[] = [
   {
     version: `v${APP_VERSION}`,
-    date: "7 ноября 2026",
-    title: "Скины Ely.by и оффлайн-скины в модах",
-    tagline: "Автоматическая поддержка и установка CustomSkinLoader для сборок с модами: скины аккаунтов Ely.by и локальные скины теперь корректно отображаются в Forge, Fabric и NeoForge без ручной настройки.",
+    date: "17 ноября 2026",
+    title: "Исправление авторизации Ely.by (PKCE)",
+    tagline: "Обновление протокола авторизации Ely.by: поддержка обязательного PKCE (code_challenge и code_verifier) для публичного клиента, переход на актуальный client_id и информативные страницы при сетевых ошибках входа.",
     downloadUrl: `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/${LATEST_RELEASE_TAG}/RedPanda_Setup_${RELEASE_VERSION}.exe`,
     fileSize: "Windows 10/11 x64",
     isLatest: true,
+    highlights: [
+      "Авторизация Ely.by: поддержка обновлённого протокола с обязательным PKCE (code_challenge и code_verifier)",
+      "Актуальный клиент: переход на валидный client_id для серверов авторизации Ely.by",
+      "Информативные ошибки входа: детальное описание сбоя в браузере вместо ошибки 404",
+      "Безопасный обмен токенов: защита сессии при обмене кода авторизации и автоматическом обновлении токенов"
+    ],
+    changes: [
+      { type: "fix", title: "Поддержка PKCE для Ely.by", description: "Интеграция обязательного code_challenge и верификатора для публичных клиентов Ely.by." },
+      { type: "fix", title: "Актуализация идентификатора приложения", description: "Устранена ошибка 401 Unauthorized (invalid_client) при авторизации." },
+      { type: "fix", title: "Обработка ошибок OAuth-колбэка", description: "Локальный веб-сервер теперь корректно отображает ошибки провайдера в браузере." }
+    ]
+  },
+  {
+    version: "v0.3.5",
+    date: "7 ноября 2026",
+    title: "Скины Ely.by и оффлайн-скины в модах",
+    tagline: "Автоматическая поддержка и установка CustomSkinLoader для сборок с модами: скины аккаунтов Ely.by и локальные скины теперь корректно отображаются в Forge, Fabric и NeoForge без ручной настройки.",
+    downloadUrl: "https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.3.5/RedPanda_Setup_0.3.5.exe",
+    fileSize: "Windows 10/11 x64",
+    isLatest: false,
     highlights: [
       "Скины Ely.by в модах: автоматическое подключение Ely.by API через CustomSkinLoader при запуске сборок Fabric, Forge и NeoForge",
       "Автоустановка CustomSkinLoader: лаунчер сам находит и докачивает нужную версию с Modrinth, если она отсутствует в сборке",

@@ -27,7 +27,7 @@ import {
   IconHelp
 } from "@tabler/icons-react";
 
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.5";
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.6";
 
 export default function Home() {
   const [typedIndex, setTypedIndex] = useState(0);
@@ -59,7 +59,7 @@ export default function Home() {
     { icon: <IconLayoutGrid size={24} />, title: "CUSTOM_GUI_INSTALLER", desc: `Автономный установщик для Windows. Публичная загрузка: ${APP_VERSION}. Сохраняет ваши аккаунты и сборки при переустановке.` },
     { icon: <IconShieldLock size={24} />, title: "SECURE_STORAGE_&_UPDATES", desc: "{ storage: 'Windows DPAPI',\n  updates: 'signed_manifest + SHA-256',\n  path_traversal: 'protected' }" },
     { icon: <IconGlobe size={24} />, title: "E4MC_&_STEAM_P2P", desc: "{ modes: ['e4mc.link', 'e4steam'],\n  p2p_hosting: 'built-in',\n  ports_required: false }" },
-    { icon: <IconRocket size={24} />, title: "ГАРДЕРОБ СКИНОВ", desc: "Выберите PNG и модель Classic или Slim, посмотрите скин в 3D. В 0.3.5: поддержка скинов Ely.by и оффлайн-скинов в модах через CustomSkinLoader." },
+    { icon: <IconRocket size={24} />, title: "ГАРДЕРОБ СКИНОВ", desc: "Выберите PNG и модель Classic или Slim, посмотрите скин в 3D. В 0.3.6: исправление авторизации Ely.by (PKCE), скины Ely.by и оффлайн-скины в модах через CustomSkinLoader." },
   ];
 
   const metrics = [
@@ -114,7 +114,7 @@ export default function Home() {
 
           <p className="text-sm sm:text-base md:text-lg text-muted mb-10 max-w-2xl font-mono leading-relaxed bg-card/40 p-4 border-l-2 border-primary">
             {"// Современный лаунчер Майнкрафт на Rust & Tauri."}<br/>
-            {"// В 0.3.5: поддержка скинов Ely.by в модах, гардероб со скинами и предпросмотр модов."}
+            {"// В 0.3.6: исправление входа Ely.by, поддержка скинов в модах, гардероб и предпросмотр модов."}
           </p>
 
           <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
