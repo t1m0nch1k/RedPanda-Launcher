@@ -95,6 +95,39 @@ pub async fn start_oauth_flow(
                                 // (Ely.by issues base64 codes). `query_pairs` applies
                                 // form decoding, turning '+' into a space and corrupting
                                 // the code, so we percent-decode the raw value ourselves.
+                                if let Some(err) = extract_query_param_raw(target, "error") {
+                                    let desc = extract_query_param_raw(target, "error_description")
+                                        .unwrap_or_else(|| err.clone());
+                                    let response_body = format!(
+                                        r#"<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Ошибка входа</title>
+<style>
+body {{ font-family: system-ui, -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #121212; color: #ffffff; }}
+.container {{ text-align: center; padding: 40px; background: #1e1e1e; border-radius: 16px; border: 1px solid #e11d48; max-width: 500px; }}
+h1 {{ margin-top: 0; color: #f43f5e; }}
+p {{ line-height: 1.5; color: #d4d4d4; }}
+</style></head>
+<body>
+<div class="container">
+<h1>Ошибка авторизации</h1>
+<p>{}</p>
+<p>Вернитесь в лаунчер и повторите попытку.</p>
+</div>
+</body>
+</html>"#,
+                                        desc
+                                    );
+                                    let response = format!(
+                                        "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\nContent-Length: {}\r\n\r\n{}",
+                                        response_body.len(),
+                                        response_body
+                                    );
+                                    let _ = socket.write_all(response.as_bytes()).await;
+                                    let _ = socket.flush().await;
+                                    return Err(format!("OAuth provider error: {err}: {desc}"));
+                                }
+
                                 code = extract_query_param_raw(target, "code");
                             }
                         }

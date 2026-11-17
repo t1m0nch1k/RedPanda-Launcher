@@ -930,17 +930,17 @@ pub async fn add_microsoft_account(app: AppHandle, device_code: String) -> Resul
     poll_microsoft_device_code(app, device_code).await
 }
 
+const ELYBY_CLIENT_ID: &str = "pineconemc";
+
 #[tauri::command]
 pub async fn add_elyby_account_oauth(app: AppHandle) -> Result<Account, String> {
-    let client_id = "elyprism-launcher";
-    // Ely.by ignores PKCE for this client: sending `code_verifier` back to the token
-    // endpoint makes the exchange fail with `invalid_request`, so the flow stays plain.
+    let client_id = ELYBY_CLIENT_ID;
     let auth_url_template = format!(
-        "https://account.ely.by/oauth2/v1?client_id={}&response_type=code&scope=account_info+offline_access+minecraft_server_session&prompt=select_account&state={{STATE}}&redirect_uri={{REDIRECT_URI}}",
+        "https://account.ely.by/oauth2/v1?client_id={}&response_type=code&scope=account_info+offline_access+minecraft_server_session&prompt=select_account&state={{STATE}}&code_challenge={{CODE_CHALLENGE}}&code_challenge_method=S256&redirect_uri={{REDIRECT_URI}}",
         client_id
     );
 
-    let (code, redirect_uri, _code_verifier) =
+    let (code, redirect_uri, code_verifier) =
         crate::oauth::start_oauth_flow(&app, &auth_url_template).await?;
 
     let client = crate::downloads::trusted_download_client("RedPandaLauncher/accounts")?;
@@ -951,6 +951,7 @@ pub async fn add_elyby_account_oauth(app: AppHandle) -> Result<Account, String> 
             ("grant_type", "authorization_code"),
             ("code", &code),
             ("redirect_uri", &redirect_uri),
+            ("code_verifier", &code_verifier),
         ])
         .send()
         .await
@@ -1162,7 +1163,7 @@ pub async fn refresh_account_tokens(
             let res = client
                 .post("https://account.ely.by/api/oauth2/v1/token")
                 .form(&[
-                    ("client_id", "elyprism-launcher"),
+                    ("client_id", ELYBY_CLIENT_ID),
                     ("grant_type", "refresh_token"),
                     ("refresh_token", &refresh_token),
                 ])
