@@ -125,7 +125,10 @@ p {{ line-height: 1.5; color: #d4d4d4; }}
                                     );
                                     let _ = socket.write_all(response.as_bytes()).await;
                                     let _ = socket.flush().await;
-                                    return Err(format!("OAuth provider error: {err}: {desc}"));
+                                    return Err(std::io::Error::new(
+                                        std::io::ErrorKind::Other,
+                                        format!("OAuth provider error: {err}: {desc}"),
+                                    ));
                                 }
 
                                 code = extract_query_param_raw(target, "code");
@@ -180,7 +183,7 @@ p {{ line-height: 1.5; color: #d4d4d4; }}
 
     match result {
         Ok(Ok(code)) => Ok((code, redirect_uri, code_verifier)),
-        Ok(Err(e)) => Err(format!("Socket error: {}", e)),
+        Ok(Err(e)) => Err(e.to_string()),
         Err(_) => Err("Timeout waiting for authorization".to_string()),
     }
 }
