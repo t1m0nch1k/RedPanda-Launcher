@@ -514,11 +514,11 @@ mod tests {
 
     #[test]
     fn extracts_version_from_asset_name() {
-        let asset = "RedPanda_Setup_0.3.6.exe";
+        let asset = "RedPanda_Setup_0.3.7.exe";
         let ver = asset
             .strip_prefix("RedPanda_Setup_")
             .and_then(|s| s.strip_suffix(".exe"));
-        assert_eq!(ver, Some("0.3.6"));
-        assert!(is_version_newer(ver.unwrap(), "0.3.5"));
+        assert_eq!(ver, Some("0.3.7"));
+        assert!(is_version_newer(ver.unwrap(), "0.3.6"));
     }
 }

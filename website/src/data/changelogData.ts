@@ -16,19 +16,39 @@ export interface LauncherRelease {
   changes: ReleaseChange[];
 }
 
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.6";
-const LATEST_RELEASE_TAG = "v0.3.6";
-const RELEASE_VERSION = "0.3.6";
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.7";
+const LATEST_RELEASE_TAG = "v0.3.7";
+const RELEASE_VERSION = "0.3.7";
 
 export const LAUNCHER_RELEASES: LauncherRelease[] = [
   {
     version: `v${APP_VERSION}`,
-    date: "17 ноября 2026",
-    title: "Исправление авторизации Ely.by (PKCE)",
-    tagline: "Обновление протокола авторизации Ely.by: поддержка обязательного PKCE (code_challenge и code_verifier) для публичного клиента, переход на актуальный client_id и информативные страницы при сетевых ошибках входа.",
+    date: "21 ноября 2026",
+    title: "Надёжный запуск версий, кэширование и зеркала BMCLAPI",
+    tagline: "Устранение сетевых ошибок запуска (Query error / piston-meta): интеграция зеркал BMCLAPI для манифестов Mojang и Fabric, локальное дисковое кэширование метаданных для офлайн-запуска и увеличенные сетевые тайм-ауты.",
     downloadUrl: `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/${LATEST_RELEASE_TAG}/RedPanda_Setup_${RELEASE_VERSION}.exe`,
     fileSize: "Windows 10/11 x64",
     isLatest: true,
+    highlights: [
+      "Зеркала BMCLAPI: автоматический переход на зеркала при сбоях или блокировках официальных серверов Mojang и Fabric (piston-meta, launchermeta, meta.fabricmc.net)",
+      "Локальное кэширование: метаданные версий сохраняются на диск — запуск уже установленных сборок работает даже без интернета",
+      "Увеличенный тайм-аут: тайм-аут подключения HTTP-клиента увеличен с 5 до 15 секунд для стабильной работы при медленном или фильтруемом соединении",
+      "Отказоустойчивая загрузка: библиотеки и ассеты автоматически докачиваются через зеркала при недоступности основных CDN"
+    ],
+    changes: [
+      { type: "fix", title: "Устранение ошибки Launch failed (piston-meta)", description: "Добавлен fallback на launchermeta и BMCLAPI при запросах version_manifest_v2.json." },
+      { type: "fix", title: "Поддержка Fabric Meta в условиях блокировок", description: "Интегрировано зеркало Fabric meta для обхода таймаутов Cloudflare." },
+      { type: "feature", title: "Офлайн-кэш метаданных сборок", description: "Сохранение конфигураций версий на диск для запуска без сети." }
+    ]
+  },
+  {
+    version: "v0.3.6",
+    date: "17 ноября 2026",
+    title: "Исправление авторизации Ely.by (PKCE)",
+    tagline: "Обновление протокола авторизации Ely.by: поддержка обязательного PKCE (code_challenge и code_verifier) для публичного клиента, переход на актуальный client_id и информативные страницы при сетевых ошибках входа.",
+    downloadUrl: `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/v0.3.6/RedPanda_Setup_0.3.6.exe`,
+    fileSize: "Windows 10/11 x64",
+    isLatest: false,
     highlights: [
       "Авторизация Ely.by: поддержка обновлённого протокола с обязательным PKCE (code_challenge и code_verifier)",
       "Актуальный клиент: переход на валидный client_id для серверов авторизации Ely.by",

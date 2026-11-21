@@ -26,6 +26,44 @@ fn calculate_retry_delay(base_delay_ms: u64, attempt: u32) -> u64 {
     exponential_delay + jitter
 }
 
+/// Maps official URLs to BMCLAPI mirror equivalents when available.
+pub fn to_mirror_url(url: &str) -> Option<String> {
+    if let Some(rest) = url.strip_prefix("https://resources.download.minecraft.net/") {
+        return Some(format!("https://bmclapi2.bangbang93.com/assets/{}", rest));
+    }
+    if let Some(rest) = url.strip_prefix("http://resources.download.minecraft.net/") {
+        return Some(format!("https://bmclapi2.bangbang93.com/assets/{}", rest));
+    }
+    if let Some(rest) = url.strip_prefix("https://libraries.minecraft.net/") {
+        return Some(format!("https://bmclapi2.bangbang93.com/maven/{}", rest));
+    }
+    if let Some(rest) = url.strip_prefix("https://maven.fabricmc.net/") {
+        return Some(format!("https://bmclapi2.bangbang93.com/maven/{}", rest));
+    }
+    if let Some(rest) = url.strip_prefix("https://meta.fabricmc.net/") {
+        return Some(format!("https://bmclapi2.bangbang93.com/fabric-meta/{}", rest));
+    }
+    if let Some(rest) = url.strip_prefix("https://meta.quiltmc.org/") {
+        return Some(format!("https://bmclapi2.bangbang93.com/quilt-meta/{}", rest));
+    }
+    if let Some(rest) = url.strip_prefix("https://maven.neoforged.net/releases/") {
+        return Some(format!("https://bmclapi2.bangbang93.com/maven/{}", rest));
+    }
+    if let Some(rest) = url.strip_prefix("https://files.minecraftforge.net/maven/") {
+        return Some(format!("https://bmclapi2.bangbang93.com/maven/{}", rest));
+    }
+    if let Some(rest) = url.strip_prefix("https://piston-meta.mojang.com/") {
+        return Some(format!("https://bmclapi2.bangbang93.com/{}", rest));
+    }
+    if let Some(rest) = url.strip_prefix("https://launchermeta.mojang.com/") {
+        return Some(format!("https://bmclapi2.bangbang93.com/{}", rest));
+    }
+    if let Some(rest) = url.strip_prefix("https://piston-data.mojang.com/") {
+        return Some(format!("https://bmclapi2.bangbang93.com/{}", rest));
+    }
+    None
+}
+
 /// Downloads small files (loaded entirely in memory)
 pub async fn download_small_file(
     url: String,
@@ -34,10 +72,17 @@ pub async fn download_small_file(
 ) -> InstallerResult<()> {
     let config = get_config();
     let mut last_error = None;
+    let mirror_url = to_mirror_url(&url);
 
     for attempt in 1..=config.max_retries {
+        let current_url = if attempt > 1 && mirror_url.is_some() {
+            mirror_url.as_ref().unwrap().as_str()
+        } else {
+            url.as_str()
+        };
+
         match download_small_file_once(
-            &url,
+            current_url,
             &dest,
             #[cfg(feature = "events")]
             event_bus,
@@ -48,7 +93,7 @@ pub async fn download_small_file(
                     let delay = calculate_retry_delay(config.initial_delay_ms, attempt);
                     lighty_core::trace_warn!(
                         "[Retry {}/{}] Failed to download {}: {}. Retrying in {}ms...",
-                        attempt, config.max_retries, url, e, delay
+                        attempt, config.max_retries, current_url, e, delay
                     );
                     tokio::time::sleep(tokio::time::Duration::from_millis(delay)).await;
                 }
@@ -95,10 +140,17 @@ pub async fn download_large_file(
 ) -> InstallerResult<()> {
     let config = get_config();
     let mut last_error = None;
+    let mirror_url = to_mirror_url(&url);
 
     for attempt in 1..=config.max_retries {
+        let current_url = if attempt > 1 && mirror_url.is_some() {
+            mirror_url.as_ref().unwrap().as_str()
+        } else {
+            url.as_str()
+        };
+
         match download_large_file_once(
-            &url,
+            current_url,
             &dest,
             #[cfg(feature = "events")]
             event_bus,
@@ -111,7 +163,7 @@ pub async fn download_large_file(
                     let delay = calculate_retry_delay(config.initial_delay_ms, attempt);
                     lighty_core::trace_warn!(
                         "[Retry {}/{}] Failed to download {}: {}. Retrying in {}ms...",
-                        attempt, config.max_retries, url, e, delay
+                        attempt, config.max_retries, current_url, e, delay
                     );
                     let _ = fs::remove_file(&dest).await;
                     tokio::time::sleep(tokio::time::Duration::from_millis(delay)).await;

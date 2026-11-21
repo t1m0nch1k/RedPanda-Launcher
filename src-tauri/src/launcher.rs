@@ -323,12 +323,14 @@ async fn launch_game_internal(
     };
     let username = account.username.clone();
 
-    if !settings.offline_mode {
+    if settings.offline_mode {
+        std::env::set_var("REDPANDA_OFFLINE_MODE", "1");
+        log::info!("Skipping token refresh (offline_mode is on)");
+    } else {
+        std::env::remove_var("REDPANDA_OFFLINE_MODE");
         if crate::accounts::refresh_account_tokens_and_persist(&app, &mut account).await? {
             log::info!("Refreshed auth tokens for user {}", username);
         }
-    } else {
-        log::info!("Skipping token refresh (offline_mode is on)");
     }
 
     let profile = if let (Some(token), Some(uuid)) = (account.access_token, account.uuid) {

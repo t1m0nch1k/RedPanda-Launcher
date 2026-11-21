@@ -1,6 +1,6 @@
 [package]
 name = "redpanda-launcher"
-version = "0.3.6"
+version = "0.3.7"
 description = "A modern Minecraft Launcher"
 authors = ["you"]
 edition = "2021"
@@ -60,3 +60,5 @@ strip = true
 
 [patch.crates-io]
 lighty-launch = { path = "crates/lighty-launch" }
+lighty-loaders = { path = "crates/lighty-loaders" }
+lighty-core = { path = "crates/lighty-core" }
