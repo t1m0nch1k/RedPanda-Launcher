@@ -8,29 +8,36 @@ async fn ensure_authlib_injector() -> Result<std::path::PathBuf, String> {
         return Ok(jar_path);
     }
     log::info!("Downloading authlib-injector for Ely.by support...");
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .build()
-        .map_err(|e| e.to_string())?;
-    let url = "https://github.com/yushijinhun/authlib-injector/releases/download/v1.2.8/authlib-injector-1.2.8.jar";
-    let resp = client
-        .get(url)
-        .send()
-        .await
-        .map_err(|e| format!("Failed to download authlib-injector: {e}"))?;
-    if !resp.status().is_success() {
-        return Err(format!(
-            "authlib-injector download failed: HTTP {}",
-            resp.status()
-        ));
+    let client = crate::downloads::trusted_download_client("RedPandaLauncher/runtimes")?;
+    let urls = [
+        "https://bmclapi2.bangbang93.com/mirrors/authlib-injector/artifact/56/authlib-injector-1.2.8.jar",
+        "https://authlib-injector.yushi.moe/artifact/56/authlib-injector-1.2.8.jar",
+        "https://github.com/yushijinhun/authlib-injector/releases/download/v1.2.8/authlib-injector-1.2.8.jar",
+    ];
+
+    let mut last_err = String::new();
+    for url in urls {
+        match client.get(url).send().await {
+            Ok(resp) if resp.status().is_success() => {
+                match resp.bytes().await {
+                    Ok(bytes) => {
+                        crate::storage::atomic_write(&jar_path, &bytes)?;
+                        log::info!(
+                            "authlib-injector downloaded successfully from {} ({} bytes)",
+                            url,
+                            bytes.len()
+                        );
+                        return Ok(jar_path);
+                    }
+                    Err(e) => last_err = format!("Failed to read body from {url}: {e}"),
+                }
+            }
+            Ok(resp) => last_err = format!("HTTP {} from {url}", resp.status()),
+            Err(e) => last_err = format!("Network error from {url}: {e}"),
+        }
     }
-    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
-    crate::storage::atomic_write(&jar_path, &bytes)?;
-    log::info!(
-        "authlib-injector downloaded successfully ({} bytes)",
-        bytes.len()
-    );
-    Ok(jar_path)
+
+    Err(format!("authlib-injector download failed from all sources: {last_err}"))
 }
 
 use lighty_event::EventBus;

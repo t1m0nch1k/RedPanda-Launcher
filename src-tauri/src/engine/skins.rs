@@ -233,7 +233,7 @@ pub async fn get_saved(app: &AppHandle, account_id: &str) -> Result<Option<SkinP
             .build()
             .map_err(|e| e.to_string())?;
         let url = format!(
-            "http://skinsystem.ely.by/skins/{}.png",
+            "https://skinsystem.ely.by/skins/{}.png",
             account.username.trim()
         );
         if let Ok(resp) = client.get(&url).send().await {

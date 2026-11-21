@@ -83,6 +83,7 @@ jobs:
     permissions:
       contents: read
       issues: write
+      checks: write
     steps:
       - uses: actions/checkout@v4
       - name: Audit launcher Rust dependencies

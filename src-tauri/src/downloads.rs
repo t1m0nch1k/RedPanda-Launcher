@@ -29,6 +29,7 @@ fn is_trusted_host(host: &str) -> bool {
         || host == "meta.quiltmc.org"
         || host == "maven.neoforged.net"
         || host == "bmclapi2.bangbang93.com"
+        || host == "authlib-injector.yushi.moe"
         || host == "authserver.ely.by"
         || host == "account.ely.by"
         || host == "login.live.com"

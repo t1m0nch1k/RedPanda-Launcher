@@ -38,7 +38,7 @@ export const LAUNCHER_RELEASES: LauncherRelease[] = [
     changes: [
       { type: "fix", title: "Устранение ошибки Launch failed (piston-meta)", description: "Добавлен fallback на launchermeta и BMCLAPI при запросах version_manifest_v2.json." },
       { type: "fix", title: "Поддержка Fabric Meta в условиях блокировок", description: "Интегрировано зеркало Fabric meta для обхода таймаутов Cloudflare." },
-      { type: "feature", title: "Офлайн-кэш метаданных сборок", description: "Сохранение конфигураций версий на диск для запуска без сети." }
+      { type: "feat", title: "Офлайн-кэш метаданных сборок", description: "Сохранение конфигураций версий на диск для запуска без сети." }
     ]
   },
   {
