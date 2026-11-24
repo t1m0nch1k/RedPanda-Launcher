@@ -1,7 +1,7 @@
 //! Serde mirrors of the JSON documents returned by Mojang's `piston-meta`.
 
 use std::collections::HashMap;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// Top-level `version_manifest_v2.json` document.
 #[derive(Debug, Deserialize)]
@@ -31,7 +31,7 @@ pub struct VersionInfo {
 }
 
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VanillaMetaData {
     pub id: String,
@@ -60,7 +60,7 @@ pub struct VanillaMetaData {
     pub logging: Option<Logging>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssetIndex {
     pub id: String,
@@ -70,14 +70,14 @@ pub struct AssetIndex {
     pub url: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct JavaVersion {
     pub component: String,
     pub major_version: u32,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Downloads {
     pub client: Option<DownloadEntry>,
     pub server: Option<DownloadEntry>,
@@ -89,14 +89,14 @@ pub struct Downloads {
     pub server_mappings: Option<DownloadEntry>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct DownloadEntry {
     pub sha1: String,
     pub size: u64,
     pub url: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Library {
     pub name: String,
     pub downloads: LibraryDownloads,
@@ -106,14 +106,14 @@ pub struct Library {
     pub natives: Option<std::collections::HashMap<String, String>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct LibraryDownloads {
     pub artifact: Option<Artifact>,
     #[serde(default)]
     pub classifiers: Option<std::collections::HashMap<String, Artifact>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Artifact {
     pub path: String,
     pub sha1: String,
@@ -121,7 +121,7 @@ pub struct Artifact {
     pub url: String,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Rule {
     pub action: String,
     #[serde(default)]
@@ -130,13 +130,13 @@ pub struct Rule {
     pub features: Option<std::collections::HashMap<String, bool>>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct RuleOS {
     pub name: Option<String>,
     pub arch: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[derive(Clone)]
 #[derive(Default)]
 pub struct Arguments {
@@ -147,19 +147,19 @@ pub struct Arguments {
     pub jvm: Vec<serde_json::Value>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Logging {
     pub client: Option<LoggingEntry>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct LoggingEntry {
     pub argument: String,
     pub file: DownloadEntryWithId,
     pub r#type: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct DownloadEntryWithId {
     pub id: String,
     pub sha1: String,

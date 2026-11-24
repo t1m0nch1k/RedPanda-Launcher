@@ -3,9 +3,9 @@
 //! These are wire-format types; see `fabric.rs` for the `extract_*`
 //! functions that translate them into the launcher's pivot types.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[derive(Clone)]
 pub struct FabricMetaData {
     pub arguments: FabricArguments,
@@ -22,14 +22,14 @@ pub struct FabricMetaData {
     pub version_type: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[derive(Clone)]
 pub struct FabricArguments {
     pub game: Vec<String>,
     pub jvm: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[derive(Clone)]
 pub struct FabricLibrary {
     pub name: String,

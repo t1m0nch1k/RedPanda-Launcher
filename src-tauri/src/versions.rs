@@ -11,6 +11,34 @@ struct MojangManifest {
     versions: Vec<GameVersion>,
 }
 
+/// Tries every URL in order and returns the first JSON array that parses,
+/// keeping the last error so a total failure is still explained to the caller.
+async fn fetch_json_list<S: AsRef<str>>(
+    client: &reqwest::Client,
+    urls: impl IntoIterator<Item = S>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let mut last_err = String::new();
+    for url in urls {
+        let url = url.as_ref();
+        let res = match client.get(url).send().await {
+            Ok(res) if res.status().is_success() => res,
+            Ok(res) => {
+                last_err = format!("HTTP {} from {url}", res.status());
+                continue;
+            }
+            Err(e) => {
+                last_err = format!("Network error from {url}: {e}");
+                continue;
+            }
+        };
+        match res.json::<Vec<serde_json::Value>>().await {
+            Ok(data) => return Ok(data),
+            Err(e) => last_err = format!("JSON error from {url}: {e}"),
+        }
+    }
+    Err(last_err)
+}
+
 #[tauri::command]
 pub async fn get_minecraft_versions(
     app: tauri::AppHandle,
@@ -39,35 +67,29 @@ pub async fn get_minecraft_versions(
 
     for url in manifest_urls {
         match client.get(url).send().await {
-            Ok(res) if res.status().is_success() => {
-                match res.json::<MojangManifest>().await {
-                    Ok(m) => {
-                        if let Some(ref cp) = cache_path {
-                            if let Ok(bytes) = serde_json::to_vec(&m) {
-                                let _ = crate::storage::atomic_write(cp, &bytes);
-                            }
-                        }
-                        manifest_res = Some(m);
-                        break;
+            Ok(res) if res.status().is_success() => match res.json::<MojangManifest>().await {
+                Ok(m) => {
+                    let cached = serde_json::to_vec(&m).ok();
+                    if let (Some(cp), Some(bytes)) = (cache_path.as_ref(), cached.as_ref()) {
+                        let _ = crate::storage::atomic_write(cp, bytes);
                     }
-                    Err(e) => last_err = format!("JSON error from {}: {}", url, e),
+                    manifest_res = Some(m);
+                    break;
                 }
-            }
+                Err(e) => last_err = format!("JSON error from {}: {}", url, e),
+            },
             Ok(res) => last_err = format!("HTTP {} from {}", res.status(), url),
             Err(e) => last_err = format!("Network error from {}: {}", url, e),
         }
     }
 
     if manifest_res.is_none() {
-        if let Some(ref cp) = cache_path {
-            if cp.exists() {
-                if let Ok(data) = std::fs::read(cp) {
-                    if let Ok(m) = serde_json::from_slice::<MojangManifest>(&data) {
-                        log::info!("Loaded Minecraft version manifest from disk cache");
-                        manifest_res = Some(m);
-                    }
-                }
-            }
+        manifest_res = cache_path
+            .as_deref()
+            .and_then(|cp| std::fs::read(cp).ok())
+            .and_then(|data| serde_json::from_slice::<MojangManifest>(&data).ok());
+        if manifest_res.is_some() {
+            log::info!("Loaded Minecraft version manifest from disk cache");
         }
     }
 
@@ -128,21 +150,7 @@ pub async fn get_loader_versions(
                     game_version
                 ),
             ];
-            let mut data_opt = None;
-            let mut last_err = String::new();
-            for url in urls {
-                match client.get(&url).send().await {
-                    Ok(res) if res.status().is_success() => {
-                        if let Ok(d) = res.json::<Vec<serde_json::Value>>().await {
-                            data_opt = Some(d);
-                            break;
-                        }
-                    }
-                    Ok(res) => last_err = format!("HTTP {} from {}", res.status(), url),
-                    Err(e) => last_err = e.to_string(),
-                }
-            }
-            let data = data_opt.ok_or_else(|| last_err)?;
+            let data = fetch_json_list(&client, &urls).await?;
 
             let mut versions = Vec::new();
             for item in data {
@@ -165,21 +173,7 @@ pub async fn get_loader_versions(
                     game_version
                 ),
             ];
-            let mut data_opt = None;
-            let mut last_err = String::new();
-            for url in urls {
-                match client.get(&url).send().await {
-                    Ok(res) if res.status().is_success() => {
-                        if let Ok(d) = res.json::<Vec<serde_json::Value>>().await {
-                            data_opt = Some(d);
-                            break;
-                        }
-                    }
-                    Ok(res) => last_err = format!("HTTP {} from {}", res.status(), url),
-                    Err(e) => last_err = e.to_string(),
-                }
-            }
-            let data = data_opt.ok_or_else(|| last_err)?;
+            let data = fetch_json_list(&client, &urls).await?;
 
             let mut versions = Vec::new();
             for item in data {
@@ -255,21 +249,7 @@ pub async fn get_supported_game_versions(loader_type: String) -> Result<Vec<Stri
                 "https://meta.fabricmc.net/v2/versions/game",
                 "https://bmclapi2.bangbang93.com/fabric-meta/v2/versions/game",
             ];
-            let mut data_opt = None;
-            let mut last_err = String::new();
-            for url in urls {
-                match client.get(url).send().await {
-                    Ok(res) if res.status().is_success() => {
-                        if let Ok(d) = res.json::<Vec<serde_json::Value>>().await {
-                            data_opt = Some(d);
-                            break;
-                        }
-                    }
-                    Ok(res) => last_err = format!("HTTP {} from {url}", res.status()),
-                    Err(e) => last_err = e.to_string(),
-                }
-            }
-            let data = data_opt.ok_or_else(|| last_err)?;
+            let data = fetch_json_list(&client, &urls).await?;
             let mut versions = Vec::new();
             for item in data {
                 if let Some(version) = item.get("version").and_then(|v| v.as_str()) {
@@ -283,21 +263,7 @@ pub async fn get_supported_game_versions(loader_type: String) -> Result<Vec<Stri
                 "https://meta.quiltmc.org/v3/versions/game",
                 "https://bmclapi2.bangbang93.com/quilt-meta/v3/versions/game",
             ];
-            let mut data_opt = None;
-            let mut last_err = String::new();
-            for url in urls {
-                match client.get(url).send().await {
-                    Ok(res) if res.status().is_success() => {
-                        if let Ok(d) = res.json::<Vec<serde_json::Value>>().await {
-                            data_opt = Some(d);
-                            break;
-                        }
-                    }
-                    Ok(res) => last_err = format!("HTTP {} from {url}", res.status()),
-                    Err(e) => last_err = e.to_string(),
-                }
-            }
-            let data = data_opt.ok_or_else(|| last_err)?;
+            let data = fetch_json_list(&client, &urls).await?;
             let mut versions = Vec::new();
             for item in data {
                 if let Some(version) = item.get("version").and_then(|v| v.as_str()) {

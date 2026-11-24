@@ -3,9 +3,9 @@
 //! These are wire-format types; see `quilt.rs` for the `extract_*`
 //! functions that translate them into the launcher's pivot types.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize,Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct QuiltMetaData {
     pub id : String,
@@ -20,14 +20,14 @@ pub struct QuiltMetaData {
 
 }
 
-#[derive(Debug, Deserialize,Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct QuiltLibrary {
     pub name : String,
     pub url : String,
 
 }
 
-#[derive(Debug, Deserialize,Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Game {
     pub game : Vec<String>
 }

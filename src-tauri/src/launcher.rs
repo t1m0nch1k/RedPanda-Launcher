@@ -18,26 +18,26 @@ async fn ensure_authlib_injector() -> Result<std::path::PathBuf, String> {
     let mut last_err = String::new();
     for url in urls {
         match client.get(url).send().await {
-            Ok(resp) if resp.status().is_success() => {
-                match resp.bytes().await {
-                    Ok(bytes) => {
-                        crate::storage::atomic_write(&jar_path, &bytes)?;
-                        log::info!(
-                            "authlib-injector downloaded successfully from {} ({} bytes)",
-                            url,
-                            bytes.len()
-                        );
-                        return Ok(jar_path);
-                    }
-                    Err(e) => last_err = format!("Failed to read body from {url}: {e}"),
+            Ok(resp) if resp.status().is_success() => match resp.bytes().await {
+                Ok(bytes) => {
+                    crate::storage::atomic_write(&jar_path, &bytes)?;
+                    log::info!(
+                        "authlib-injector downloaded successfully from {} ({} bytes)",
+                        url,
+                        bytes.len()
+                    );
+                    return Ok(jar_path);
                 }
-            }
+                Err(e) => last_err = format!("Failed to read body from {url}: {e}"),
+            },
             Ok(resp) => last_err = format!("HTTP {} from {url}", resp.status()),
             Err(e) => last_err = format!("Network error from {url}: {e}"),
         }
     }
 
-    Err(format!("authlib-injector download failed from all sources: {last_err}"))
+    Err(format!(
+        "authlib-injector download failed from all sources: {last_err}"
+    ))
 }
 
 use lighty_event::EventBus;
