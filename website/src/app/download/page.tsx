@@ -10,8 +10,10 @@ import {
   IconArrowUpRight
 } from "@tabler/icons-react";
 
-const RELEASE_VERSION = "0.3.7";
+const RELEASE_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.3.7";
 const RELEASE_TAG = `v${RELEASE_VERSION}`;
+const INSTALLER_NAME = `RedPanda_Setup_${RELEASE_VERSION}.exe`;
+const DOWNLOAD_URL = `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/${RELEASE_TAG}/${INSTALLER_NAME}`;
 
 export const metadata = {
   title: "Скачать RedPanda Launcher для Windows",
@@ -19,8 +21,6 @@ export const metadata = {
 };
 
 export default function DownloadPage() {
-  const downloadUrl = `https://github.com/t1m0nch1k/RedPanda-Launcher/releases/download/${RELEASE_TAG}/RedPanda_Setup_${RELEASE_VERSION}.exe`;
-
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Navbar />
@@ -45,7 +45,7 @@ export default function DownloadPage() {
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3">
               <span className="font-display font-bold text-xl sm:text-3xl text-foreground break-all">
-                RedPanda_Setup_{RELEASE_VERSION}.exe
+                {INSTALLER_NAME}
               </span>
               <span className="bg-primary text-black font-bold font-mono text-[10px] uppercase px-2 py-0.5 tracking-wider">
                 Official Release
@@ -56,13 +56,13 @@ export default function DownloadPage() {
             </p>
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-xs font-mono text-muted pt-1">
               <a
-                href={`https://github.com/t1m0nch1k/RedPanda-Launcher/releases/tag/${RELEASE_TAG}`}
+                href={`${DOWNLOAD_URL}.sha256`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 hover:underline text-foreground"
               >
                 <IconShieldCheck size={16} className="text-emerald-400" />
-                <span>SHA-256 checksum в GitHub Release ({RELEASE_TAG})</span>
+                <span>Скачать контрольную сумму SHA-256</span>
               </a>
               <span>Размер указан в GitHub Release</span>
               <span>Лицензия: Open Source (MIT)</span>
@@ -70,7 +70,7 @@ export default function DownloadPage() {
           </div>
 
           <a
-            href={downloadUrl}
+            href={DOWNLOAD_URL}
             className="w-full sm:w-auto flex items-center justify-center gap-3 bg-primary hover:bg-primary-hover text-black px-6 sm:px-8 py-4 font-display font-bold text-sm uppercase tracking-wider transition-all brutalist-button shrink-0"
           >
             <IconDownload size={22} />
